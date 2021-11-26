@@ -29,7 +29,7 @@ import sys
 
 from migen import *
 
-from litex_boards.platforms import fairwaves_xtrx
+import fairwaves_xtrx_platform as fairwaves_xtrx
 
 from litex.soc.interconnect.csr import *
 from litex.soc.integration.soc_core import *
@@ -56,8 +56,22 @@ class CRG(Module):
                 self.cd_sys.rst.eq(ResetSignal("pcie")),
             ]
         else:
+            cfgmclk = Signal()
+            self.specials += Instance("STARTUPE2",
+                i_CLK       = 0,
+                i_GSR       = 0,
+                i_GTS       = 0,
+                i_KEYCLEARB = 1,
+                i_PACK      = 0,
+                i_USRCCLKO  = cfgmclk,
+                i_USRCCLKTS = 0,
+                i_USRDONEO  = 1,
+                i_USRDONETS = 1,
+                o_CFGMCLK   = cfgmclk
+            )
+            self.comb += self.cd_sys.clk.eq(cfgmclk)
             self.submodules.pll = pll = S7PLL(speedgrade=-2)
-            pll.register_clkin(platform.request("clk60"), 60e6)
+            pll.register_clkin(cfgmclk, 65e6)
             pll.create_clkout(self.cd_sys, sys_clk_freq)
 
 # BaseSoC -----------------------------------------------------------------------------------------
