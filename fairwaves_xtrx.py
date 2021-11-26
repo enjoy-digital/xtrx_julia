@@ -91,6 +91,9 @@ class BaseSoC(SoCCore):
         # CRG --------------------------------------------------------------------------------------
         self.submodules.crg = CRG(platform, sys_clk_freq, with_pcie)
 
+        # JTAGBone ---------------------------------------------------------------------------------
+        self.add_jtagbone()
+
         # PCIe -------------------------------------------------------------------------------------
         if with_pcie:
             self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request("pcie_x1"),

@@ -30,6 +30,10 @@ To get and install a RISC-V toolchain, please install it manually of follow the 
 [> Build and Test the design(s)
 ---------------------------------
 
+No-PCIe:
+./fairwaves_xtrx.py --cpu-type=None --csr-csv=csr.csv --build --load
+litex_server --jtag --jtag-config=openocd_xc7_ft232.cfg
+litex_cli --regs
 
 [> Contact
 -------------
