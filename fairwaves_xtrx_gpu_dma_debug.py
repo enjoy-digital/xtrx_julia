@@ -64,7 +64,7 @@ class BaseSoC(SoCCore):
         self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request("pcie_x1"),
             data_width = 64,
             bar0_size  = 0x20000)
-        self.add_pcie(phy=self.pcie_phy, ndmas=1)
+        self.add_pcie(phy=self.pcie_phy, ndmas=1, max_pending_requests=2)
 
         # DMA Stub ---------------------------------------------------------------------------------
 
