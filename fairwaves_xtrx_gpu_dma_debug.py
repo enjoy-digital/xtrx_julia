@@ -77,6 +77,53 @@ class BaseSoC(SoCCore):
         # DMA Reader: Ack incoming Data.
         self.comb += self.pcie_dma0.source.ready.eq(1)
 
+        # Simple PCIe Read/Write Tester  -----------------------------------------------------------
+        from litepcie.frontend.wishbone import LitePCIeWishboneSlave
+
+        pcie_wishbone_slave = LitePCIeWishboneSlave(self.pcie_endpoint)
+        self.submodules += pcie_wishbone_slave
+
+        class PCIeTester(Module, AutoCSR):
+            def __init__(self, wb):
+                self.address    = CSRStorage(32)
+                self.write      = CSR()
+                self.write_data = CSRStorage(32, reset=0x12345678)
+                self.read       = CSR()
+                self.read_data  = CSRStatus(32)
+                self.done       = CSRStatus()
+
+                # # #
+
+                self.submodules.fsm = fsm = FSM(reset_state="IDLE")
+                fsm.act("IDLE",
+                    self.done.status.eq(1),
+                    If(self.write.re,
+                        NextState("WRITE")
+                    ).Elif(self.read.re,
+                        NextState("READ")
+                    )
+                )
+                fsm.act("WRITE",
+                    wb.stb.eq(1),
+                    wb.cyc.eq(1),
+                    wb.we.eq(1),
+                    wb.adr.eq(self.address.storage[2:]),
+                    wb.dat_w.eq(self.write_data.storage),
+                    If(wb.ack,
+                        NextState("IDLE")
+                    )
+                )
+                fsm.act("READ",
+                    wb.stb.eq(1),
+                    wb.cyc.eq(1),
+                    wb.adr.eq(self.address.storage[2:]),
+                    If(wb.ack,
+                        NextValue(self.read_data.status, wb.dat_r),
+                        NextState("IDLE")
+                    )
+                )
+        self.submodules.pcie_tester = PCIeTester(pcie_wishbone_slave.wishbone)
+
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
             self.submodules.leds = LedChaser(
