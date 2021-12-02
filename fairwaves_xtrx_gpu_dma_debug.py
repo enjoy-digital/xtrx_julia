@@ -8,20 +8,8 @@
 
 # Build/Use ----------------------------------------------------------------------------------------
 # Build/Flash bitstream:
-# ./fairwaves_xtrx.py --uart-name=crossover --with-pcie --build --driver --flash
-#
-#.Build the kernel and load it:
-# cd build/<platform>/driver/kernel
-# make
-# sudo ./init.sh
-#
-# Test userspace utilities:
-# cd build/<platform>/driver/user
-# make
-# ./litepcie_util info
-# ./litepcie_util scratch_test
-# ./litepcie_util dma_test
-# ./litepcie_util uart_test
+# ./fairwaves_xtrx.py --build --driver --flash
+
 
 import os
 import argparse
@@ -44,75 +32,39 @@ from litepcie.software import generate_litepcie_software
 # CRG ----------------------------------------------------------------------------------------------
 
 class CRG(Module):
-    def __init__(self, platform, sys_clk_freq, with_pcie=False):
+    def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_sys = ClockDomain()
 
         # # #
 
-        if with_pcie:
-            assert sys_clk_freq == int(125e6)
-            self.comb += [
-                self.cd_sys.clk.eq(ClockSignal("pcie")),
-                self.cd_sys.rst.eq(ResetSignal("pcie")),
-            ]
-        else:
-            cfgmclk = Signal()
-            self.specials += Instance("STARTUPE2",
-                i_CLK       = 0,
-                i_GSR       = 0,
-                i_GTS       = 0,
-                i_KEYCLEARB = 1,
-                i_PACK      = 0,
-                i_USRCCLKO  = cfgmclk,
-                i_USRCCLKTS = 0,
-                i_USRDONEO  = 1,
-                i_USRDONETS = 1,
-                o_CFGMCLK   = cfgmclk
-            )
-            self.comb += self.cd_sys.clk.eq(cfgmclk)
-            self.submodules.pll = pll = S7PLL(speedgrade=-2)
-            pll.register_clkin(cfgmclk, 65e6)
-            pll.create_clkout(self.cd_sys, sys_clk_freq)
+        assert sys_clk_freq == int(125e6)
+        self.comb += [
+            self.cd_sys.clk.eq(ClockSignal("pcie")),
+            self.cd_sys.rst.eq(ResetSignal("pcie")),
+        ]
 
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    def __init__(self, sys_clk_freq=int(125e6), with_pcie=False, with_led_chaser=True, **kwargs):
+    def __init__(self, sys_clk_freq=int(125e6), with_pcie=True, with_led_chaser=True, **kwargs):
         platform = fairwaves_xtrx.Platform()
 
         # SoCCore ----------------------------------------------------------------------------------
         if kwargs["uart_name"] == "serial":
             kwargs["uart_name"] = "crossover"
         SoCCore.__init__(self, platform, sys_clk_freq,
-            ident          = "LiteX SoC on Fairwaves XTRX",
+            ident          = "LiteX SoC on Fairwaves XTRX GPU/DMA Debug",
             ident_version  = True,
             **kwargs)
 
         # CRG --------------------------------------------------------------------------------------
-        self.submodules.crg = CRG(platform, sys_clk_freq, with_pcie)
-
-        # JTAGBone ---------------------------------------------------------------------------------
-        self.add_jtagbone()
+        self.submodules.crg = CRG(platform, sys_clk_freq)
 
         # PCIe -------------------------------------------------------------------------------------
-        if with_pcie:
-            self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request("pcie_x1"),
-                data_width = 64,
-                bar0_size  = 0x20000)
-            self.add_pcie(phy=self.pcie_phy, ndmas=1)
-
-            # ICAP (For FPGA reload over PCIe).
-            from litex.soc.cores.icap import ICAP
-            self.submodules.icap = ICAP()
-            self.icap.add_reload()
-            self.icap.add_timing_constraints(platform, sys_clk_freq, self.crg.cd_sys.clk)
-
-            # Flash (For SPIFlash update over PCIe). FIXME: Should probably be updated to use SpiFlashSingle/SpiFlashDualQuad (so MMAPed and do the update with bit-banging)
-            from litex.soc.cores.gpio import GPIOOut
-            from litex.soc.cores.spi_flash import S7SPIFlash
-            self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
-            self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
-
+        self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request("pcie_x1"),
+            data_width = 64,
+            bar0_size  = 0x20000)
+        self.add_pcie(phy=self.pcie_phy, ndmas=1)
 
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
@@ -123,12 +75,11 @@ class BaseSoC(SoCCore):
 # Build --------------------------------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="LiteX SoC on Fairwaves XTRX")
+    parser = argparse.ArgumentParser(description="LiteX SoC on Fairwaves XTRX / GPU/DMA Debug")
     parser.add_argument("--build",           action="store_true", help="Build bitstream")
     parser.add_argument("--load",            action="store_true", help="Load bitstream")
     parser.add_argument("--flash",           action="store_true", help="Flash bitstream")
     parser.add_argument("--sys-clk-freq",    default=125e6,       help="System clock frequency (default: 125MHz)")
-    parser.add_argument("--with-pcie",       action="store_true", help="Enable PCIe support")
     parser.add_argument("--driver",          action="store_true", help="Generate PCIe driver")
     builder_args(parser)
     soc_core_args(parser)
@@ -136,7 +87,6 @@ def main():
 
     soc = BaseSoC(
         sys_clk_freq = int(float(args.sys_clk_freq)),
-        with_pcie    = args.with_pcie,
         **soc_core_argdict(args)
     )
     builder  = Builder(soc, **builder_argdict(args))
