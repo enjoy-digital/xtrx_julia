@@ -66,6 +66,17 @@ class BaseSoC(SoCCore):
             bar0_size  = 0x20000)
         self.add_pcie(phy=self.pcie_phy, ndmas=1)
 
+        # DMA Stub ---------------------------------------------------------------------------------
+
+        # DMA Writer: Send Counter.
+        sink_data = Signal(32)
+        self.comb += self.pcie_dma0.sink.valid.eq(1)
+        self.comb += self.pcie_dma0.sink.data.eq(sink_data)
+        self.sync += If(self.pcie_dma0.sink.ready, sink_data.eq(sink_data + 1))
+
+        # DMA Reader: Ack incoming Data.
+        self.comb += self.pcie_dma0.source.ready.eq(1)
+
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
             self.submodules.leds = LedChaser(
