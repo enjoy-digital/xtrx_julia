@@ -60,6 +60,9 @@ class BaseSoC(SoCCore):
         # CRG --------------------------------------------------------------------------------------
         self.submodules.crg = CRG(platform, sys_clk_freq)
 
+        # JTAGBone ---------------------------------------------------------------------------------
+        self.add_jtagbone()
+
         # PCIe -------------------------------------------------------------------------------------
         self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request("pcie_x1"),
             data_width = 64,
@@ -84,15 +87,18 @@ class BaseSoC(SoCCore):
         self.submodules += pcie_wishbone_slave
 
         class PCIeTester(Module, AutoCSR):
-            def __init__(self, wb):
+            def __init__(self, endpoint, wb):
                 self.address    = CSRStorage(32)
                 self.write      = CSR()
                 self.write_data = CSRStorage(32, reset=0x12345678)
                 self.read       = CSR()
                 self.read_data  = CSRStatus(32)
                 self.done       = CSRStatus()
+                self.req_id     = CSRStatus(16)
 
                 # # #
+
+                self.comb += self.req_id.status.eq(endpoint.phy.id)
 
                 self.submodules.fsm = fsm = FSM(reset_state="IDLE")
                 fsm.act("IDLE",
@@ -122,7 +128,7 @@ class BaseSoC(SoCCore):
                         NextState("IDLE")
                     )
                 )
-        self.submodules.pcie_tester = PCIeTester(pcie_wishbone_slave.wishbone)
+        self.submodules.pcie_tester = PCIeTester(self.pcie_endpoint, pcie_wishbone_slave.wishbone)
 
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
@@ -147,7 +153,7 @@ def main():
         sys_clk_freq = int(float(args.sys_clk_freq)),
         **soc_core_argdict(args)
     )
-    builder  = Builder(soc, **builder_argdict(args))
+    builder  = Builder(soc, csr_csv="csr.csv")
     builder.build(run=args.build)
 
     if args.driver:
