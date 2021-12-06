@@ -143,6 +143,16 @@ class BaseSoC(SoCCore):
                 )
         self.submodules.pcie_tester = PCIeTester(self.pcie_endpoint, pcie_wishbone_slave.wishbone)
 
+        # Analyzer ---------------------------------------------------------------------------------
+        from litescope import LiteScopeAnalyzer
+        analyzer_signals = [
+            self.pcie_endpoint.depacketizer.cmp_source
+        ]
+        self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
+            depth        = 256,
+            clock_domain = "sys",
+            csr_csv      = "analyzer.csv")
+
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
             self.submodules.leds = LedChaser(
