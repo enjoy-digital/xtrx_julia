@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 
 #
-# This file is part of LiteX-Boards.
+# This file is part of XTRX-Julia.
 #
 # Copyright (c) 2021 Florent Kermarrec <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
 
 # Build/Use ----------------------------------------------------------------------------------------
 # Build/Flash bitstream:
-# ./fairwaves_xtrx.py --uart-name=crossover --with-pcie --build --driver --flash
+# ./fairwaves_xtrx.py --build --driver --flash
 #
 #.Build the kernel and load it:
 # cd build/<platform>/driver/kernel
@@ -21,7 +21,6 @@
 # ./litepcie_util info
 # ./litepcie_util scratch_test
 # ./litepcie_util dma_test
-# ./litepcie_util uart_test
 
 import os
 import argparse
@@ -77,16 +76,14 @@ class CRG(Module):
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    def __init__(self, sys_clk_freq=int(125e6), with_pcie=False, with_led_chaser=True, **kwargs):
+    def __init__(self, sys_clk_freq=int(125e6), with_pcie=True, with_led_chaser=True):
         platform = fairwaves_xtrx.Platform()
 
-        # SoCCore ----------------------------------------------------------------------------------
-        if kwargs["uart_name"] == "serial":
-            kwargs["uart_name"] = "crossover"
-        SoCCore.__init__(self, platform, sys_clk_freq,
+        # SoCMini ----------------------------------------------------------------------------------
+        SoCMini.__init__(self, platform, sys_clk_freq,
             ident          = "LiteX SoC on Fairwaves XTRX",
-            ident_version  = True,
-            **kwargs)
+            ident_version  = True
+        )
 
         # CRG --------------------------------------------------------------------------------------
         self.submodules.crg = CRG(platform, sys_clk_freq, with_pcie)
@@ -128,17 +125,11 @@ def main():
     parser.add_argument("--load",            action="store_true", help="Load bitstream")
     parser.add_argument("--flash",           action="store_true", help="Flash bitstream")
     parser.add_argument("--sys-clk-freq",    default=125e6,       help="System clock frequency (default: 125MHz)")
-    parser.add_argument("--with-pcie",       action="store_true", help="Enable PCIe support")
     parser.add_argument("--driver",          action="store_true", help="Generate PCIe driver")
     builder_args(parser)
-    soc_core_args(parser)
     args = parser.parse_args()
 
-    soc = BaseSoC(
-        sys_clk_freq = int(float(args.sys_clk_freq)),
-        with_pcie    = args.with_pcie,
-        **soc_core_argdict(args)
-    )
+    soc = BaseSoC(sys_clk_freq = int(float(args.sys_clk_freq)))
     builder  = Builder(soc, **builder_argdict(args))
     builder.build(run=args.build)
 

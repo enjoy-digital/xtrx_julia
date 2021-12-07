@@ -1,5 +1,5 @@
 #
-# This file is part of LiteX-Boards.
+# This file is part of XTRX-Julia.
 #
 # Copyright (c) 2021 Florent Kermarrec <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
