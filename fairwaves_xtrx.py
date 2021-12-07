@@ -95,7 +95,8 @@ class BaseSoC(SoCCore):
         if with_pcie:
             self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x{pcie_lanes}"),
                 data_width = 64,
-                bar0_size  = 0x20000)
+                bar0_size  = 0x20000,
+                cd         = "pcie")
             self.add_pcie(phy=self.pcie_phy, ndmas=1)
 
             # ICAP (For FPGA reload over PCIe).
