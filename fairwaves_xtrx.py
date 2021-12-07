@@ -76,7 +76,7 @@ class CRG(Module):
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    def __init__(self, sys_clk_freq=int(125e6), with_pcie=True, with_led_chaser=True):
+    def __init__(self, sys_clk_freq=int(125e6), with_pcie=True, pcie_lanes=2, with_led_chaser=True):
         platform = fairwaves_xtrx.Platform()
 
         # SoCMini ----------------------------------------------------------------------------------
@@ -93,7 +93,7 @@ class BaseSoC(SoCCore):
 
         # PCIe -------------------------------------------------------------------------------------
         if with_pcie:
-            self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request("pcie_x1"),
+            self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x{pcie_lanes}"),
                 data_width = 64,
                 bar0_size  = 0x20000)
             self.add_pcie(phy=self.pcie_phy, ndmas=1)
