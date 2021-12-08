@@ -7,9 +7,10 @@
 # SPDX-License-Identifier: BSD-2-Clause
 
 # Build/Use ----------------------------------------------------------------------------------------
-# Build/Flash bitstream:
 # ./fairwaves_xtrx.py --build --flash
-
+# litex_server --jtag --jtag-config=openocd_xc7_ft232.cfg
+# litex_cli --regs
+# ./test_lms7002m_spi.py
 
 import os
 import argparse
