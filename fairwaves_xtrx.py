@@ -97,7 +97,11 @@ class BaseSoC(SoCCore):
                 data_width = 64,
                 bar0_size  = 0x20000,
                 cd         = "pcie")
-            self.add_pcie(phy=self.pcie_phy, ndmas=1)
+            self.add_pcie(phy=self.pcie_phy, ndmas=1,
+                with_dma_buffering = True, dma_buffering_depth=8192,
+                with_dma_loopback  = True,
+                with_msi           = True
+            )
 
             # ICAP (For FPGA reload over PCIe).
             from litex.soc.cores.icap import ICAP
