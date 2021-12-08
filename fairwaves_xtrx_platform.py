@@ -77,37 +77,39 @@ _io = [
     ),
 
     # RF-Switches / SKY13330, SKY13384.
-    ("rfswitches", 0,
+    ("rf_switches", 0,
         Subsignal("tx", Pins("P1"),    Misc("PULLUP=True")),
         Subsignal("rx", Pins("K3 J3"), Misc("PULLUP=True")),
         IOStandard("LVCMOS33")
     ),
 
     # RF-IC / LMS7002M.
-    ("rfic",
-        # SPI / Control.
-        Subsignal("saen",    Pins("W13")),
-        Subsignal("sdio",    Pins("W16"), Misc("PULLDOWN=True")),
-        Subsignal("sdo",     Pins("W15"), Misc("PULLDOWN=True")),
-        Subsignal("sclk",    Pins("W14")),
-        Subsignal("reset",   Pins("U19")),
-        Subsignal("gpwrdwn", Pins("W17")),
-        Subsignal("rxen",    Pins("W18")),
-        Subsignal("txen",    Pins("W19")),
+    ("lms7002m", 0,
+        # Control
+        Subsignal("reset",  Pins("U19")),
+        Subsignal("pwrdwn", Pins("W17")),
+        Subsignal("rxen",   Pins("W18")),
+        Subsignal("txen",   Pins("W19")),
 
-        # Port1.
+        # SPI
+        Subsignal("clk",  Pins("W14")),                        # sclk
+        Subsignal("cs_n", Pins("W13")),                        # saen
+        Subsignal("mosi", Pins("W16"), Misc("PULLDOWN=True")), # sdio
+        Subsignal("miso", Pins("W15"), Misc("PULLDOWN=True")), # sdo
+
+        # TX-Interface.
         Subsignal("diq1",   Pins("J19 H17 G17 K17 H19 U16 J17 P19 U17 N19 V15 V16")),
         Subsignal("txnrx1", Pins("M19")),
         Subsignal("iqsel1", Pins("P17")),
         Subsignal("mclk1",  Pins("L17")),
         Subsignal("fclk1",  Pins("G19")),
 
-        # Port2.
-        Subsignal("diq2",   Pins("W2 U2 V3 V4 V5 W7 V2 W4 U5 V8 U7 U8")),
-        Subsignal("txnrx2", Pins("U4")),
-        Subsignal("iqsel2", Pins("U3")),
-        Subsignal("mclk2",  Pins("W5")),
-        Subsignal("fclk2",  Pins("W6")),
+        # RX-Interface.
+        Subsignal("diq1",   Pins("J19 H17 G17 K17 H19 U16 J17 P19 U17 N19 V15 V16")),
+        Subsignal("txnrx1", Pins("M19")),
+        Subsignal("iqsel1", Pins("P17")),
+        Subsignal("mclk1",  Pins("L17")),
+        Subsignal("fclk1",  Pins("G19")),
 
         # IOStandard/Slew Rate.
         IOStandard("LVCMOS25"),
