@@ -105,11 +105,11 @@ _io = [
         Subsignal("fclk1",  Pins("G19")),
 
         # RX-Interface.
-        Subsignal("diq1",   Pins("J19 H17 G17 K17 H19 U16 J17 P19 U17 N19 V15 V16")),
-        Subsignal("txnrx1", Pins("M19")),
-        Subsignal("iqsel1", Pins("P17")),
-        Subsignal("mclk1",  Pins("L17")),
-        Subsignal("fclk1",  Pins("G19")),
+        Subsignal("diq2",   Pins("W2 U2 V3 V4 V5 W7 V2 W4 U5 V8 U7 U8")),
+        Subsignal("txnrx2", Pins("U4")),
+        Subsignal("iqsel2", Pins("U3")),
+        Subsignal("mclk2",  Pins("W5")),
+        Subsignal("fclk2",  Pins("W6")),
 
         # IOStandard/Slew Rate.
         IOStandard("LVCMOS25"),
