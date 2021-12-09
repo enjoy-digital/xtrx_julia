@@ -56,7 +56,7 @@ def spi_test(csr_csv="csr.csv", port=1234):
     lms7002m_spi = LMS7002MSPI(bus)
 
     # Enable LMS7002M.
-    bus.regs.lms7002m_control.write(LMS7002M_RESET)
+    bus.regs.lms7002m_control.write(0)
     time.sleep(0.1)
 
     # Dump LMS7002M SPI Registers.

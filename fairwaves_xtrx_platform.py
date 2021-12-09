@@ -86,10 +86,10 @@ _io = [
     # RF-IC / LMS7002M.
     ("lms7002m", 0,
         # Control
-        Subsignal("reset",  Pins("U19")),
-        Subsignal("pwrdwn", Pins("W17")),
-        Subsignal("rxen",   Pins("W18")),
-        Subsignal("txen",   Pins("W19")),
+        Subsignal("rst_n",    Pins("U19")),
+        Subsignal("pwrdwn_n", Pins("W17")),
+        Subsignal("rxen",     Pins("W18")),
+        Subsignal("txen",     Pins("W19")),
 
         # SPI
         Subsignal("clk",  Pins("W14")),                        # sclk

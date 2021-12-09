@@ -120,11 +120,11 @@ class BaseSoC(SoCCore):
                     CSRField("reset", size=1, offset=0, values=[
                         ("``0b0``", "LMS7002M Normal Operation."),
                         ("``0b1``", "LMS7002M Reset.")
-                    ]),
+                    ], reset=1),
                     CSRField("power_down", size=1, offset=1, values=[
                         ("``0b0``", "LMS7002M Normal Operation."),
                         ("``0b1``", "LMS7002M Power-Down.")
-                    ]),
+                    ], reset=1),
                     CSRField("tx_enable", size=1, offset=8, values=[
                         ("``0b0``", "LMS7002M TX Disabled."),
                         ("``0b1``", "LMS7002M TX Enabled.")
@@ -139,10 +139,10 @@ class BaseSoC(SoCCore):
 
                 # Drive Control Pins.
                 self.comb += [
-                    pads.reset.eq(self.control.fields.reset),       # FIXME: Check polarity
-                    pads.pwrdwn.eq(self.control.fields.power_down), # FIXME: Check polarity.
-                    pads.txen.eq(self.control.fields.tx_enable),    # FIXME: Check polarity.
-                    pads.rxen.eq(self.control.fields.rx_enable),    # FIXME: Check polarity.
+                    pads.rst_n.eq(~self.control.fields.reset),
+                    pads.pwrdwn_n.eq(~self.control.fields.power_down), # FIXME: Check polarity.
+                    pads.txen.eq(self.control.fields.tx_enable),       # FIXME: Check polarity.
+                    pads.rxen.eq(self.control.fields.rx_enable),       # FIXME: Check polarity.
                 ]
 
                 # SPI.
@@ -158,8 +158,8 @@ class BaseSoC(SoCCore):
         # Analyzer ---------------------------------------------------------------------------------
         from litescope import LiteScopeAnalyzer
         analyzer_signals = [
-            platform.lookup_request("lms7002m").reset,
-            platform.lookup_request("lms7002m").pwrdwn,
+            platform.lookup_request("lms7002m").rst_n,
+            platform.lookup_request("lms7002m").pwrdwn_n,
             platform.lookup_request("lms7002m").rxen,
             platform.lookup_request("lms7002m").txen,
             platform.lookup_request("lms7002m").clk,
