@@ -155,6 +155,24 @@ class BaseSoC(SoCCore):
 
         self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
 
+        # Analyzer ---------------------------------------------------------------------------------
+        from litescope import LiteScopeAnalyzer
+        analyzer_signals = [
+            platform.lookup_request("lms7002m").reset,
+            platform.lookup_request("lms7002m").pwrdwn,
+            platform.lookup_request("lms7002m").rxen,
+            platform.lookup_request("lms7002m").txen,
+            platform.lookup_request("lms7002m").clk,
+            platform.lookup_request("lms7002m").cs_n,
+            platform.lookup_request("lms7002m").mosi,
+            platform.lookup_request("lms7002m").miso
+        ]
+        self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
+            depth        = 512,
+            clock_domain = "sys",
+            csr_csv      = "analyzer.csv"
+        )
+
 # Build --------------------------------------------------------------------------------------------
 
 def main():
