@@ -15,6 +15,8 @@ from litex import RemoteClient
 
 LMS7002M_RESET      = (1 << 0)
 LMS7002M_POWER_DOWN = (1 << 1)
+LMS7002M_TX_ENABLE  = (1 << 8)
+LMS7002M_RX_ENABLE  = (1 << 9)
 
 SPI_CS_HIGH = (0 << 0)
 SPI_CS_LOW  = (1 << 0)
@@ -54,12 +56,13 @@ def spi_test(csr_csv="csr.csv", port=1234):
     lms7002m_spi = LMS7002MSPI(bus)
 
     # Enable LMS7002M.
-    bus.regs.lms7002m_control.write(0)
+    bus.regs.lms7002m_control.write(LMS7002M_RESET)
+    time.sleep(0.1)
 
     # Dump LMS7002M SPI Registers.
     print("LMS7002M Reg Dump:")
-    for n in range(16):
-        print(f"0x{n:02x}: {lms7002m_spi.read(n):04x}")
+    for n in range(1024):
+        print(f"0x{n:04x}: 0x{lms7002m_spi.read(n):04x}")
 
     bus.close()
 
