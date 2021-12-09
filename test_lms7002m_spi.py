@@ -5,6 +5,12 @@
 # Copyright (c) 2021 Florent Kermarrec <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
 
+# Build/Use ----------------------------------------------------------------------------------------
+# ./fairwaves_xtrx.py --no-pcie --build --flash
+# litex_server --jtag --jtag-config=openocd_xc7_ft232.cfg
+# litex_cli --regs
+# ./test_lms7002m_spi.py
+
 import sys
 import time
 import argparse

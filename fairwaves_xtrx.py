@@ -34,11 +34,16 @@ from litex.soc.interconnect.csr import *
 from litex.soc.integration.soc_core import *
 from litex.soc.integration.builder import *
 
-from litex.soc.cores.led import LedChaser
 from litex.soc.cores.clock import *
+from litex.soc.cores.led import LedChaser
+from litex.soc.cores.icap import ICAP
+from litex.soc.cores.gpio import GPIOOut
+from litex.soc.cores.spi_flash import S7SPIFlash
 
 from litepcie.phy.s7pciephy import S7PCIEPHY
 from litepcie.software import generate_litepcie_software
+
+from lms7002m import LMS7002M
 
 # CRG ----------------------------------------------------------------------------------------------
 
@@ -91,6 +96,21 @@ class BaseSoC(SoCCore):
         # JTAGBone ---------------------------------------------------------------------------------
         self.add_jtagbone()
 
+        # Leds -------------------------------------------------------------------------------------
+        if with_led_chaser:
+            self.submodules.leds = LedChaser(
+                pads         = platform.request_all("user_led"),
+                sys_clk_freq = sys_clk_freq)
+
+        # ICAP -------------------------------------------------------------------------------------
+        self.submodules.icap = ICAP()
+        self.icap.add_reload()
+        self.icap.add_timing_constraints(platform, sys_clk_freq, self.crg.cd_sys.clk)
+
+        # SPIFlash ---------------------------------------------------------------------------------
+        self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
+        self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
+
         # PCIe -------------------------------------------------------------------------------------
         if with_pcie:
             self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x{pcie_lanes}"),
@@ -103,24 +123,8 @@ class BaseSoC(SoCCore):
                 with_msi           = True
             )
 
-            # ICAP (For FPGA reload over PCIe).
-            from litex.soc.cores.icap import ICAP
-            self.submodules.icap = ICAP()
-            self.icap.add_reload()
-            self.icap.add_timing_constraints(platform, sys_clk_freq, self.crg.cd_sys.clk)
-
-            # Flash (For SPIFlash update over PCIe). FIXME: Should probably be updated to use SpiFlashSingle/SpiFlashDualQuad (so MMAPed and do the update with bit-banging)
-            from litex.soc.cores.gpio import GPIOOut
-            from litex.soc.cores.spi_flash import S7SPIFlash
-            self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
-            self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
-
-
-        # Leds -------------------------------------------------------------------------------------
-        if with_led_chaser:
-            self.submodules.leds = LedChaser(
-                pads         = platform.request_all("user_led"),
-                sys_clk_freq = sys_clk_freq)
+        # LMS7002M ---------------------------------------------------------------------------------
+        self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
 
 # Build --------------------------------------------------------------------------------------------
 
@@ -129,12 +133,16 @@ def main():
     parser.add_argument("--build",           action="store_true", help="Build bitstream")
     parser.add_argument("--load",            action="store_true", help="Load bitstream")
     parser.add_argument("--flash",           action="store_true", help="Flash bitstream")
-    parser.add_argument("--sys-clk-freq",    default=125e6,       help="System clock frequency (default: 125MHz)")
     parser.add_argument("--driver",          action="store_true", help="Generate PCIe driver")
+    parser.add_argument("--sys-clk-freq",    default=125e6,       help="System clock frequency (default: 125MHz)")
+    parser.add_argument("--no-pcie",         action="store_true", help="Disable PCIe (for Development with JTAGBone)")
     builder_args(parser)
     args = parser.parse_args()
 
-    soc = BaseSoC(sys_clk_freq = int(float(args.sys_clk_freq)))
+    soc = BaseSoC(
+        sys_clk_freq = int(float(args.sys_clk_freq)),
+        with_pcie    = not args.no_pcie,
+    )
     builder  = Builder(soc, **builder_argdict(args))
     builder.build(run=args.build)
 
