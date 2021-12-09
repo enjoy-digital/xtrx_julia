@@ -147,7 +147,7 @@ def main():
     builder.build(run=args.build)
 
     if args.driver:
-        generate_litepcie_software(soc, os.path.join(builder.output_dir, "driver"))
+        generate_litepcie_software(soc, "software")
 
     if args.load:
         prog = soc.platform.create_programmer()
