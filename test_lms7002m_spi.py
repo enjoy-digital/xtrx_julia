@@ -67,7 +67,7 @@ def spi_test(csr_csv="csr.csv", port=1234):
 
     # Dump LMS7002M SPI Registers.
     print("LMS7002M Reg Dump:")
-    for n in range(1024):
+    for n in range(64):
         print(f"0x{n:04x}: 0x{lms7002m_spi.read(n):04x}")
 
     bus.close()
