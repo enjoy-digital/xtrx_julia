@@ -57,8 +57,8 @@ _io = [
         IOStandard("LVCMOS33"),
     ),
     ("i2c", 1,
-        Subsignal("scl", Pins("U15"), Misc("PULLUP=True")),
-        Subsignal("sda", Pins("U14"), Misc("PULLUP=True")),
+        Subsignal("scl", Pins("U14"), Misc("PULLUP=True")),
+        Subsignal("sda", Pins("U15"), Misc("PULLUP=True")),
         IOStandard("LVCMOS25"),
     ),
 
