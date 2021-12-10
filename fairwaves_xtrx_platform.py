@@ -50,11 +50,16 @@ _io = [
         IOStandard("LVCMOS25")
     ),
 
-    # I2C
+    # I2C.
     ("i2c", 0,
         Subsignal("scl", Pins("M1"), Misc("PULLUP=True")),
         Subsignal("sda", Pins("N1"), Misc("PULLUP=True")),
         IOStandard("LVCMOS33"),
+    ),
+    ("i2c", 1,
+        Subsignal("scl", Pins("U15"), Misc("PULLUP=True")),
+        Subsignal("sda", Pins("U14"), Misc("PULLUP=True")),
+        IOStandard("LVCMOS25"),
     ),
 
     # GPS.

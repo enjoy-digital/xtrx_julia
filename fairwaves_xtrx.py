@@ -39,6 +39,7 @@ from litex.soc.cores.led import LedChaser
 from litex.soc.cores.icap import ICAP
 from litex.soc.cores.gpio import GPIOOut
 from litex.soc.cores.spi_flash import S7SPIFlash
+from litex.soc.cores.bitbang import I2CMaster
 
 from litepcie.phy.s7pciephy import S7PCIEPHY
 from litepcie.software import generate_litepcie_software
@@ -84,20 +85,26 @@ class CRG(Module):
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    def __init__(self, sys_clk_freq=int(125e6), with_pcie=True, pcie_lanes=2, with_led_chaser=True):
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=False, with_pcie=True, pcie_lanes=2, with_led_chaser=True):
         platform = fairwaves_xtrx.Platform()
 
-        # SoCMini ----------------------------------------------------------------------------------
-        SoCMini.__init__(self, platform, sys_clk_freq,
+        # SoCCore ----------------------------------------------------------------------------------
+        SoCCore.__init__(self, platform, sys_clk_freq,
             ident          = "LiteX SoC on Fairwaves XTRX",
-            ident_version  = True
+            ident_version  = True,
+            cpu_type            = "vexriscv" if with_cpu else None,
+            cpu_variant         = "lite",
+            integrated_rom_size = 0x8000 if with_cpu else 0,
+            with_uart           = with_cpu,
+            uart_name           = "jtag_uart",
         )
 
         # CRG --------------------------------------------------------------------------------------
         self.submodules.crg = CRG(platform, sys_clk_freq, with_pcie)
 
         # JTAGBone ---------------------------------------------------------------------------------
-        self.add_jtagbone()
+        if not with_cpu:
+            self.add_jtagbone()
 
         # Leds -------------------------------------------------------------------------------------
         if with_led_chaser:
@@ -117,16 +124,10 @@ class BaseSoC(SoCCore):
 
         # TCXO -------------------------------------------------------------------------------------
         self.submodules.tcxo = TCXO(platform.request("tcxo"))
-        analyzer_signals = [
-            platform.lookup_request("tcxo").enable,
-            platform.lookup_request("tcxo").sel,
-            platform.lookup_request("tcxo").clk,
-        ]
-        self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
-            depth        = 512,
-            clock_domain = "sys",
-            csr_csv      = "analyzer.csv"
-        )
+
+        # I2C --------------------------------------------------------------------------------------
+        self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
+        self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
 
         # PCIe -------------------------------------------------------------------------------------
         if with_pcie:
@@ -142,6 +143,18 @@ class BaseSoC(SoCCore):
 
         # LMS7002M ---------------------------------------------------------------------------------
         self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
+
+        # Analyzer ---------------------------------------------------------------------------------
+        analyzer_signals = [
+            platform.lookup_request("tcxo").enable,
+            platform.lookup_request("tcxo").sel,
+            platform.lookup_request("tcxo").clk,
+        ]
+        self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
+            depth        = 512,
+            clock_domain = "sys",
+            csr_csv      = "analyzer.csv"
+        )
 
 # Build --------------------------------------------------------------------------------------------
 
