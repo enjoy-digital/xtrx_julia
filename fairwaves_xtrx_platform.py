@@ -65,11 +65,16 @@ _io = [
         IOStandard("LVCMOS33")
     ),
 
+    # TCXO.
+    ("tcxo", 0,
+        Subsignal("enable", Pins("R19"), Misc("PULLUP=True")),   # en_tcxo
+        Subsignal("sel",    Pins("V17"), Misc("PULLDOWN=True")), # ext_clk
+        Subsignal("clk",    Pins("N17"), Misc("PULLDOWN=True")), # fpga_clk_vctcxo
+        IOStandard("LVCMOS25")
+    ),
+
     # AUX. (Split/Move/Rename?)
     ("aux", 0,
-        Subsignal("fpga_clk_vctcxo", Pins("N17"), Misc("PULLDOWN=True")),
-        Subsignal("en_tcxo",         Pins("R19"), Misc("PULLUP=True")),
-        Subsignal("ext_clk",         Pins("V17"), Misc("PULLDOWN=True")),
         Subsignal("en_gps",          Pins("L18")),
         Subsignal("iovcc_sel",       Pins("V19")),
         Subsignal("en_smsigio",      Pins("D17")),

@@ -43,13 +43,16 @@ from litex.soc.cores.spi_flash import S7SPIFlash
 from litepcie.phy.s7pciephy import S7PCIEPHY
 from litepcie.software import generate_litepcie_software
 
+from litescope import LiteScopeAnalyzer
+
+from tcxo import TCXO
 from lms7002m import LMS7002M
 
 # CRG ----------------------------------------------------------------------------------------------
 
 class CRG(Module):
     def __init__(self, platform, sys_clk_freq, with_pcie=False):
-        self.clock_domains.cd_sys = ClockDomain()
+        self.clock_domains.cd_sys  = ClockDomain()
 
         # # #
 
@@ -108,8 +111,22 @@ class BaseSoC(SoCCore):
         self.icap.add_timing_constraints(platform, sys_clk_freq, self.crg.cd_sys.clk)
 
         # SPIFlash ---------------------------------------------------------------------------------
-        self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
-        self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
+        if with_pcie:
+            self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
+            self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
+
+        # TCXO -------------------------------------------------------------------------------------
+        self.submodules.tcxo = TCXO(platform.request("tcxo"))
+        analyzer_signals = [
+            platform.lookup_request("tcxo").enable,
+            platform.lookup_request("tcxo").sel,
+            platform.lookup_request("tcxo").clk,
+        ]
+        self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
+            depth        = 512,
+            clock_domain = "sys",
+            csr_csv      = "analyzer.csv"
+        )
 
         # PCIe -------------------------------------------------------------------------------------
         if with_pcie:
@@ -136,14 +153,13 @@ def main():
     parser.add_argument("--driver",          action="store_true", help="Generate PCIe driver")
     parser.add_argument("--sys-clk-freq",    default=125e6,       help="System clock frequency (default: 125MHz)")
     parser.add_argument("--no-pcie",         action="store_true", help="Disable PCIe (for Development with JTAGBone)")
-    builder_args(parser)
     args = parser.parse_args()
 
     soc = BaseSoC(
         sys_clk_freq = int(float(args.sys_clk_freq)),
         with_pcie    = not args.no_pcie,
     )
-    builder  = Builder(soc, **builder_argdict(args))
+    builder  = Builder(soc, csr_csv="csr.csv")
     builder.build(run=args.build)
 
     if args.driver:
