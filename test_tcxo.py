@@ -24,7 +24,7 @@ class TCXO:
         self.bus = bus
 
     def enable(self):
-        self.bus.regs.tcxo_control.write(0b11)
+        self.bus.regs.tcxo_control.write(0b01)
 
     def cycles(self):
         self.bus.regs.tcxo_cycles_latch.write(1)

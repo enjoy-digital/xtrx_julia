@@ -18,11 +18,11 @@ class LMS7002M(Module, AutoCSR):
             CSRField("reset", size=1, offset=0, values=[
                 ("``0b0``", "LMS7002M Normal Operation."),
                 ("``0b1``", "LMS7002M Reset.")
-            ], reset=1),
+            ], reset=0),
             CSRField("power_down", size=1, offset=1, values=[
                 ("``0b0``", "LMS7002M Normal Operation."),
                 ("``0b1``", "LMS7002M Power-Down.")
-            ], reset=1),
+            ], reset=0),
             CSRField("tx_enable", size=1, offset=8, values=[
                 ("``0b0``", "LMS7002M TX Disabled."),
                 ("``0b1``", "LMS7002M TX Enabled.")
