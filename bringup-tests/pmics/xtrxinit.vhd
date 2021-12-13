@@ -188,8 +188,8 @@ begin
         oki <= '1';
       elsif addr(7 downto 0) = 0 then
         oki <= '1';
-      elsif tick = '1' and addr(1 downto 0) = "10" and check = '1' and sdapicked /= sdat then
-        oki <= '0';
+      --elsif tick = '1' and addr(1 downto 0) = "10" and check = '1' and sdapicked /= sdat then
+      --  oki <= '0';
       end if;
 
       OK <= oki;                        -- extra reg, but it's ok
