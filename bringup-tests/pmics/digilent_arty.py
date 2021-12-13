@@ -11,7 +11,9 @@ import os
 import argparse
 
 from migen import *
+from migen.fhdl.specials import Tristate
 
+from litex.build.generic_platform import *
 from litex_boards.platforms import arty
 from litex.build.xilinx.vivado import vivado_build_args, vivado_build_argdict
 
@@ -113,6 +115,68 @@ class BaseSoC(SoCCore):
         if with_pmod_gpio:
             platform.add_extension(arty.raw_pmod_io("pmoda"))
             self.submodules.gpio = GPIOTristate(platform.request("pmoda"))
+
+        # I2C --------------------------------------------------------------------------------------
+        _i2c_test_ios = [
+            ("pmic_i2c", 0,
+                Subsignal("scl",  Pins("pmodd:0"), Misc("PULLUP=True")),
+                Subsignal("sda",  Pins("pmodd:1"), Misc("PULLUP=True")),
+                IOStandard("LVCMOS33"),
+            ),
+            ("pmic_i2c", 1,
+                Subsignal("scl",  Pins("pmodd:2"), Misc("PULLUP=True")),
+                Subsignal("sda",  Pins("pmodd:3"), Misc("PULLUP=True")),
+                IOStandard("LVCMOS33"),
+            ),
+
+        ]
+        self.platform.add_extension(_i2c_test_ios)
+        i2c_busy  = Signal()
+        i2c_ok    = Signal()
+        i2c_sda0t = Signal()
+        i2c_scl0t = Signal()
+        i2c_sda0i = Signal()
+        i2c_scl0i = Signal()
+        i2c_sda1t = Signal()
+        i2c_scl1t = Signal()
+        i2c_sda1i = Signal()
+        i2c_scl1i = Signal()
+        if False:
+            self.submodules.i2c0 = I2CMaster(platform.request("pmic_i2c", 0))
+            self.submodules.i2c1 = I2CMaster(platform.request("pmic_i2c", 1))
+        else:
+            self.specials += Instance("xtrxinit",
+                p_CLKFREQ = 100000000,
+                p_I2CFREQ = 100000,
+
+                i_CLK  = ClockSignal("sys"),
+                i_RST  = self.crg.pll.reset,
+                o_BUSY = i2c_busy,
+                o_OK   = i2c_ok,
+
+                o_SDA0T = i2c_sda0t,
+                o_SCL0T = i2c_scl0t,
+                i_SDA0I = i2c_sda0i,
+                i_SCL0I = i2c_scl0i,
+
+                o_SDA1T = i2c_sda1t,
+                o_SCL1T = i2c_scl1t,
+                i_SDA1I = i2c_sda1i,
+                i_SCL1I = i2c_scl1i,
+            )
+            i2c0_pads = platform.request("pmic_i2c", 0)
+            i2c1_pads = platform.request("pmic_i2c", 1)
+            #self.comb += i2c0_pads.scl.eq(~i2c_scl0t)
+            #self.comb += i2c0_pads.sda.eq(~i2c_sda0t)
+            #self.comb += i2c1_pads.scl.eq(~i2c_scl1t)
+            #self.comb += i2c1_pads.sda.eq(~i2c_sda1t)
+
+            self.specials += Tristate(i2c0_pads.scl, 0, ~i2c_scl0t, i2c_scl0i)
+            self.specials += Tristate(i2c0_pads.sda, 0, ~i2c_sda0t, i2c_sda0i)
+            self.specials += Tristate(i2c1_pads.scl, 0, ~i2c_scl1t, i2c_scl1i)
+            self.specials += Tristate(i2c1_pads.sda, 0, ~i2c_sda1t, i2c_sda1i)
+            platform.add_source("xtrxinit.vhd")
+            platform.add_source("xtrxinitrom.vhd")
 
 # Build --------------------------------------------------------------------------------------------
 
