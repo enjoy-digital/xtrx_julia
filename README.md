@@ -20,13 +20,19 @@ This project aims to recreate a FPGA design for the XTRX board with LiteX/LitePC
 
 LiteX can be installed by following the installation instructions from the LiteX Wiki: https://github.com/enjoy-digital/litex/wiki/Installation
 
+### [> Installing the RISC-V toolchain for the Soft-CPU:
+
+To get and install a RISC-V toolchain, please install it manually of follow the LiteX's wiki: https://github.com/enjoy-digital/litex/wiki/Installation:
+````
+./litex_setup.py --gcc=riscv
+````
+
 [> Build and Test the design(s)
 ---------------------------------
 
-No-PCIe:
-./fairwaves_xtrx.py --cpu-type=None --csr-csv=csr.csv --build --load
-litex_server --jtag --jtag-config=openocd_xc7_ft232.cfg
-litex_cli --regs
+````
+./fairwaves_xtrx.py --build --flash --driver
+````
 
 [> Contact
 -------------

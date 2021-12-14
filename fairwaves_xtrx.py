@@ -75,9 +75,8 @@ class BaseSoC(SoCCore):
             ident                    = "LiteX SoC on Fairwaves XTRX",
             ident_version            = True,
             cpu_type                 = "vexriscv" if with_cpu else None,
-            cpu_variant              = "lite",
-            integrated_rom_size      = 0x8000 if with_cpu else 0,
-            integrated_main_ram_size = 0x8000 if with_cpu else 0,
+            integrated_rom_size      = 0x8000  if with_cpu else 0,
+            integrated_main_ram_size = 0x10000 if with_cpu else 0,
             uart_name                = "crossover",
         )
 
