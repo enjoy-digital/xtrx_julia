@@ -96,8 +96,17 @@ class BaseSoC(SoCCore):
             with_msi           = True
         )
 
-        # I2C --------------------------------------------------------------------------------------
+        # I2C Peripherals --------------------------------------------------------------------------------------
+        self.comb += platform.request("pwrdwn_n").eq(1) # Enable.
+
+        # I2C Bus0:
+        # - Temperature Sensor (TMP108  @ 0x4a).
+        # - PMIC-LMS           (LP8758  @ 0x60).
+        # - TCXO DAC           (LTC26x6 @ 0x62).
         self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
+
+        # I2C Bus1:
+        # PMIC-FPGA (LP8758 @ 0x60).
         self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
 
         # TCXO -------------------------------------------------------------------------------------

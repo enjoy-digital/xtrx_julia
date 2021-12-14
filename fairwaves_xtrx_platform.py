@@ -50,6 +50,9 @@ _io = [
         IOStandard("LVCMOS25")
     ),
 
+    # Power-Down.
+    ("pwrdwn_n", 0, Pins("R19"), IOStandard("LVCMOS25")),
+
     # I2C.
     ("i2c", 0,
         Subsignal("scl", Pins("U14"), Misc("PULLUP=True")),
@@ -72,7 +75,6 @@ _io = [
 
     # TCXO.
     ("tcxo", 0,
-        Subsignal("enable", Pins("R19"), Misc("PULLUP=True")),   # en_tcxo
         Subsignal("sel",    Pins("V17"), Misc("PULLDOWN=True")), # ext_clk
         Subsignal("clk",    Pins("N17"), Misc("PULLDOWN=True")), # fpga_clk_vctcxo
         IOStandard("LVCMOS25")

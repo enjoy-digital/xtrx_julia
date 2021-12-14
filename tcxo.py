@@ -14,13 +14,9 @@ from litex.soc.interconnect.csr import *
 class TCXO(Module, AutoCSR):
     def __init__(self, pads):
         self.control = CSRStorage(fields=[
-            CSRField("enable", size=1, offset=0, values=[
-                ("``0b0``", "Disable TCXO."),
-                ("``0b1``", "Enable TCXO.")
-            ], reset=0),
-            CSRField("sel", size=1, offset=1, values=[
-                ("``0b0``", "Use External Clk."),
-                ("``0b1``", "Use TXCO Clk.")
+            CSRField("sel", size=1, offset=0, values=[
+                ("``0b0``", "Use TCXO Clk."),
+                ("``0b1``", "Use External Clk.")
             ], reset=0),
         ])
         self.cycles_latch = CSR()
@@ -29,7 +25,6 @@ class TCXO(Module, AutoCSR):
         # # #
 
         # Drive Control Pins.
-        self.comb += pads.enable.eq(self.control.fields.enable)
         self.comb += pads.sel.eq(self.control.fields.sel)
 
         # Clock Input.
