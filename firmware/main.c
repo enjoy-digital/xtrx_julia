@@ -17,12 +17,14 @@
 /* Helpers                                                               */
 /*-----------------------------------------------------------------------*/
 
-static inline void cdelay(int i)
+void busy_wait(unsigned int ms)
 {
-	while(i > 0) {
-		__asm__ volatile(CONFIG_CPU_NOP);
-		i--;
-	}
+	timer0_en_write(0);
+	timer0_reload_write(0);
+	timer0_load_write(CONFIG_CLOCK_FREQUENCY/1000*ms);
+	timer0_en_write(1);
+	timer0_update_value_write(1);
+	while(timer0_value_read()) timer0_update_value_write(1);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -85,7 +87,7 @@ static char *get_token(char **str)
 
 static void prompt(void)
 {
-	printf("\e[92;1mxtrx\e[0m> ");
+	printf("\e[92;1mlitex-xtrx\e[0m> ");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -94,12 +96,13 @@ static void prompt(void)
 
 static void help(void)
 {
-	puts("\nLiteX XTRX firmware built "__DATE__" "__TIME__"\n");
+	puts("\nLiteX-XTRX firmware built "__DATE__" "__TIME__"\n");
 	puts("Available commands:");
 	puts("help               - Show this command");
 	puts("reboot             - Reboot CPU");
 	puts("i2c_test           - Test I2C Buses");
 	puts("temp_test          - Test Temperature Sensor");
+	puts("tcxo_test          - Test TCXO");
 	puts("pmic_init          - Initialize PMICs");
 }
 
@@ -139,6 +142,29 @@ static void temp_test(void)
 	temp = (dat[0] << 4) | (dat[1] >> 4);
 	temp = (62500*temp)/1000000; /* 0.0625°C/count */
 	printf("Temperature: %d°C\n", temp);
+}
+
+/*-----------------------------------------------------------------------*/
+/* TCXO                                                                  */
+/*-----------------------------------------------------------------------*/
+
+#define LTC26X6_ADDR 0x62 /* Test LTC26X6 effect on TCXO */
+
+static void tcxo_test(void)
+{
+	int i;
+	int prev;
+	int curr;
+	prev = 0;
+	printf("TCXO test...\n");
+	tcxo_control_write(0); /* TCXO: 0 / Ext: 1 */
+	for (i=0; i<10; i++) {
+		tcxo_cycles_latch_write(1);
+		curr = tcxo_cycles_read(),
+		printf("TCXO Cycles: %3d.%03dMHz\n", (curr - prev)/100000, ((curr - prev)/100)%1000);
+		prev = curr;
+		busy_wait(100);
+	}
 }
 
 /*-----------------------------------------------------------------------*/
@@ -206,7 +232,7 @@ static int pmic_init(void)
 	dat = 0x92;
 	i2c0_write(LP8758_ADDR, adr, &dat, 1);
 
-	cdelay(10000);
+	busy_wait(1);
 
 	printf("PMIC-FPGA: Check ID ");
 	adr = 0x1;
@@ -276,6 +302,8 @@ static void console_service(void)
 		i2c_test();
 	else if(strcmp(token, "temp_test") == 0)
 		temp_test();
+	else if(strcmp(token, "tcxo_test") == 0)
+		tcxo_test();
 	else if(strcmp(token, "pmic_init") == 0)
 		pmic_init();
 	prompt();
