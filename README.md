@@ -51,6 +51,13 @@ make
 ./litepcie_util dma_test
 ````
 
+Build the firmware and use it:
+````
+cd firmware
+make
+sudo litex_term /dev/ttyLXU0 --kernel=firmware.bin --safe
+````
+
 [> Contact
 -------------
 E-mail: florent@enjoy-digital.fr
