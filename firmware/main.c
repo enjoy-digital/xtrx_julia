@@ -99,6 +99,7 @@ static void help(void)
 	puts("help               - Show this command");
 	puts("reboot             - Reboot CPU");
 	puts("i2c_test           - Test I2C Buses");
+	puts("temp_test          - Test Temperature Sensor");
 	puts("pmic_init          - Initialize PMICs");
 }
 
@@ -125,10 +126,25 @@ static void i2c_test(void)
 }
 
 /*-----------------------------------------------------------------------*/
+/* Temperature                                                           */
+/*-----------------------------------------------------------------------*/
+
+#define TMP108_ADDR 0x4a
+
+static void temp_test(void)
+{
+	unsigned int temp;
+	unsigned char dat[2];
+	i2c1_read(TMP108_ADDR, 0x00, dat, 2, true);
+	temp = (dat[0] << 4) | (dat[1] >> 4);
+	temp = (62500*temp)/1000000; /* 0.0625°C/count */
+	printf("Temperature: %d°C\n", temp);
+}
+
+/*-----------------------------------------------------------------------*/
 /* PMIC                                                                  */
 /*-----------------------------------------------------------------------*/
 
-/* LP8758 */
 #define LP8758_ADDR 0x60
 
 static int pmic_init(void)
@@ -258,6 +274,8 @@ static void console_service(void)
 		reboot_cmd();
 	else if(strcmp(token, "i2c_test") == 0)
 		i2c_test();
+	else if(strcmp(token, "temp_test") == 0)
+		temp_test();
 	else if(strcmp(token, "pmic_init") == 0)
 		pmic_init();
 	prompt();
