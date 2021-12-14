@@ -97,47 +97,8 @@ class BaseSoC(SoCCore):
         )
 
         # I2C --------------------------------------------------------------------------------------
-        i2c_busy  = Signal()
-        i2c_ok    = Signal()
-        i2c_sda0t = Signal()
-        i2c_scl0t = Signal()
-        i2c_sda0i = Signal()
-        i2c_scl0i = Signal()
-        i2c_sda1t = Signal()
-        i2c_scl1t = Signal()
-        i2c_sda1i = Signal()
-        i2c_scl1i = Signal()
-        if True:
-            self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
-            self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
-        else:
-            self.specials += Instance("xtrxinit",
-                p_CLKFREQ = 65000000,
-                p_I2CFREQ = 1000000,
-
-                i_CLK  = ClockSignal("sys"),
-                i_RST  = ResetSignal("sys"),
-                o_BUSY = i2c_busy,
-                o_OK   = i2c_ok,
-
-                o_SDA0T = i2c_sda0t,
-                o_SCL0T = i2c_scl0t,
-                i_SDA0I = i2c_sda0i,
-                i_SCL0I = i2c_scl0i,
-
-                o_SDA1T = i2c_sda1t,
-                o_SCL1T = i2c_scl1t,
-                i_SDA1I = i2c_sda1i,
-                i_SCL1I = i2c_scl1i,
-            )
-            i2c0_pads = platform.request("i2c", 0)
-            i2c1_pads = platform.request("i2c", 1)
-            self.specials += Tristate(i2c0_pads.scl, 0, ~i2c_scl0t, i2c_scl0i)
-            self.specials += Tristate(i2c0_pads.sda, 0, ~i2c_sda0t, i2c_sda0i)
-            self.specials += Tristate(i2c1_pads.scl, 0, ~i2c_scl1t, i2c_scl1i)
-            self.specials += Tristate(i2c1_pads.sda, 0, ~i2c_sda1t, i2c_sda1i)
-            platform.add_source("xtrxinit.vhd")
-            platform.add_source("xtrxinitrom.vhd")
+        self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
+        self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
 
         # TCXO -------------------------------------------------------------------------------------
         self.submodules.tcxo = TCXO(platform.request("tcxo"))
