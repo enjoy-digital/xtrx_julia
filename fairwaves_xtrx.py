@@ -53,65 +53,45 @@ from lms7002m import LMS7002M
 # CRG ----------------------------------------------------------------------------------------------
 
 class CRG(Module):
-    def __init__(self, platform, sys_clk_freq, with_pcie=False):
+    def __init__(self, platform, sys_clk_freq):
         self.clock_domains.cd_sys  = ClockDomain()
 
         # # #
 
-        if with_pcie:
-            assert sys_clk_freq == int(125e6)
-            self.comb += [
-                self.cd_sys.clk.eq(ClockSignal("pcie")),
-                self.cd_sys.rst.eq(ResetSignal("pcie")),
-            ]
-        else:
-            cfgmclk = Signal()
-            self.specials += Instance("STARTUPE2",
-                i_CLK       = 0,
-                i_GSR       = 0,
-                i_GTS       = 0,
-                i_KEYCLEARB = 1,
-                i_PACK      = 0,
-                i_USRCCLKO  = cfgmclk,
-                i_USRCCLKTS = 0,
-                i_USRDONEO  = 1,
-                i_USRDONETS = 1,
-                o_CFGMCLK   = cfgmclk
-            )
-            self.comb += self.cd_sys.clk.eq(cfgmclk)
-            self.submodules.pll = pll = S7PLL(speedgrade=-2)
-            pll.register_clkin(cfgmclk, 65e6)
-            pll.create_clkout(self.cd_sys, sys_clk_freq)
+        assert sys_clk_freq == int(125e6)
+        self.comb += [
+            self.cd_sys.clk.eq(ClockSignal("pcie")),
+            self.cd_sys.rst.eq(ResetSignal("pcie")),
+        ]
 
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    def __init__(self, sys_clk_freq=int(125e6), with_cpu=False, with_pcie=True, pcie_lanes=2, with_led_chaser=True):
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, with_jtagbone=False, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
         # SoCCore ----------------------------------------------------------------------------------
         SoCCore.__init__(self, platform, sys_clk_freq,
-            ident          = "LiteX SoC on Fairwaves XTRX",
-            ident_version  = True,
-            cpu_type            = "vexriscv" if with_cpu else None,
-            cpu_variant         = "lite",
-            integrated_rom_size = 0x8000 if with_cpu else 0,
-            with_uart           = with_cpu,
-            uart_name           = "jtag_uart",
+            ident                    = "LiteX SoC on Fairwaves XTRX",
+            ident_version            = True,
+            cpu_type                 = "vexriscv" if with_cpu else None,
+            cpu_variant              = "lite",
+            integrated_rom_size      = 0x8000 if with_cpu else 0,
+            integrated_main_ram_size = 0x8000 if with_cpu else 0,
+            uart_name                = "crossover",
         )
 
-        # CRG --------------------------------------------------------------------------------------
-        self.submodules.crg = CRG(platform, sys_clk_freq, with_pcie)
+        # Clocking ---------------------------------------------------------------------------------
+        self.submodules.crg = CRG(platform, sys_clk_freq)
 
         # JTAGBone ---------------------------------------------------------------------------------
-        if not with_cpu:
+        if with_jtagbone:
             self.add_jtagbone()
 
         # Leds -------------------------------------------------------------------------------------
-        if with_led_chaser:
-            self.submodules.leds = LedChaser(
-                pads         = platform.request_all("user_led"),
-                sys_clk_freq = sys_clk_freq)
+        self.submodules.leds = LedChaser(
+            pads         = platform.request_all("user_led"),
+            sys_clk_freq = sys_clk_freq)
 
         # ICAP -------------------------------------------------------------------------------------
         self.submodules.icap = ICAP()
@@ -119,12 +99,19 @@ class BaseSoC(SoCCore):
         self.icap.add_timing_constraints(platform, sys_clk_freq, self.crg.cd_sys.clk)
 
         # SPIFlash ---------------------------------------------------------------------------------
-        if with_pcie:
-            self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
-            self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
+        self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
+        self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
 
-        # TCXO -------------------------------------------------------------------------------------
-        self.submodules.tcxo = TCXO(platform.request("tcxo"))
+        # PCIe -------------------------------------------------------------------------------------
+        self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x2"),
+            data_width = 64,
+            bar0_size  = 0x20000,
+            cd         = "pcie")
+        self.add_pcie(phy=self.pcie_phy, ndmas=1,
+            with_dma_buffering = True, dma_buffering_depth=1024,
+            with_dma_loopback  = True,
+            with_msi           = True
+        )
 
         # I2C --------------------------------------------------------------------------------------
         i2c_busy  = Signal()
@@ -137,7 +124,7 @@ class BaseSoC(SoCCore):
         i2c_scl1t = Signal()
         i2c_sda1i = Signal()
         i2c_scl1i = Signal()
-        if False:
+        if True:
             self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
             self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
         else:
@@ -169,42 +156,34 @@ class BaseSoC(SoCCore):
             platform.add_source("xtrxinit.vhd")
             platform.add_source("xtrxinitrom.vhd")
 
-        # PCIe -------------------------------------------------------------------------------------
-        if with_pcie:
-            self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x{pcie_lanes}"),
-                data_width = 64,
-                bar0_size  = 0x20000,
-                cd         = "pcie")
-            self.add_pcie(phy=self.pcie_phy, ndmas=1,
-                with_dma_buffering = True, dma_buffering_depth=8192,
-                with_dma_loopback  = True,
-                with_msi           = True
-            )
+        # TCXO -------------------------------------------------------------------------------------
+        self.submodules.tcxo = TCXO(platform.request("tcxo"))
 
         # LMS7002M ---------------------------------------------------------------------------------
         self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
 
         # Analyzer ---------------------------------------------------------------------------------
-        analyzer_signals = [
-            platform.lookup_request("tcxo").enable,
-            platform.lookup_request("tcxo").sel,
-            platform.lookup_request("tcxo").clk,
-            i2c_busy,
-            i2c_ok,
-            i2c_sda0t,
-            i2c_scl0t,
-            i2c_sda0i,
-            i2c_scl0i,
-            i2c_sda1t,
-            i2c_scl1t,
-            i2c_sda1i,
-            i2c_scl1i,
-        ]
-        self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
-            depth        = 512,
-            clock_domain = "sys",
-            csr_csv      = "analyzer.csv"
-        )
+        if with_analyzer:
+            analyzer_signals = [
+                platform.lookup_request("tcxo").enable,
+                platform.lookup_request("tcxo").sel,
+                platform.lookup_request("tcxo").clk,
+                i2c_busy,
+                i2c_ok,
+                i2c_sda0t,
+                i2c_scl0t,
+                i2c_sda0i,
+                i2c_scl0i,
+                i2c_sda1t,
+                i2c_scl1t,
+                i2c_sda1i,
+                i2c_scl1i,
+            ]
+            self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
+                depth        = 512,
+                clock_domain = "sys",
+                csr_csv      = "analyzer.csv"
+            )
 
 # Build --------------------------------------------------------------------------------------------
 
@@ -214,15 +193,10 @@ def main():
     parser.add_argument("--load",            action="store_true", help="Load bitstream")
     parser.add_argument("--flash",           action="store_true", help="Flash bitstream")
     parser.add_argument("--driver",          action="store_true", help="Generate PCIe driver")
-    parser.add_argument("--sys-clk-freq",    default=125e6,       help="System clock frequency (default: 125MHz)")
-    parser.add_argument("--no-pcie",         action="store_true", help="Disable PCIe (for Development with JTAGBone)")
     args = parser.parse_args()
 
-    soc = BaseSoC(
-        sys_clk_freq = int(float(args.sys_clk_freq)),
-        with_pcie    = not args.no_pcie,
-    )
-    builder  = Builder(soc, csr_csv="csr.csv")
+    soc = BaseSoC()
+    builder = Builder(soc, csr_csv="csr.csv")
     builder.build(run=args.build)
 
     if args.driver:
