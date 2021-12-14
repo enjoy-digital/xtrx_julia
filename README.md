@@ -30,8 +30,25 @@ To get and install a RISC-V toolchain, please install it manually of follow the 
 [> Build and Test the design(s)
 ---------------------------------
 
+Build the design and flash it to the board:
 ````
 ./fairwaves_xtrx.py --build --flash --driver
+````
+
+Build the Linux kernel and load it:
+````
+cd software/kernel
+make
+sudo ./init.sh
+````
+
+Build the Linux user-space utilities and test them:
+````
+cd software/user
+make
+./litepcie_util info
+./litepcie_util scratch_test
+./litepcie_util dma_test
 ````
 
 [> Contact

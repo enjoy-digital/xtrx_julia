@@ -6,22 +6,6 @@
 # Copyright (c) 2021 Florent Kermarrec <florent@enjoy-digital.fr>
 # SPDX-License-Identifier: BSD-2-Clause
 
-# Build/Use ----------------------------------------------------------------------------------------
-# Build/Flash bitstream:
-# ./fairwaves_xtrx.py --build --driver --flash
-#
-#.Build the kernel and load it:
-# cd build/<platform>/driver/kernel
-# make
-# sudo ./init.sh
-#
-# Test userspace utilities:
-# cd build/<platform>/driver/user
-# make
-# ./litepcie_util info
-# ./litepcie_util scratch_test
-# ./litepcie_util dma_test
-
 import os
 import argparse
 import sys
