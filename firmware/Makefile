@@ -3,7 +3,7 @@ BUILD_DIR?=../build/fairwaves_xtrx_platform/
 include $(BUILD_DIR)/software/include/generated/variables.mak
 include $(SOC_DIRECTORY)/software/common.mak
 
-OBJECTS = isr.o i2c0.o main.o crt0.o
+OBJECTS = isr.o i2c0.o i2c1.o main.o crt0.o
 
 all: firmware.bin
 
