@@ -10,8 +10,10 @@
 #include <libbase/console.h>
 #include <generated/csr.h>
 
+#include "i2c0.h"
+
 /*-----------------------------------------------------------------------*/
-/* Uart                                                                  */
+/* UART                                                                  */
 /*-----------------------------------------------------------------------*/
 
 static char *readstr(void)
@@ -70,7 +72,7 @@ static char *get_token(char **str)
 
 static void prompt(void)
 {
-	printf("\e[92;1mlitex-demo-app\e[0m> ");
+	printf("\e[92;1mxtrx\e[0m> ");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -83,6 +85,7 @@ static void help(void)
 	puts("Available commands:");
 	puts("help               - Show this command");
 	puts("reboot             - Reboot CPU");
+	puts("i2c_test           - Test I2C Buses");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -92,6 +95,17 @@ static void help(void)
 static void reboot_cmd(void)
 {
 	ctrl_reset_write(1);
+}
+
+/*-----------------------------------------------------------------------*/
+/* I2C                                                                   */
+/*-----------------------------------------------------------------------*/
+
+static void i2c_test(void)
+{
+	printf("I2C0 Scan...\n");
+	i2c0_scan();
+
 }
 
 /*-----------------------------------------------------------------------*/
@@ -110,6 +124,8 @@ static void console_service(void)
 		help();
 	else if(strcmp(token, "reboot") == 0)
 		reboot_cmd();
+	else if(strcmp(token, "i2c_test") == 0)
+		i2c_test();
 	prompt();
 }
 
