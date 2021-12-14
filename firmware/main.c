@@ -14,6 +14,18 @@
 #include "i2c1.h"
 
 /*-----------------------------------------------------------------------*/
+/* Helpers                                                               */
+/*-----------------------------------------------------------------------*/
+
+static inline void cdelay(int i)
+{
+	while(i > 0) {
+		__asm__ volatile(CONFIG_CPU_NOP);
+		i--;
+	}
+}
+
+/*-----------------------------------------------------------------------*/
 /* UART                                                                  */
 /*-----------------------------------------------------------------------*/
 
@@ -87,6 +99,7 @@ static void help(void)
 	puts("help               - Show this command");
 	puts("reboot             - Reboot CPU");
 	puts("i2c_test           - Test I2C Buses");
+	puts("pmic_init          - Initialize PMICs");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -112,6 +125,122 @@ static void i2c_test(void)
 }
 
 /*-----------------------------------------------------------------------*/
+/* PMIC                                                                  */
+/*-----------------------------------------------------------------------*/
+
+/* LP8758 */
+#define LP8758_ADDR 0x60
+
+static int pmic_init(void)
+{
+	unsigned char adr;
+	unsigned char dat;
+
+	printf("PMICs Initialization...\n");
+
+	tcxo_control_write(0b01); /* FIXME: Move Power-Down */
+
+	printf("PMIC-LMS: Check ID ");
+	adr = 0x01;
+	i2c0_read(LP8758_ADDR, adr, &dat, 1, true);
+	if (dat != 0xe0) {
+		printf("KO, exiting.\n");
+		return 0;
+	} else {
+		printf("OK.\n");
+	}
+
+	printf("PMIC-LMS: Enable Buck1.\n");
+	adr = 0x04;
+	dat = 0x88;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck1 to 3280mV.\n");
+	adr = 0x0c;
+	dat = 0xfb;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Disable Buck0.\n");
+	adr = 0x02;
+	dat = 0xc8;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Disable Buck2.\n");
+	adr = 0x06;
+	dat = 0xc8;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Disable Buck3.\n");
+	adr = 0x08;
+	dat = 0xc8;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck0 to 1880mV.\n");
+	adr = 0x0a;
+	dat = 0xb5;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck2 to 1480mV.\n");
+	adr = 0x0e;
+	dat = 0xa1;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck3 to 1340mV.\n");
+	adr = 0x10;
+	dat = 0x92;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	cdelay(10000);
+
+	printf("PMIC-FPGA: Check ID ");
+	adr = 0x1;
+	i2c1_read(LP8758_ADDR, adr, &dat, 1, true);
+	if (dat != 0xe0) {
+		printf("KO, exiting.\n");
+		return 0;
+	} else {
+		printf("OK.\n");
+	}
+
+
+	printf("PMIC-LMS: Enable Buck0.\n");
+	adr = 0x02;
+	dat = 0x88;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck2.\n");
+	adr = 0x06;
+	dat = 0x88;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck3.\n");
+	adr = 0x08;
+	dat = 0x88;
+	i2c0_write(LP8758_ADDR, adr, &dat, 1);
+
+	printf("PMIC-FPGA: Set Buck1 to 1800mV.\n");
+	adr = 0x0c;
+	dat = 0xb1;
+	i2c1_write(LP8758_ADDR, adr, &dat, 1);
+
+
+#if 0
+	printf("PMIC-LMS Dump...\n");
+	for (adr=0; adr<32; adr++) {
+		i2c0_read(LP8758_ADDR, adr, &dat, 1, true);
+		printf("0x%02x: 0x%02x\n", adr, dat);
+	}
+	printf("PMIC-FPGA Dump...\n");
+	for (adr=0; adr<32; adr++) {
+		i2c1_read(LP8758_ADDR, adr, &dat, 1, true);
+		printf("0x%02x: 0x%02x\n", adr, dat);
+	}
+#endif
+
+	return 1;
+}
+
+/*-----------------------------------------------------------------------*/
 /* Console service / Main                                                */
 /*-----------------------------------------------------------------------*/
 
@@ -129,6 +258,8 @@ static void console_service(void)
 		reboot_cmd();
 	else if(strcmp(token, "i2c_test") == 0)
 		i2c_test();
+	else if(strcmp(token, "pmic_init") == 0)
+		pmic_init();
 	prompt();
 }
 
