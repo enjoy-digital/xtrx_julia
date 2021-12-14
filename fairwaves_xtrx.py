@@ -96,7 +96,7 @@ class BaseSoC(SoCCore):
             with_msi           = True
         )
 
-        # I2C Peripherals --------------------------------------------------------------------------------------
+        # I2C Peripherals --------------------------------------------------------------------------
         self.comb += platform.request("pwrdwn_n").eq(1) # Enable.
 
         # I2C Bus0:
