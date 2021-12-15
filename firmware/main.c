@@ -113,8 +113,9 @@ static void help(void)
 	puts("reboot             - Reboot CPU");
 	puts("i2c_test           - Test I2C Buses");
 	puts("temp_test          - Test Temperature Sensor");
-	puts("vctxo_test          - Test VCTXO");
-	puts("pmic_init          - Initialize PMICs");
+	puts("vctxo_test         - Test VCTXO");
+	puts("rfic_test          - Test RFIC");
+	puts("xtrx_init          - Initialize XTRX");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -173,6 +174,26 @@ static void vctxo_test(void)
 		curr = vctxo_cycles_read();
 		if (i > 0)
 			printf("VCTXO freq: %3d.%03dMHz\n", (curr - prev)/100000, ((curr - prev)/100)%1000);
+		prev = curr;
+		busy_wait(100);
+	}
+}
+
+/*-----------------------------------------------------------------------*/
+/* RFIC                                                                  */
+/*-----------------------------------------------------------------------*/
+
+static void rfic_test(void)
+{
+	int i;
+	int prev;
+	int curr;
+	prev = 0;
+	for (i=0; i<8; i++) {
+		lms7002m_cycles_latch_write(1);
+		curr = lms7002m_cycles_read();
+		if (i > 0)
+			printf("LMS7002M RX freq: %3d.%03dMHz\n", (curr - prev)/100000, ((curr - prev)/100)%1000);
 		prev = curr;
 		busy_wait(100);
 	}
@@ -327,6 +348,8 @@ static void console_service(void)
 		temp_test();
 	else if(strcmp(token, "vctxo_test") == 0)
 		vctxo_test();
+	else if(strcmp(token, "rfic_test") == 0)
+		rfic_test();
 	prompt();
 }
 

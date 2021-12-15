@@ -38,7 +38,8 @@ class LMS7002M(Module, AutoCSR):
                 ("``0b1``", "LMS7002M RX Enabled.")
             ]),
         ])
-
+        self.cycles_latch = CSR()
+        self.cycles       = CSRStatus(32)
 
         # # #
 
@@ -57,6 +58,14 @@ class LMS7002M(Module, AutoCSR):
             sys_clk_freq = sys_clk_freq,
             spi_clk_freq = 1e6
         )
+
+        # Clk-Measurement.
+        self.clock_domains.cd_rfic = ClockDomain("rfic")
+        self.comb += self.cd_rfic.clk.eq(pads.mclk2)
+
+        cycles = Signal(32)
+        self.sync.rfic += cycles.eq(cycles + 1)
+        self.sync += If(self.cycles_latch.re, self.cycles.status.eq(cycles))
 
         # Data-Path.
         if with_fake_datapath:
