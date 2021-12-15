@@ -158,12 +158,12 @@ class BaseSoC(SoCCore):
 
 def main():
     parser = argparse.ArgumentParser(description="LiteX SoC on Fairwaves XTRX")
-    parser.add_argument("--build",           action="store_true", help="Build bitstream")
-    parser.add_argument("--load",            action="store_true", help="Load bitstream")
-    parser.add_argument("--flash",           action="store_true", help="Flash bitstream")
-    parser.add_argument("--driver",          action="store_true", help="Generate PCIe driver")
+    parser.add_argument("--build", action="store_true", help="Build bitstream")
+    parser.add_argument("--load",  action="store_true", help="Load bitstream")
+    parser.add_argument("--flash", action="store_true", help="Flash bitstream")
     args = parser.parse_args()
 
+    # Build SoC.
     for run in range(2):
         prepare = (run == 0)
         build   = ((run == 1) & args.build)
@@ -173,13 +173,15 @@ def main():
         if prepare:
             os.system("cd firmware && make clean all")
 
-    if args.driver:
-        generate_litepcie_software(soc, "software")
+    # Generate LitePCIe Driver.
+    generate_litepcie_software(soc, "software")
 
+    # Load Bistream.
     if args.load:
         prog = soc.platform.create_programmer()
         prog.load_bitstream(os.path.join(builder.gateware_dir, soc.build_name + ".bit"))
 
+    # Flash Bitstream.
     if args.flash:
         prog = soc.platform.create_programmer()
         prog.flash(0, os.path.join(builder.gateware_dir, soc.build_name + ".bin"))
