@@ -67,9 +67,10 @@ _io = [
 
     # GPS.
     ("gps", 0,
-        Subsignal("pps", Pins("P3"), Misc("PULLDOWN=True")),
-        Subsignal("txd", Pins("N2"), Misc("PULLUP=True")),
-        Subsignal("rxd", Pins("L1"), Misc("PULLUP=True")),
+        Subsignal("enable", Pins("L18")),
+        Subsignal("pps",    Pins("P3"), Misc("PULLDOWN=True")),
+        Subsignal("txd",    Pins("N2"), Misc("PULLUP=True")),
+        Subsignal("rxd",    Pins("L1"), Misc("PULLUP=True")),
         IOStandard("LVCMOS33")
     ),
 
@@ -80,11 +81,10 @@ _io = [
         IOStandard("LVCMOS25")
     ),
 
-    # AUX. (Split/Move/Rename?)
-    ("aux", 0,
-        Subsignal("en_gps",          Pins("L18")),
-        Subsignal("iovcc_sel",       Pins("V19")),
-        Subsignal("en_smsigio",      Pins("D17")),
+    # GPIO.
+    ("gpio", 0,
+        Subsignal("iovcc_sel",  Pins("V19")),
+        Subsignal("en_smsigio", Pins("D17")),
         IOStandard("LVCMOS25")
     ),
 

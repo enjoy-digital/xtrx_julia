@@ -32,6 +32,7 @@ from litepcie.software import generate_litepcie_software
 
 from litescope import LiteScopeAnalyzer
 
+from gateware.gpio import GPIO
 from gateware.vctxo import VCTXO
 from gateware.rf_switches import RFSwitches
 from gateware.lms7002m import LMS7002M
@@ -53,6 +54,25 @@ class CRG(Module):
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
+    SoCCore.csr_map = {
+        # SoC.
+        "uart"        : 0,
+        "icap"        : 1,
+        "flash"       : 2,
+
+        # PCIe.
+        "pcie_phy"    : 10,
+        "pcie_msi"    : 11,
+        "pcie_dma0"   : 12,
+
+        # XTRX.
+        "i2c0"        : 20,
+        "i2c1"        : 21,
+        "gpio"        : 22,
+        "vctxo"       : 23,
+        "rf_switches" : 24,
+        "lms7002m"    : 25,
+    }
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=False, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
@@ -119,6 +139,9 @@ class BaseSoC(SoCCore):
         # I2C Bus1:
         # PMIC-FPGA (LP8758 @ 0x60).
         self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
+
+        # GPIO -------------------------------------------------------------------------------------
+        self.submodules.gpio = GPIO(platform.request("gpio"))
 
         # VCTXO ------------------------------------------------------------------------------------
         self.submodules.vctxo = VCTXO(platform.request("vctxo"))
