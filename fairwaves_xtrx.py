@@ -16,6 +16,7 @@ from migen.fhdl.specials import Tristate
 import fairwaves_xtrx_platform as fairwaves_xtrx
 
 from litex.soc.interconnect.csr import *
+from litex.soc.interconnect import stream
 from litex.soc.integration.soc_core import *
 from litex.soc.integration.builder import *
 
@@ -109,11 +110,22 @@ class BaseSoC(SoCCore):
         # PMIC-FPGA (LP8758 @ 0x60).
         self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
 
-        # VCTXO -------------------------------------------------------------------------------------
+        # VCTXO ------------------------------------------------------------------------------------
         self.submodules.vctxo = VCTXO(platform.request("vctxo"))
 
         # LMS7002M ---------------------------------------------------------------------------------
         self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
+
+        # FIXME: Simulated LMS7002M Loopback, only for testing, remove.
+        conv_64_to_16 = stream.Converter(64, 16)
+        conv_16_to_64 = stream.Converter(16, 64)
+        self.submodules += conv_64_to_16, conv_16_to_64
+        self.comb += [
+            self.pcie_dma0.source.connect(conv_64_to_16.sink, keep={"valid", "ready", "data"}),
+            conv_64_to_16.source.connect(conv_16_to_64.sink,  keep={"valid", "ready"}),
+            conv_16_to_64.sink.data.eq(conv_64_to_16.source.data[:12]), # Only keep 12-bit.
+            conv_16_to_64.source.connect(self.pcie_dma0.sink, keep={"valid", "ready", "data"}),
+        ]
 
         # Analyzer ---------------------------------------------------------------------------------
         if with_analyzer:
