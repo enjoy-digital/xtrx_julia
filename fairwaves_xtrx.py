@@ -33,6 +33,7 @@ from litepcie.software import generate_litepcie_software
 from litescope import LiteScopeAnalyzer
 
 from gateware.vctxo import VCTXO
+from gateware.rf_switches import RFSwitches
 from gateware.lms7002m import LMS7002M
 
 # CRG ----------------------------------------------------------------------------------------------
@@ -117,6 +118,9 @@ class BaseSoC(SoCCore):
 
         # VCTXO ------------------------------------------------------------------------------------
         self.submodules.vctxo = VCTXO(platform.request("vctxo"))
+
+        # RF Switches ------------------------------------------------------------------------------
+        self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))
 
         # LMS7002M ---------------------------------------------------------------------------------
         self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
