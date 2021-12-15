@@ -33,6 +33,7 @@ from litepcie.software import generate_litepcie_software
 from litescope import LiteScopeAnalyzer
 
 from gateware.gpio import GPIO
+from gateware.gps import GPS
 from gateware.vctxo import VCTXO
 from gateware.rf_switches import RFSwitches
 from gateware.lms7002m import LMS7002M
@@ -69,9 +70,10 @@ class BaseSoC(SoCCore):
         "i2c0"        : 20,
         "i2c1"        : 21,
         "gpio"        : 22,
-        "vctxo"       : 23,
-        "rf_switches" : 24,
-        "lms7002m"    : 25,
+        "gps"         : 23,
+        "vctxo"       : 24,
+        "rf_switches" : 25,
+        "lms7002m"    : 26,
     }
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=False, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
@@ -142,6 +144,9 @@ class BaseSoC(SoCCore):
 
         # GPIO -------------------------------------------------------------------------------------
         self.submodules.gpio = GPIO(platform.request("gpio"))
+
+        # GPS --------------------------------------------------------------------------------------
+        self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
         # VCTXO ------------------------------------------------------------------------------------
         self.submodules.vctxo = VCTXO(platform.request("vctxo"))
