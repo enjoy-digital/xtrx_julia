@@ -31,7 +31,7 @@ from litepcie.software import generate_litepcie_software
 
 from litescope import LiteScopeAnalyzer
 
-from gateware.tcxo import TCXO
+from gateware.vctxo import VCTXO
 from gateware.lms7002m import LMS7002M
 
 # CRG ----------------------------------------------------------------------------------------------
@@ -102,15 +102,15 @@ class BaseSoC(SoCCore):
         # I2C Bus0:
         # - Temperature Sensor (TMP108  @ 0x4a).
         # - PMIC-LMS           (LP8758  @ 0x60).
-        # - TCXO DAC           (LTC26x6 @ 0x62).
+        # - VCTXO DAC          (LTC26x6 @ 0x62).
         self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
 
         # I2C Bus1:
         # PMIC-FPGA (LP8758 @ 0x60).
         self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
 
-        # TCXO -------------------------------------------------------------------------------------
-        self.submodules.tcxo = TCXO(platform.request("tcxo"))
+        # VCTXO -------------------------------------------------------------------------------------
+        self.submodules.vctxo = VCTXO(platform.request("vctxo"))
 
         # LMS7002M ---------------------------------------------------------------------------------
         self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
@@ -118,9 +118,9 @@ class BaseSoC(SoCCore):
         # Analyzer ---------------------------------------------------------------------------------
         if with_analyzer:
             analyzer_signals = [
-                platform.lookup_request("tcxo").enable,
-                platform.lookup_request("tcxo").sel,
-                platform.lookup_request("tcxo").clk,
+                platform.lookup_request("vctxo").enable,
+                platform.lookup_request("vctxo").sel,
+                platform.lookup_request("vctxo").clk,
                 i2c_busy,
                 i2c_ok,
                 i2c_sda0t,

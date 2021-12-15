@@ -17,8 +17,8 @@
 /* Constants                                                             */
 /*-----------------------------------------------------------------------*/
 
-#define XTRX_EXT_CLK  (1 << 0)
-#define XTRX_TCXO_CLK (0 << 0)
+#define XTRX_EXT_CLK   (1 << 0)
+#define XTRX_VCTXO_CLK (0 << 0)
 
 #define TMP108_I2C_ADDR  0x4a
 #define LP8758_I2C_ADDR  0x60
@@ -113,7 +113,7 @@ static void help(void)
 	puts("reboot             - Reboot CPU");
 	puts("i2c_test           - Test I2C Buses");
 	puts("temp_test          - Test Temperature Sensor");
-	puts("tcxo_test          - Test TCXO");
+	puts("vctxo_test          - Test VCTXO");
 	puts("pmic_init          - Initialize PMICs");
 }
 
@@ -156,23 +156,23 @@ static void temp_test(void)
 }
 
 /*-----------------------------------------------------------------------*/
-/* TCXO                                                                  */
+/* VCTXO                                                                  */
 /*-----------------------------------------------------------------------*/
 
-/* TODO: Qualify LTC26X6 effect on TCXO: +- XXppm */
+/* TODO: Qualify LTC26X6 effect on VCTXO: +- XXppm */
 
-static void tcxo_test(void)
+static void vctxo_test(void)
 {
 	int i;
 	int prev;
 	int curr;
 	prev = 0;
-	tcxo_control_write(XTRX_TCXO_CLK);
+	vctxo_control_write(XTRX_VCTXO_CLK);
 	for (i=0; i<2; i++) {
-		tcxo_cycles_latch_write(1);
-		curr = tcxo_cycles_read();
+		vctxo_cycles_latch_write(1);
+		curr = vctxo_cycles_read();
 		if (i > 0)
-			printf("TCXO freq: %3d.%03dMHz\n", (curr - prev)/100000, ((curr - prev)/100)%1000);
+			printf("VCTXO freq: %3d.%03dMHz\n", (curr - prev)/100000, ((curr - prev)/100)%1000);
 		prev = curr;
 		busy_wait(100);
 	}
@@ -288,17 +288,17 @@ static int xtrx_init(void)
 #endif
 
 	printf("\n");
-	printf("TCXO Initialization...\n");
+	printf("VCTXO Initialization...\n");
 	printf("----------------------\n");
-	printf("Using TCXO Clk.\n");
-	tcxo_control_write(XTRX_TCXO_CLK);
+	printf("Using VCTXO Clk.\n");
+	vctxo_control_write(XTRX_VCTXO_CLK);
 
 	printf("\n");
 	printf("Board Tests...\n");
 	printf("--------------\n");
 	i2c_test();
 	temp_test();
-	tcxo_test();
+	vctxo_test();
 
 	return 1;
 }
@@ -325,8 +325,8 @@ static void console_service(void)
 		i2c_test();
 	else if(strcmp(token, "temp_test") == 0)
 		temp_test();
-	else if(strcmp(token, "tcxo_test") == 0)
-		tcxo_test();
+	else if(strcmp(token, "vctxo_test") == 0)
+		vctxo_test();
 	prompt();
 }
 

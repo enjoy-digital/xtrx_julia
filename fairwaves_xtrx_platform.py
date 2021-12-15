@@ -73,10 +73,10 @@ _io = [
         IOStandard("LVCMOS33")
     ),
 
-    # TCXO.
-    ("tcxo", 0,
-        Subsignal("sel",    Pins("V17"), Misc("PULLDOWN=True")), # ext_clk
-        Subsignal("clk",    Pins("N17"), Misc("PULLDOWN=True")), # fpga_clk_vctcxo
+    # VCTXO.
+    ("vctxo", 0,
+        Subsignal("sel",    Pins("V17"), Misc("PULLDOWN=True")),
+        Subsignal("clk",    Pins("N17"), Misc("PULLDOWN=True")),
         IOStandard("LVCMOS25")
     ),
 
