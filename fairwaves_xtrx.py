@@ -52,7 +52,7 @@ class CRG(Module):
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, with_jtagbone=False, with_analyzer=False):
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
         # SoCCore ----------------------------------------------------------------------------------
@@ -60,10 +60,15 @@ class BaseSoC(SoCCore):
             ident                    = "LiteX SoC on Fairwaves XTRX",
             ident_version            = True,
             cpu_type                 = "vexriscv" if with_cpu else None,
-            integrated_rom_size      = 0x8000  if with_cpu else 0,
-            integrated_main_ram_size = 0x10000 if with_cpu else 0,
+            integrated_rom_size      = 0x8000 if with_cpu else 0,
+            integrated_main_ram_size = 0x8000 if with_cpu else 0,
+            integrated_main_ram_init = [] if cpu_firmware is None else get_mem_data(cpu_firmware, "little"),
             uart_name                = "crossover",
         )
+        # Automatically jump to pre-initialized firmware.
+        self.add_constant("ROM_BOOT_ADDRESS", self.mem_map["main_ram"])
+        # Avoid stalling CPU at startup.
+        #self.uart.add_auto_tx_flush(sys_clk_freq=sys_clk_freq, timeout=1, interval=128) # FIXME: Present Flashing when executed automatically.
 
         # Clocking ---------------------------------------------------------------------------------
         self.submodules.crg = CRG(platform, sys_clk_freq)
@@ -160,9 +165,14 @@ def main():
     parser.add_argument("--driver",          action="store_true", help="Generate PCIe driver")
     args = parser.parse_args()
 
-    soc = BaseSoC()
-    builder = Builder(soc, csr_csv="csr.csv")
-    builder.build(run=args.build)
+    for run in range(2):
+        prepare = (run == 0)
+        build   = ((run == 1) & args.build)
+        soc = BaseSoC(cpu_firmware=None if prepare else "firmware/firmware.bin")
+        builder = Builder(soc, csr_csv="csr.csv")
+        builder.build(run=build)
+        if prepare:
+            os.system("cd firmware && make clean all")
 
     if args.driver:
         generate_litepcie_software(soc, "software")
