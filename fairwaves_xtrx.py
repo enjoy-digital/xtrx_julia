@@ -31,8 +31,8 @@ from litepcie.software import generate_litepcie_software
 
 from litescope import LiteScopeAnalyzer
 
-from tcxo import TCXO
-from lms7002m import LMS7002M
+from gateware.tcxo import TCXO
+from gateware.lms7002m import LMS7002M
 
 # CRG ----------------------------------------------------------------------------------------------
 
