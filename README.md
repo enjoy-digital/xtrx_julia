@@ -53,7 +53,12 @@ make
 ./litepcie_util dma_test
 ````
 
-Build the firmware and use it:
+The firmware is automatically integrated in the SoC during the build and can be executed with:
+````
+sudo litex_term /dev/ttyLXU0
+````
+
+For development, firmware can be recompiled and reloaded with:
 ````
 cd firmware
 make
