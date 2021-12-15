@@ -53,7 +53,7 @@ class CRG(Module):
 # BaseSoC -----------------------------------------------------------------------------------------
 
 class BaseSoC(SoCCore):
-    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=False, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
         # SoCCore ----------------------------------------------------------------------------------
@@ -61,8 +61,10 @@ class BaseSoC(SoCCore):
             ident                    = "LiteX SoC on Fairwaves XTRX",
             ident_version            = True,
             cpu_type                 = "vexriscv" if with_cpu else None,
+            cpu_variant              = "minimal",
             integrated_rom_size      = 0x8000 if with_cpu else 0,
-            integrated_main_ram_size = 0x8000 if with_cpu else 0,
+            integrated_sram_ram_size = 0x1000 if with_cpu else 0,
+            integrated_main_ram_size = 0x4000 if with_cpu else 0,
             integrated_main_ram_init = [] if cpu_firmware is None else get_mem_data(cpu_firmware, "little"),
             uart_name                = "crossover",
         )
@@ -81,7 +83,8 @@ class BaseSoC(SoCCore):
         # Leds -------------------------------------------------------------------------------------
         self.submodules.leds = LedChaser(
             pads         = platform.request_all("user_led"),
-            sys_clk_freq = sys_clk_freq)
+            sys_clk_freq = sys_clk_freq
+        )
 
         # ICAP -------------------------------------------------------------------------------------
         self.submodules.icap = ICAP()
@@ -96,7 +99,8 @@ class BaseSoC(SoCCore):
         self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x2"),
             data_width = 64,
             bar0_size  = 0x20000,
-            cd         = "pcie")
+            cd         = "pcie"
+        )
         self.add_pcie(phy=self.pcie_phy, ndmas=1,
             with_dma_buffering = True, dma_buffering_depth=1024,
             with_dma_loopback  = True,
