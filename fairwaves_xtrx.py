@@ -142,6 +142,18 @@ class BaseSoC(SoCCore):
         # PMIC-FPGA (LP8758 @ 0x60).
         self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
 
+        # PMIC-FPGA:
+        # Buck0: 1.0V VCCINT + 1.0V MGTAVCC.
+        # Buck1: 1.8V/3.3V VCCIO (DIGPRVDD2/DIGPRVDD3/DIGPRPOC + VDD18_TXBUF of LMS + Bank 0/14/16/34/35 of FPGA).
+        # Buck2: 1.2V MGTAVTT + 1.2V VDLMS (VDD12_DIG / VDD_SPI_BUF / DVDD_SXR / DVDD_SXT / DVDD_CGEN).
+        # Buck3: 1.8V VCCAUX  + 1.8V VDLMS (VDD18_DIG).
+
+        # PMIC-LMS:
+        # Buck0: +2.05V (used as input to 1.8V LDO for LMS analog 1.8V).
+        # Buck1: +3.3V rail.
+        # Buck2: +1.75V (used as input to 1.4V LDO for LMS analog 1.4V).
+        # Buck3: +1.5V  (used as input to 1.25V LDO for LMS analog 1.25V).
+
         # GPIO -------------------------------------------------------------------------------------
         self.submodules.gpio = GPIO(platform.request("gpio"))
 
