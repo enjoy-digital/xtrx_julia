@@ -52,8 +52,14 @@ void lms7002m_spi_test(const char *device_name)
         0 * (1 << CSR_LMS7002M_CONTROL_RX_ENABLE_OFFSET)
     );
 
+    printf("Reset LMS7002M...\n");
+    lms7002m_spi_write(fd, 0x20, 0x0000);
+    printf("0x20: 0x%04x\n", lms7002m_spi_read(fd, 0x20));
+    lms7002m_spi_write(fd, 0x20, 0xffff);
+    printf("0x20: 0x%04x\n", lms7002m_spi_read(fd, 0x20));
+
     printf("Dump LMS7002M Registers...\n");
-    for (i=0; i<128; i++) {
+    for (i=0; i<64; i++) {
         printf("reg 0x%04x: 0x%04x\n", i, lms7002m_spi_read(fd, i));
     }
 
