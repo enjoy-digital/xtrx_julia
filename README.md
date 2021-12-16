@@ -65,6 +65,27 @@ make
 sudo litex_term /dev/ttyLXU0 --kernel=firmware.bin --safe
 ````
 
+Get/Use modified LimeSuite:
+````
+git clone https://github.com/JuliaComputing/LimeSuite
+cd LimeSuite
+git checkout tb/xtrx_litepcie
+mkdir builddir
+cd builddir
+LITEPCIE_ROOT=/path/to/litepcie cmake -DENABLE_XTRX=yes
+make
+sudo make install
+````
+
+Get/Use modified LMS7002M-driver:
+````
+https://github.com/JuliaComputing/LMS7002M-driver
+cd LMS7002M-driver
+git checkout tb/xtrx
+LITEPCIE_ROOT=/path/to/xtrx_julia/software cmake -GNinja -DCMAKE_BUILD_TYPE=Debug ../
+make
+````
+
 [> Contact
 -------------
 E-mail: florent@enjoy-digital.fr
