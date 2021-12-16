@@ -74,8 +74,8 @@ _io = [
         IOStandard("LVCMOS33")
     ),
 
-    # VCTXO.
-    ("vctxo", 0,
+    # VCTCXO.
+    ("vctcxo", 0,
         Subsignal("sel",    Pins("V17"), Misc("PULLDOWN=True")),
         Subsignal("clk",    Pins("N17"), Misc("PULLDOWN=True")),
         IOStandard("LVCMOS25")

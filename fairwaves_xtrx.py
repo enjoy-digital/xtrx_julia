@@ -34,7 +34,7 @@ from litescope import LiteScopeAnalyzer
 
 from gateware.gpio import GPIO
 from gateware.gps import GPS
-from gateware.vctxo import VCTXO
+from gateware.vctcxo import VCTCXO
 from gateware.rf_switches import RFSwitches
 from gateware.lms7002m import LMS7002M
 
@@ -71,7 +71,7 @@ class BaseSoC(SoCCore):
         "i2c1"        : 21,
         "gpio"        : 22,
         "gps"         : 23,
-        "vctxo"       : 24,
+        "vctcxo"      : 24,
         "rf_switches" : 25,
         "lms7002m"    : 26,
     }
@@ -135,7 +135,7 @@ class BaseSoC(SoCCore):
         # I2C Bus0:
         # - Temperature Sensor (TMP108  @ 0x4a).
         # - PMIC-LMS           (LP8758  @ 0x60).
-        # - VCTXO DAC          (LTC26x6 @ 0x62).
+        # - VCTCXO DAC         (LTC26x6 @ 0x62).
         self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
 
         # I2C Bus1:
@@ -148,8 +148,8 @@ class BaseSoC(SoCCore):
         # GPS --------------------------------------------------------------------------------------
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
-        # VCTXO ------------------------------------------------------------------------------------
-        self.submodules.vctxo = VCTXO(platform.request("vctxo"))
+        # VCTCXO ------------------------------------------------------------------------------------
+        self.submodules.vctcxo = VCTCXO(platform.request("vctcxo"))
 
         # RF Switches ------------------------------------------------------------------------------
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))
@@ -162,9 +162,9 @@ class BaseSoC(SoCCore):
         # Analyzer ---------------------------------------------------------------------------------
         if with_analyzer:
             analyzer_signals = [
-                platform.lookup_request("vctxo").enable,
-                platform.lookup_request("vctxo").sel,
-                platform.lookup_request("vctxo").clk,
+                platform.lookup_request("vctcxo").enable,
+                platform.lookup_request("vctcxo").sel,
+                platform.lookup_request("vctcxo").clk,
                 i2c_busy,
                 i2c_ok,
                 i2c_sda0t,

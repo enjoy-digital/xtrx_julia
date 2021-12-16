@@ -9,13 +9,13 @@ from migen.genlib.cdc import PulseSynchronizer
 
 from litex.soc.interconnect.csr import *
 
-# VCTXO --------------------------------------------------------------------------------------------
+# VCTCXO --------------------------------------------------------------------------------------------
 
-class VCTXO(Module, AutoCSR):
+class VCTCXO(Module, AutoCSR):
     def __init__(self, pads):
         self.control = CSRStorage(fields=[
             CSRField("sel", size=1, offset=0, values=[
-                ("``0b0``", "Use VCTXO Clk."),
+                ("``0b0``", "Use VCTCXO Clk."),
                 ("``0b1``", "Use External Clk.")
             ], reset=0),
         ])
@@ -28,10 +28,10 @@ class VCTXO(Module, AutoCSR):
         self.comb += pads.sel.eq(self.control.fields.sel)
 
         # Clock Input.
-        self.clock_domains.cd_txco = ClockDomain("vctxo")
+        self.clock_domains.cd_txco = ClockDomain("vctcxo")
         self.comb += self.cd_txco.clk.eq(pads.clk)
 
         # Cycles Count.
         cycles = Signal(32)
-        self.sync.vctxo += cycles.eq(cycles + 1)
+        self.sync.vctcxo += cycles.eq(cycles + 1)
         self.sync += If(self.cycles_latch.re, self.cycles.status.eq(cycles))
