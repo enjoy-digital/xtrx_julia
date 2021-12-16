@@ -3,9 +3,12 @@ LDFLAGS=-g
 CC=$(CROSS_COMPILE)gcc
 AR=ar
 
-PROGS=test_lms7002m_spi
+PROGS=test_gps test_lms7002m_spi
 
 all: $(PROGS)
+
+test_gps: test_gps.o
+	$(CC) $(LDFLAGS) -o $@ $^ -L../user/liblitepcie -llitepcie
 
 test_lms7002m_spi: test_lms7002m_spi.o
 	$(CC) $(LDFLAGS) -o $@ $^ -L../user/liblitepcie -llitepcie

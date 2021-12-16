@@ -32,4 +32,4 @@ class GPS(Module, AutoCSR):
 
         # UART.
         self.submodules.uart_phy = UARTPHY(pads, sys_clk_freq, baudrate=baudrate)
-        self.submodules.uart     = UART(self.uart_phy)
+        self.submodules.uart     = UART(self.uart_phy, rx_fifo_rx_we=True)

@@ -38,7 +38,7 @@ void lms7002m_spi_test(const char *device_name)
     int fd;
     int i;
 
-    fd = open("/dev/litepcie0", O_RDWR);
+    fd = open(device_name, O_RDWR);
     if (fd < 0) {
         fprintf(stderr, "Could not init driver\n");
         exit(1);
