@@ -18,7 +18,7 @@ void gps_test(const char *device_name)
 
     printf("Enabling GPS...\n");
     litepcie_writel(fd, CSR_GPS_CONTROL_ADDR,
-        0 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET)
+        1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET)
     );
 
     printf("Dump GPS UART...\n");

@@ -67,7 +67,7 @@ _io = [
 
     # GPS.
     ("gps", 0,
-        Subsignal("enable", Pins("L18"), IOStandard("LVCMOS25")),
+        Subsignal("rst",    Pins("L18"), IOStandard("LVCMOS25")),
         Subsignal("pps",    Pins("P3"),  Misc("PULLDOWN=True")),
         Subsignal("rx" ,    Pins("N2"),  Misc("PULLUP=True")),
         Subsignal("tx" ,    Pins("L1"),  Misc("PULLUP=True")),
