@@ -78,3 +78,84 @@ class LMS7002M(Module, AutoCSR):
                 conv_16_to_64.sink.data.eq(conv_64_to_16.source.data[:12]), # Only keep 12-bit.
                 conv_16_to_64.source.connect(self.source, keep={"valid", "ready", "data"}),
             ]
+        else:
+            # TX Datapath --------------------------------------------------------------------------
+            tx_cdc  = stream.ClockDomainCrossing([("data", 64)], cd_from="sys", cd_to="rfic")
+            tx_conv = ClockDomainsRenamer("rfic")(stream.Converter(64, 32))
+            self.submodules += tx_cdc, tx_conv
+            self.comb += self.sink.connect(tx_cdc.sink)
+            self.comb += tx_cdc.source.connect(tx_conv.sink)
+
+            # TX Clk.
+            self.specials += Instance("ODDR",
+                p_DDR_CLK_EDGE = "SAME_EDGE",
+                i_C  = ClockSignal("rfic"),
+                i_CE = 1,
+                i_S  = 0,
+                i_R  = 0,
+                i_D1 = 1,
+                i_D2 = 0,
+                o_Q  = pads.fclk1
+            )
+
+            # TX Frame.
+            tx_frame = Signal()
+            self.sync.rfic += tx_frame.eq(~tx_frame)
+            self.specials += Instance("ODDR",
+                p_DDR_CLK_EDGE = "SAME_EDGE",
+                i_C  = ClockSignal("rfic"),
+                i_CE = 1,
+                i_S  = 0,
+                i_R  = 0,
+                i_D1 = tx_frame,
+                i_D2 = tx_frame,
+                o_Q  = pads.iqsel1
+            )
+
+            # TX Data.
+            self.comb += tx_conv.source.ready.eq(1)
+            for n in range(12):
+                self.specials += Instance("ODDR",
+                    p_DDR_CLK_EDGE = "SAME_EDGE",
+                    i_C  = ClockSignal("rfic"),
+                    i_CE = 1,
+                    i_S  = 0,
+                    i_R  = 0,
+                    i_D1 = tx_conv.source.data[n +  0],
+                    i_D2 = tx_conv.source.data[n + 16],
+                    o_Q  = pads.diq1[n]
+                )
+
+            # RX Datapath --------------------------------------------------------------------------
+            rx_cdc  = stream.ClockDomainCrossing([("data", 64)], cd_from="rfic", cd_to="sys")
+            rx_conv = ClockDomainsRenamer("rfic")(stream.Converter(32, 64))
+            self.submodules += rx_cdc, rx_conv
+            self.comb += rx_conv.source.connect(rx_cdc.sink)
+            self.comb += rx_cdc.source.connect(self.source)
+
+            # RX Frame.
+            rx_frame = Signal()
+            self.specials += Instance("IDDR",
+                p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
+                i_C  = ClockSignal("rfic"),
+                i_CE = 1,
+                i_S  = 0,
+                i_R  = 0,
+                i_D  = pads.iqsel2,
+                o_Q1 = rx_frame,
+                o_Q2 = Signal(),
+            )
+
+            # RX Data.
+            self.comb += rx_conv.sink.valid.eq(1)
+            for n in range(12):
+                self.specials += Instance("IDDR",
+                    p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
+                    i_C  = ClockSignal("rfic"),
+                    i_CE = 1,
+                    i_S  = 0,
+                    i_R  = 0,
+                    i_D  = pads.diq2,
+                    o_Q1 = rx_conv.sink.data[n +  0],
+                    o_Q2 = rx_conv.sink.data[n + 16],
+                )
