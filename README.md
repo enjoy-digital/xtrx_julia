@@ -72,18 +72,21 @@ cd LimeSuite
 git checkout tb/xtrx_litepcie
 mkdir builddir
 cd builddir
-LITEPCIE_ROOT=/path/to/litepcie cmake -DENABLE_XTRX=yes
+LITEPCIE_ROOT=/path/to/xtrx_julia/software cmake -DENABLE_XTRX=yes -DCMAKE_BUILD_TYPE=Debug ../
 make
 sudo make install
 ````
 
 Get/Use modified LMS7002M-driver:
 ````
-https://github.com/JuliaComputing/LMS7002M-driver
+git clone https://github.com/JuliaComputing/LMS7002M-driver
 cd LMS7002M-driver
 git checkout tb/xtrx
-LITEPCIE_ROOT=/path/to/xtrx_julia/software cmake -GNinja -DCMAKE_BUILD_TYPE=Debug ../
+mkdir build
+cd build
+LITEPCIE_ROOT=/path/to/xtrx_julia/software cmake -DCMAKE_BUILD_TYPE=Debug ../
 make
+sudo make install
 ````
 
 [> Contact
