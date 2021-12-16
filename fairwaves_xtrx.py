@@ -93,7 +93,7 @@ class BaseSoC(SoCCore):
         # Automatically jump to pre-initialized firmware.
         self.add_constant("ROM_BOOT_ADDRESS", self.mem_map["main_ram"])
         # Avoid stalling CPU at startup.
-        #self.uart.add_auto_tx_flush(sys_clk_freq=sys_clk_freq, timeout=1, interval=128) # FIXME: Present Flashing when executed automatically.
+        self.uart.add_auto_tx_flush(sys_clk_freq=sys_clk_freq, timeout=1, interval=128)
 
         # Clocking ---------------------------------------------------------------------------------
         self.submodules.crg = CRG(platform, sys_clk_freq)
