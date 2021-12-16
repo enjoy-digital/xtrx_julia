@@ -32,11 +32,11 @@ class LMS7002M(Module, AutoCSR):
             CSRField("tx_enable", size=1, offset=8, values=[
                 ("``0b0``", "LMS7002M TX Disabled."),
                 ("``0b1``", "LMS7002M TX Enabled.")
-            ]),
+            ], reset=1),
             CSRField("rx_enable", size=1, offset=9, values=[
                 ("``0b0``", "LMS7002M RX Disabled."),
                 ("``0b1``", "LMS7002M RX Enabled.")
-            ]),
+            ], reset=1),
         ])
         self.cycles_latch = CSR()
         self.cycles       = CSRStatus(32)
@@ -46,9 +46,9 @@ class LMS7002M(Module, AutoCSR):
         # Drive Control Pins.
         self.comb += [
             pads.rst_n.eq(~self.control.fields.reset),
-            pads.pwrdwn_n.eq(~self.control.fields.power_down), # FIXME: Check polarity.
-            pads.txen.eq(self.control.fields.tx_enable),       # FIXME: Check polarity.
-            pads.rxen.eq(self.control.fields.rx_enable),       # FIXME: Check polarity.
+            pads.pwrdwn_n.eq(~self.control.fields.power_down),
+            pads.txen.eq(self.control.fields.tx_enable),
+            pads.rxen.eq(self.control.fields.rx_enable),
         ]
 
         # SPI.

@@ -24,6 +24,11 @@
 #define LP8758_I2C_ADDR  0x60
 #define LTC26X6_I2C_ADDR 0x62
 
+#define LMS7002M_RESET      (1 << 0)
+#define LMS7002M_POWER_DOWN (1 << 1)
+#define LMS7002M_TX_ENABLE  (1 << 2)
+#define LMS7002M_RX_ENABLE  (1 << 3)
+
 /*-----------------------------------------------------------------------*/
 /* Helpers                                                               */
 /*-----------------------------------------------------------------------*/
@@ -289,9 +294,9 @@ static int xtrx_init(void)
 	dat = 0x88;
 	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
-	printf("PMIC-FPGA: Set Buck1 to 1800mV.\n");
+	printf("PMIC-FPGA: Set Buck1 to 3280mV.\n");
 	adr = 0x0c;
-	dat = 0xb1;
+	dat = 0xfb;
 	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
 
@@ -313,6 +318,18 @@ static int xtrx_init(void)
 	printf("----------------------\n");
 	printf("Using VCTCXO Clk.\n");
 	vctcxo_control_write(XTRX_VCTCXO_CLK);
+
+	printf("\n");
+	printf("LMS7002M Initialization...\n");
+	printf("---------------------------\n");
+	printf("LMS7002M Power-Down.\n");
+	lms7002m_control_write(LMS7002M_RESET | LMS7002M_POWER_DOWN);
+	busy_wait(1);
+	printf("LMS7002M Reset.\n");
+	lms7002m_control_write(LMS7002M_RESET);
+	busy_wait(1);
+	printf("LMS7002M TX/RX Enable.\n");
+	lms7002m_control_write(LMS7002M_TX_ENABLE | LMS7002M_RX_ENABLE);
 
 	printf("\n");
 	printf("Board Tests...\n");
