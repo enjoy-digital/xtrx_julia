@@ -75,7 +75,7 @@ class BaseSoC(SoCCore):
         "rf_switches" : 25,
         "lms7002m"    : 26,
     }
-    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=False, with_analyzer=False):
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=True):
         platform = fairwaves_xtrx.Platform()
 
         # SoCCore ----------------------------------------------------------------------------------
@@ -174,19 +174,7 @@ class BaseSoC(SoCCore):
         # Analyzer ---------------------------------------------------------------------------------
         if with_analyzer:
             analyzer_signals = [
-                platform.lookup_request("vctcxo").enable,
-                platform.lookup_request("vctcxo").sel,
-                platform.lookup_request("vctcxo").clk,
-                i2c_busy,
-                i2c_ok,
-                i2c_sda0t,
-                i2c_scl0t,
-                i2c_sda0i,
-                i2c_scl0i,
-                i2c_sda1t,
-                i2c_scl1t,
-                i2c_sda1i,
-                i2c_scl1i,
+                platform.lookup_request("lms7002m")
             ]
             self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
                 depth        = 512,
