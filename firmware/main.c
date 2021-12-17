@@ -22,7 +22,7 @@
 
 #define TMP108_I2C_ADDR  0x4a
 #define LP8758_I2C_ADDR  0x60
-#define LTC26X6_I2C_ADDR 0x62
+#define MPC4725_I2C_ADDR 0x62
 
 #define LMS7002M_RESET      (1 << 0)
 #define LMS7002M_POWER_DOWN (1 << 1)
@@ -162,25 +162,41 @@ static void temp_test(void)
 }
 
 /*-----------------------------------------------------------------------*/
-/* VCTCXO                                                                  */
+/* VCTCXO                                                                */
 /*-----------------------------------------------------------------------*/
 
-/* TODO: Qualify LTC26X6 effect on VCTCXO: +- XXppm */
+static void vctcxo_dac_set(int value) {
+	unsigned char dat0;
+	unsigned char dat1;
+	value = value & 0xfff;
+	dat0 = (0b0000 << 4) | (value >> 8);
+	dat1 = (value & 0xff);
+	i2c1_write(MPC4725_I2C_ADDR, dat0, &dat1, 1);
+}
 
-static void vctcxo_test(void)
+static void vctcxo_test(int n)
 {
 	int i;
 	int prev;
 	int curr;
+	int diff;
 	prev = 0;
 	vctcxo_control_write(XTRX_VCTCXO_CLK);
-	for (i=0; i<2; i++) {
+	for (i=0; i<n; i++) {
+		vctcxo_dac_set(i*0x100);
 		vctcxo_cycles_latch_write(1);
 		curr = vctcxo_cycles_read();
-		if (i > 0)
-			printf("VCTCXO freq: %3d.%03dMHz\n", (curr - prev)/100000, ((curr - prev)/100)%1000);
+		if (i > 0) {
+			diff = curr - prev;
+			printf("VCTCXO freq: %3d.%03dMHz (cycles: %d / dac: 0x%04x)\n",
+				(diff)/1000000,
+				(diff/1000)%1000,
+				curr - prev,
+				i*0x100
+			);
+		}
 		prev = curr;
-		busy_wait(100);
+		busy_wait(1000);
 	}
 }
 
@@ -336,7 +352,7 @@ static int xtrx_init(void)
 	printf("--------------\n");
 	i2c_test();
 	temp_test();
-	vctcxo_test();
+	vctcxo_test(2);
 
 	return 1;
 }
@@ -364,7 +380,7 @@ static void console_service(void)
 	else if(strcmp(token, "temp_test") == 0)
 		temp_test();
 	else if(strcmp(token, "vctcxo_test") == 0)
-		vctcxo_test();
+		vctcxo_test(16);
 	else if(strcmp(token, "rfic_test") == 0)
 		rfic_test();
 	prompt();
