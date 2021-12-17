@@ -53,7 +53,7 @@ _io = [
     # Power-Down.
     ("pwrdwn_n", 0, Pins("R19"), IOStandard("LVCMOS25")),
 
-    # I2C.
+    # I2C buses.
     ("i2c", 0,
         Subsignal("scl", Pins("U14"), Misc("PULLUP=True")),
         Subsignal("sda", Pins("U15"), Misc("PULLUP=True")),
@@ -97,26 +97,26 @@ _io = [
 
     # RF-IC / LMS7002M.
     ("lms7002m", 0,
-        # Control
+        # Control.
         Subsignal("rst_n",    Pins("U19")),
         Subsignal("pwrdwn_n", Pins("W17")),
         Subsignal("rxen",     Pins("W18")),
         Subsignal("txen",     Pins("W19")),
 
-        # SPI
-        Subsignal("clk",  Pins("W14")),                        # sclk
-        Subsignal("cs_n", Pins("W13")),                        # saen
-        Subsignal("mosi", Pins("W16"), Misc("PULLDOWN=True")), # sdio
-        Subsignal("miso", Pins("W15"), Misc("PULLDOWN=True")), # sdo
+        # SPI.
+        Subsignal("clk",  Pins("W14")),
+        Subsignal("cs_n", Pins("W13")),
+        Subsignal("mosi", Pins("W16"), Misc("PULLDOWN=True")),
+        Subsignal("miso", Pins("W15"), Misc("PULLDOWN=True")),
 
-        # TX-Interface.
+        # RX-Interface (LMS -> FPGA).
         Subsignal("diq1",   Pins("J19 H17 G17 K17 H19 U16 J17 P19 U17 N19 V15 V16")),
         Subsignal("txnrx1", Pins("M19")),
         Subsignal("iqsel1", Pins("P17")),
         Subsignal("mclk1",  Pins("L17")),
         Subsignal("fclk1",  Pins("G19")),
 
-        # RX-Interface.
+        # RX-Interface (FPGA -> LMS).
         Subsignal("diq2",   Pins("W2 U2 V3 V4 V5 W7 V2 W4 U5 V8 U7 U8")),
         Subsignal("txnrx2", Pins("U4")),
         Subsignal("iqsel2", Pins("U3")),

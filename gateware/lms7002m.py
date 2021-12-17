@@ -61,7 +61,7 @@ class LMS7002M(Module, AutoCSR):
 
         # Clk-Measurement.
         self.clock_domains.cd_rfic = ClockDomain("rfic")
-        self.comb += self.cd_rfic.clk.eq(pads.mclk2)
+        self.comb += self.cd_rfic.clk.eq(pads.mclk1)
 
         cycles = Signal(32)
         self.sync.rfic += cycles.eq(cycles + 1)
@@ -95,7 +95,7 @@ class LMS7002M(Module, AutoCSR):
                 i_R  = 0,
                 i_D1 = 1,
                 i_D2 = 0,
-                o_Q  = pads.fclk1
+                o_Q  = pads.fclk2
             )
 
             # TX Frame.
@@ -109,7 +109,7 @@ class LMS7002M(Module, AutoCSR):
                 i_R  = 0,
                 i_D1 = tx_frame,
                 i_D2 = tx_frame,
-                o_Q  = pads.iqsel1
+                o_Q  = pads.iqsel2
             )
 
             # TX Data.
@@ -123,7 +123,7 @@ class LMS7002M(Module, AutoCSR):
                     i_R  = 0,
                     i_D1 = tx_conv.source.data[n +  0],
                     i_D2 = tx_conv.source.data[n + 16],
-                    o_Q  = pads.diq1[n]
+                    o_Q  = pads.diq2[n]
                 )
 
             # RX Datapath --------------------------------------------------------------------------
@@ -141,7 +141,7 @@ class LMS7002M(Module, AutoCSR):
                 i_CE = 1,
                 i_S  = 0,
                 i_R  = 0,
-                i_D  = pads.iqsel2,
+                i_D  = pads.iqsel1,
                 o_Q1 = rx_frame,
                 o_Q2 = Signal(),
             )
@@ -155,7 +155,7 @@ class LMS7002M(Module, AutoCSR):
                     i_CE = 1,
                     i_S  = 0,
                     i_R  = 0,
-                    i_D  = pads.diq2,
+                    i_D  = pads.diq1,
                     o_Q1 = rx_conv.sink.data[n +  0],
                     o_Q2 = rx_conv.sink.data[n + 16],
                 )
