@@ -14,7 +14,7 @@ from litex.soc.cores.spi import SPIMaster
 # LMS7002M -----------------------------------------------------------------------------------------
 
 class LMS7002M(Module, AutoCSR):
-    def __init__(self, pads, sys_clk_freq, with_fake_datapath=True):
+    def __init__(self, pads, sys_clk_freq, with_fake_datapath=False):
         # Endpoints.
         self.sink   = stream.Endpoint([("data", 64)])
         self.source = stream.Endpoint([("data", 64)])
@@ -155,7 +155,7 @@ class LMS7002M(Module, AutoCSR):
                     i_CE = 1,
                     i_S  = 0,
                     i_R  = 0,
-                    i_D  = pads.diq1,
+                    i_D  = pads.diq1[n],
                     o_Q1 = rx_conv.sink.data[n +  0],
                     o_Q2 = rx_conv.sink.data[n + 16],
                 )

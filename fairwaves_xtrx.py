@@ -42,15 +42,21 @@ from gateware.lms7002m import LMS7002M
 
 class CRG(Module):
     def __init__(self, platform, sys_clk_freq):
-        self.clock_domains.cd_sys  = ClockDomain()
+        self.clock_domains.cd_sys    = ClockDomain()
+        self.clock_domains.cd_idelay = ClockDomain()
 
         # # #
 
         assert sys_clk_freq == int(125e6)
-        self.comb += [
-            self.cd_sys.clk.eq(ClockSignal("pcie")),
-            self.cd_sys.rst.eq(ResetSignal("pcie")),
-        ]
+        self.comb += self.cd_sys.clk.eq(ClockSignal("pcie"))
+        self.comb += self.cd_sys.rst.eq(ResetSignal("pcie"))
+
+        self.submodules.pll = pll = S7PLL(speedgrade=-1)
+        self.comb += pll.reset.eq(ResetSignal("pcie"))
+        pll.register_clkin(ClockSignal("pcie"), 125e6)
+        pll.create_clkout(self.cd_idelay,    200e6)
+
+        self.submodules.idelayctrl = S7IDELAYCTRL(self.cd_idelay)
 
 # BaseSoC -----------------------------------------------------------------------------------------
 
@@ -168,14 +174,24 @@ class BaseSoC(SoCCore):
 
         # LMS7002M ---------------------------------------------------------------------------------
         self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
-        self.comb += self.pcie_dma0.source.connect(self.lms7002m.sink)
+        if False:
+            self.comb += self.pcie_dma0.source.connect(self.lms7002m.sink)
+        else:
+            self.comb += self.lms7002m.sink.valid.eq(1)
+            self.comb += self.lms7002m.sink.data.eq(0x0000000100020003)
         self.comb += self.lms7002m.source.connect(self.pcie_dma0.sink)
 
         # Analyzer ---------------------------------------------------------------------------------
         if with_analyzer:
-            analyzer_signals = [
-                platform.lookup_request("lms7002m")
-            ]
+            if False:
+                analyzer_signals = [
+                    platform.lookup_request("lms7002m")
+                ]
+            else:
+                analyzer_signals = [
+                    self.lms7002m.sink,
+                    self.lms7002m.source,
+                ]
             self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
                 depth        = 512,
                 clock_domain = "sys",
