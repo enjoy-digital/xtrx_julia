@@ -156,6 +156,6 @@ class LMS7002M(Module, AutoCSR):
                     i_S  = 0,
                     i_R  = 0,
                     i_D  = pads.diq1[n],
-                    o_Q1 = rx_conv.sink.data[n +  0],
-                    o_Q2 = rx_conv.sink.data[n + 16],
+                    o_Q1 = rx_conv.sink.data[n + 16],
+                    o_Q2 = rx_conv.sink.data[n + 0],
                 )
