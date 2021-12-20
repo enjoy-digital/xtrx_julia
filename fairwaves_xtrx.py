@@ -177,8 +177,21 @@ class BaseSoC(SoCCore):
         if False:
             self.comb += self.pcie_dma0.source.connect(self.lms7002m.sink)
         else:
+            counter0 = Signal(16)
+            counter1 = Signal(16)
+            counter2 = Signal(16)
+            counter3 = Signal(16)
+            self.sync += If(self.lms7002m.sink.valid & self.lms7002m.sink.ready,
+                counter0.eq(counter0 + 1),
+                counter1.eq(counter1 + 2),
+                counter2.eq(counter2 + 3),
+                counter3.eq(counter3 + 4),
+            )
             self.comb += self.lms7002m.sink.valid.eq(1)
-            self.comb += self.lms7002m.sink.data.eq(0x0000000100020003)
+            self.comb += self.lms7002m.sink.data[ 0:16].eq(counter0)
+            self.comb += self.lms7002m.sink.data[16:24].eq(counter1)
+            self.comb += self.lms7002m.sink.data[24:48].eq(counter2)
+            self.comb += self.lms7002m.sink.data[48:64].eq(counter3)
         self.comb += self.lms7002m.source.connect(self.pcie_dma0.sink)
 
         # Analyzer ---------------------------------------------------------------------------------
