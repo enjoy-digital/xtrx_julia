@@ -371,6 +371,90 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
     litepcie_dma_cleanup(&dma);
 }
 
+/* lms7002m */
+
+#define SPI_CS_HIGH (0 << 0)
+#define SPI_CS_LOW  (1 << 0)
+#define SPI_START   (1 << 0)
+#define SPI_DONE    (1 << 0)
+#define SPI_LENGTH  (1 << 8)
+
+static void lms7002m_spi_write(int fd, int addr, int value) {
+    int cmd;
+    int dat;
+    cmd = (1 << 15) | (addr & 0x7fff);
+    dat = value & 0xffff;
+    litepcie_writel(fd, CSR_LMS7002M_SPI_MOSI_ADDR, cmd << 16 | dat);
+    litepcie_writel(fd, CSR_LMS7002M_SPI_CONTROL_ADDR, 32*SPI_LENGTH | SPI_START);
+    while ((litepcie_readl(fd, CSR_LMS7002M_SPI_STATUS_ADDR) & SPI_DONE) == 0);
+}
+
+static int lms7002m_spi_read(int fd, int addr) {
+    int cmd;
+    int dat;
+    cmd = (0 << 15) | (addr & 0x7fff);
+    litepcie_writel(fd, CSR_LMS7002M_SPI_MOSI_ADDR, cmd << 16);
+    litepcie_writel(fd, CSR_LMS7002M_SPI_CONTROL_ADDR, 32*SPI_LENGTH | SPI_START);
+    while ((litepcie_readl(fd, CSR_LMS7002M_SPI_STATUS_ADDR) & SPI_DONE) == 0);
+    dat = litepcie_readl(fd, CSR_LMS7002M_SPI_MISO_ADDR) & 0xffff;
+    return dat;
+}
+
+void lms7002m_reset(void)
+{
+    int fd;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Enabling LMS7002M...\n");
+    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR,
+        0 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)      |
+        0 * (1 << CSR_LMS7002M_CONTROL_POWER_DOWN_OFFSET) |
+        0 * (1 << CSR_LMS7002M_CONTROL_TX_ENABLE_OFFSET)  |
+        0 * (1 << CSR_LMS7002M_CONTROL_RX_ENABLE_OFFSET)
+    );
+
+    printf("Reset LMS7002M...\n");
+    lms7002m_spi_write(fd, 0x20, 0x0000);
+    printf("0x20: 0x%04x\n", lms7002m_spi_read(fd, 0x20));
+    lms7002m_spi_write(fd, 0x20, 0xffff);
+    printf("0x20: 0x%04x\n", lms7002m_spi_read(fd, 0x20));
+
+    close(fd);
+}
+
+
+void lms7002m_dump(void)
+{
+    int fd;
+    int i;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Enabling LMS7002M...\n");
+    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR,
+        0 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)      |
+        0 * (1 << CSR_LMS7002M_CONTROL_POWER_DOWN_OFFSET) |
+        0 * (1 << CSR_LMS7002M_CONTROL_TX_ENABLE_OFFSET)  |
+        0 * (1 << CSR_LMS7002M_CONTROL_RX_ENABLE_OFFSET)
+    );
+
+    printf("Dump LMS7002M Registers...\n");
+    for (i=0; i<64; i++) {
+        printf("reg 0x%04x: 0x%04x\n", i, lms7002m_spi_read(fd, i));
+    }
+
+    close(fd);
+}
+
 static void help(void)
 {
     printf("LiteX-XTRX utilities\n"
@@ -387,6 +471,9 @@ static void help(void)
            "info                              Board information\n"
            "gps_test                          Test GPS\n"
            "dma_test                          Test DMA\n"
+           "\n"
+           "lms7002_reset                     Reset LMS7002M\n"
+           "lms7002_dump                      Dump LMS7002M registers\n"
            "\n"
 #ifdef CSR_FLASH_BASE
            "flash_write filename [offset]     Write file contents to SPI Flash\n"
@@ -477,6 +564,10 @@ int main(int argc, char **argv)
     else if (!strcmp(cmd, "flash_reload"))
         flash_reload();
 #endif
+    else if (!strcmp(cmd, "lms7002m_reset"))
+        lms7002m_reset();
+    else if (!strcmp(cmd, "lms7002m_dump"))
+        lms7002m_dump();
     else
         goto show_help;
 

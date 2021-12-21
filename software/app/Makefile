@@ -3,14 +3,11 @@ LDFLAGS=-g
 CC=$(CROSS_COMPILE)gcc
 AR=ar
 
-PROGS=litex_xtrx_util test_lms7002m_spi
+PROGS=litex_xtrx_util
 
 all: $(PROGS)
 
 litex_xtrx_util: litex_xtrx_util.o
-	$(CC) $(LDFLAGS) -o $@ $^ -L../user/liblitepcie -llitepcie
-
-test_lms7002m_spi: test_lms7002m_spi.o
 	$(CC) $(LDFLAGS) -o $@ $^ -L../user/liblitepcie -llitepcie
 
 clean:
