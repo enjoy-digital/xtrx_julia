@@ -65,8 +65,36 @@ static void info(void)
     close(fd);
 }
 
-#ifdef CSR_FLASH_BASE
+/* gps */
+
+void gps_test(void)
+{
+    int fd;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Enabling GPS...\n");
+    litepcie_writel(fd, CSR_GPS_CONTROL_ADDR,
+        1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET)
+    );
+
+    printf("Dump GPS UART...\n");
+    while (1) {
+        if (litepcie_readl(fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0)
+            printf("%c", litepcie_readl(fd, CSR_GPS_UART_RXTX_ADDR));
+        usleep(10);
+    }
+
+    close(fd);
+}
+
 /* flash */
+
+#ifdef CSR_FLASH_BASE
 
 static void flash_progress(void *opaque, const char *fmt, ...)
 {
@@ -357,6 +385,7 @@ static void help(void)
            "\n"
            "available commands:\n"
            "info                              Board information\n"
+           "gps_test                          Test GPS\n"
            "dma_test                          Test DMA\n"
            "\n"
 #ifdef CSR_FLASH_BASE
@@ -418,6 +447,8 @@ int main(int argc, char **argv)
 
     if (!strcmp(cmd, "info"))
         info();
+    else if (!strcmp(cmd, "gps_test"))
+        gps_test();
     else if (!strcmp(cmd, "dma_test"))
         dma_test(litepcie_device_zero_copy, litepcie_device_external_loopback, litepcie_data_width);
 #if CSR_FLASH_BASE
