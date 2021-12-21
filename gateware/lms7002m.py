@@ -14,7 +14,7 @@ from litex.soc.cores.spi import SPIMaster
 # LMS7002M -----------------------------------------------------------------------------------------
 
 class LMS7002M(Module, AutoCSR):
-    def __init__(self, pads, sys_clk_freq, with_fake_datapath=False):
+    def __init__(self, pads, sys_clk_freq):
         # Endpoints.
         self.sink   = stream.Endpoint([("data", 64)])
         self.source = stream.Endpoint([("data", 64)])
@@ -41,6 +41,11 @@ class LMS7002M(Module, AutoCSR):
                 ("``0b0``", "TX FPGA->LMS7002M Pattern Generator Disable."),
                 ("``0b1``", "TX FPGA->LMS7002M Pattern Generator Enable.")
             ], reset=0),
+            CSRField("tx_rx_loopback_enable", size=1, offset=17, values=[
+                ("``0b0``", "TX-RX FPGA Loopback Disable."),
+                ("``0b1``", "TX-RX FPGA Loopback Enable.")
+            ], reset=0),
+
         ])
         self.cycles_latch   = CSR()
         self.cycles         = CSRStatus(32)
@@ -48,12 +53,14 @@ class LMS7002M(Module, AutoCSR):
         # # #
 
         # TX/RX Data/Frame.
+        # -----------------
         self.tx_frame = tx_frame = Signal()
         self.tx_data  = tx_data  = Signal(32)
         self.rx_frame = rx_frame = Signal()
         self.rx_data  = rx_data  = Signal(32)
 
         # Drive Control Pins.
+        # -------------------
         self.comb += [
             pads.rst_n.eq(~self.control.fields.reset),
             pads.pwrdwn_n.eq(~self.control.fields.power_down),
@@ -62,6 +69,7 @@ class LMS7002M(Module, AutoCSR):
         ]
 
         # SPI.
+        # ----
         self.submodules.spi = SPIMaster(
             pads         = pads,
             data_width   = 32,
@@ -70,6 +78,7 @@ class LMS7002M(Module, AutoCSR):
         )
 
         # Clk-Measurement.
+        # ----------------
         self.clock_domains.cd_rfic = ClockDomain("rfic")
         self.comb += self.cd_rfic.clk.eq(pads.mclk1)
 
@@ -77,105 +86,106 @@ class LMS7002M(Module, AutoCSR):
         self.sync.rfic += cycles.eq(cycles + 1)
         self.sync += If(self.cycles_latch.re, self.cycles.status.eq(cycles))
 
-        # Data-Path.
-        if with_fake_datapath:
-            conv_64_to_16 = stream.Converter(64, 16)
-            conv_16_to_64 = stream.Converter(16, 64)
-            self.submodules += conv_64_to_16, conv_16_to_64
-            self.comb += [
-                self.sink.connect(conv_64_to_16.sink, keep={"valid", "ready", "data"}),
-                conv_64_to_16.source.connect(conv_16_to_64.sink,  keep={"valid", "ready"}),
-                conv_16_to_64.sink.data.eq(conv_64_to_16.source.data[:12]), # Only keep 12-bit.
-                conv_16_to_64.source.connect(self.source, keep={"valid", "ready", "data"}),
-            ]
-        else:
-            # TX Datapath --------------------------------------------------------------------------
-            # FIXME: Add proper Clk Phase support/calibration without ODELAYE2.
-            self.submodules.tx_cdc  = tx_cdc  = stream.ClockDomainCrossing([("data", 64)], cd_from="sys", cd_to="rfic")
-            self.submodules.tx_conv = tx_conv = ClockDomainsRenamer("rfic")(stream.Converter(64, 32))
-            self.comb += self.sink.connect(tx_cdc.sink)
-            self.comb += tx_cdc.source.connect(tx_conv.sink)
+        # TX Datapath.
+        # ------------
 
-            # TX Pattern (Counter).
-            tx_pattern = Signal(32)
-            self.sync.rfic += tx_pattern.eq(tx_pattern + 1)
+        # FIXME: Add proper Clk Phase support/calibration without ODELAYE2.
+        self.submodules.tx_cdc  = tx_cdc  = stream.ClockDomainCrossing([("data", 64)], cd_from="sys", cd_to="rfic")
+        self.submodules.tx_conv = tx_conv = ClockDomainsRenamer("rfic")(stream.Converter(64, 32))
+        self.comb += self.sink.connect(tx_cdc.sink)
+        self.comb += tx_cdc.source.connect(tx_conv.sink)
 
-            # Pattern/Data Mux.
-            self.comb += [
-                If(self.control.fields.tx_pattern_enable,
-                    tx_data.eq(tx_pattern),
-                ).Else(
-                    tx_conv.source.ready.eq(1),
-                    tx_data.eq(tx_conv.source.data)
-                )
-            ]
+        # TX Pattern (Counter).
+        tx_pattern = Signal(32)
+        self.sync.rfic += tx_pattern.eq(tx_pattern + 1)
 
-            # TX Clk.
+        # Pattern/Data Mux.
+        self.comb += [
+            If(self.control.fields.tx_pattern_enable,
+                tx_data.eq(tx_pattern),
+            ).Else(
+                tx_conv.source.ready.eq(1),
+                tx_data.eq(tx_conv.source.data)
+            )
+        ]
+
+        # TX Clk.
+        self.specials += Instance("ODDR",
+            p_DDR_CLK_EDGE = "SAME_EDGE",
+            i_C  = ClockSignal("rfic"),
+            i_CE = 1,
+            i_S  = 0,
+            i_R  = 0,
+            i_D1 = 1,
+            i_D2 = 0,
+            o_Q  = pads.fclk2
+        )
+
+        # TX Frame.
+        self.sync.rfic += tx_frame.eq(~tx_frame)
+        self.specials += Instance("ODDR",
+            p_DDR_CLK_EDGE = "SAME_EDGE",
+            i_C  = ClockSignal("rfic"),
+            i_CE = 1,
+            i_S  = 0,
+            i_R  = 0,
+            i_D1 = tx_frame,
+            i_D2 = tx_frame,
+            o_Q  = pads.iqsel2
+        )
+
+        # TX Data.
+        for n in range(12):
             self.specials += Instance("ODDR",
                 p_DDR_CLK_EDGE = "SAME_EDGE",
                 i_C  = ClockSignal("rfic"),
                 i_CE = 1,
                 i_S  = 0,
                 i_R  = 0,
-                i_D1 = 1,
-                i_D2 = 0,
-                o_Q  = pads.fclk2
+                i_D1 = tx_data[n +  0],
+                i_D2 = tx_data[n + 16],
+                o_Q  = pads.diq2[n]
             )
 
-            # TX Frame.
-            self.sync.rfic += tx_frame.eq(~tx_frame)
-            self.specials += Instance("ODDR",
-                p_DDR_CLK_EDGE = "SAME_EDGE",
-                i_C  = ClockSignal("rfic"),
-                i_CE = 1,
-                i_S  = 0,
-                i_R  = 0,
-                i_D1 = tx_frame,
-                i_D2 = tx_frame,
-                o_Q  = pads.iqsel2
+        # RX Datapath.
+        # ------------
+        # FIXME: Add proper Clk Phase support/calibration.
+        self.submodules.rx_cdc  = rx_cdc  = stream.ClockDomainCrossing([("data", 64)], cd_from="rfic", cd_to="sys")
+        self.submodules.rx_conv = rx_conv = ClockDomainsRenamer("rfic")(stream.Converter(32, 64))
+        self.comb += rx_conv.source.connect(rx_cdc.sink)
+        self.comb += rx_cdc.source.connect(self.source)
+
+        # TX-RX Loopback/Data Mux.
+        self.comb += [
+            rx_conv.sink.valid.eq(1),
+            If(self.control.fields.tx_rx_loopback_enable,
+                rx_conv.sink.data.eq(tx_data & 0x0fff0fff) # 12-bit masking, similar to LMS7002M internalloopback.
+            ).Else(
+                rx_conv.sink.data.eq(rx_data)
             )
+        ]
 
-            # TX Data.
-            for n in range(12):
-                self.specials += Instance("ODDR",
-                    p_DDR_CLK_EDGE = "SAME_EDGE",
-                    i_C  = ClockSignal("rfic"),
-                    i_CE = 1,
-                    i_S  = 0,
-                    i_R  = 0,
-                    i_D1 = tx_data[n +  0],
-                    i_D2 = tx_data[n + 16],
-                    o_Q  = pads.diq2[n]
-                )
+        # RX Frame.
+        self.specials += Instance("IDDR",
+            p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
+            i_C  = ClockSignal("rfic"),
+            i_CE = 1,
+            i_S  = 0,
+            i_R  = 0,
+            i_D  = pads.iqsel1,
+            o_Q1 = rx_frame,
+            o_Q2 = Signal(),
+        )
 
-            # RX Datapath --------------------------------------------------------------------------
-            # FIXME: Add proper Clk Phase support/calibration.
-            self.submodules.rx_cdc  = rx_cdc  = stream.ClockDomainCrossing([("data", 64)], cd_from="rfic", cd_to="sys")
-            self.submodules.rx_conv = rx_conv = ClockDomainsRenamer("rfic")(stream.Converter(32, 64))
-            self.comb += rx_conv.source.connect(rx_cdc.sink)
-            self.comb += rx_cdc.source.connect(self.source)
-
-            # RX Frame.
+        # RX Data.
+        for n in range(12):
             self.specials += Instance("IDDR",
                 p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
                 i_C  = ClockSignal("rfic"),
                 i_CE = 1,
                 i_S  = 0,
                 i_R  = 0,
-                i_D  = pads.iqsel1,
-                o_Q1 = rx_frame,
-                o_Q2 = Signal(),
+                i_D  = pads.diq1[n],
+                o_Q1 = rx_data[n + 16],
+                o_Q2 = rx_data[n + 0],
             )
-
-            # RX Data.
-            for n in range(12):
-                self.specials += Instance("IDDR",
-                    p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
-                    i_C  = ClockSignal("rfic"),
-                    i_CE = 1,
-                    i_S  = 0,
-                    i_R  = 0,
-                    i_D  = pads.diq1[n],
-                    o_Q1 = rx_data[n + 16],
-                    o_Q2 = rx_data[n + 0],
-                )
