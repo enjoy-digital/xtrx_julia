@@ -26,6 +26,7 @@ from litex.soc.cores.icap import ICAP
 from litex.soc.cores.gpio import GPIOOut
 from litex.soc.cores.spi_flash import S7SPIFlash
 from litex.soc.cores.bitbang import I2CMaster
+from litex.soc.cores.xadc import XADC
 
 from litepcie.phy.s7pciephy import S7PCIEPHY
 from litepcie.software import generate_litepcie_software
@@ -66,6 +67,7 @@ class BaseSoC(SoCCore):
         "uart"        : 0,
         "icap"        : 1,
         "flash"       : 2,
+        "xadc"        : 3,
 
         # PCIe.
         "pcie_phy"    : 10,
@@ -122,6 +124,9 @@ class BaseSoC(SoCCore):
         # SPIFlash ---------------------------------------------------------------------------------
         self.submodules.flash_cs_n = GPIOOut(platform.request("flash_cs_n"))
         self.submodules.flash      = S7SPIFlash(platform.request("flash"), sys_clk_freq, 25e6)
+
+        # XADC -------------------------------------------------------------------------------------
+        self.submodules.xadc = XADC()
 
         # PCIe -------------------------------------------------------------------------------------
         self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x2"),
