@@ -37,6 +37,10 @@ class LMS7002M(Module, AutoCSR):
                 ("``0b0``", "LMS7002M RX Disabled."),
                 ("``0b1``", "LMS7002M RX Enabled.")
             ], reset=1),
+            CSRField("tx_pattern_enable", size=1, offset=16, values=[
+                ("``0b0``", "TX FPGA->LMS7002M Pattern Generator Disable."),
+                ("``0b1``", "TX FPGA->LMS7002M Pattern Generator Enable.")
+            ], reset=0),
         ])
         self.cycles_latch   = CSR()
         self.cycles         = CSRStatus(32)
@@ -74,7 +78,6 @@ class LMS7002M(Module, AutoCSR):
         self.sync += If(self.cycles_latch.re, self.cycles.status.eq(cycles))
 
         # Data-Path.
-        self.pattern_enable = CSRStorage(reset=0) # Quick Test, Remove or intergrate correctly.
         if with_fake_datapath:
             conv_64_to_16 = stream.Converter(64, 16)
             conv_16_to_64 = stream.Converter(16, 64)
@@ -93,12 +96,16 @@ class LMS7002M(Module, AutoCSR):
             self.comb += self.sink.connect(tx_cdc.sink)
             self.comb += tx_cdc.source.connect(tx_conv.sink)
 
+            # TX Pattern (Counter).
+            tx_pattern = Signal(32)
+            self.sync.rfic += tx_pattern.eq(tx_pattern + 1)
+
             # Pattern/Data Mux.
-            self.comb += tx_conv.source.ready.eq(1)
-            self.sync.rfic += [
-                If(self.pattern_enable.storage,
-                    tx_data.eq(tx_data + 1),
+            self.comb += [
+                If(self.control.fields.tx_pattern_enable,
+                    tx_data.eq(tx_pattern),
                 ).Else(
+                    tx_conv.source.ready.eq(1),
                     tx_data.eq(tx_conv.source.data)
                 )
             ]
@@ -147,11 +154,6 @@ class LMS7002M(Module, AutoCSR):
             self.submodules.rx_conv = rx_conv = ClockDomainsRenamer("rfic")(stream.Converter(32, 64))
             self.comb += rx_conv.source.connect(rx_cdc.sink)
             self.comb += rx_cdc.source.connect(self.source)
-
-            # Pattern/Data Mux.
-            self.comb += rx_conv.sink.valid.eq(1)
-            self.comb += rx_conv.sink.data.eq(rx_data)
-            self.comb += If(self.pattern_enable.storage, rx_cdc.source.ready.eq(1))
 
             # RX Frame.
             self.specials += Instance("IDDR",
