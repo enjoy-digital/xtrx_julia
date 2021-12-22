@@ -184,17 +184,15 @@ class BaseSoC(SoCCore):
 
         # Analyzer ---------------------------------------------------------------------------------
         if with_analyzer:
-            if False:
-                analyzer_signals = [
-                    platform.lookup_request("lms7002m")
-                ]
-            else:
-                analyzer_signals = [
-                    self.lms7002m.tx_frame,
-                    self.lms7002m.tx_data,
-                    self.lms7002m.rx_frame,
-                    self.lms7002m.rx_data,
-                ]
+            #analyzer_signals = [platform.lookup_request("lms7002m")]
+            analyzer_signals = [
+                self.lms7002m.sink,
+                self.lms7002m.source,
+                self.lms7002m.tx_frame,
+                self.lms7002m.tx_data,
+                self.lms7002m.rx_frame,
+                self.lms7002m.rx_data,
+            ]
             self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
                 depth        = 512,
                 clock_domain = "sys",

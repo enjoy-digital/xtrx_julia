@@ -108,6 +108,12 @@ make
 ../user/litepcie_test record dump.bin 0x100
 ````
 
+LiteScope:
+````
+litex_server --jtag --jtag-config=openocd_xc7_ft232.cfg
+litescope_cli
+````
+
 [> Contact
 -------------
 E-mail: florent@enjoy-digital.fr
