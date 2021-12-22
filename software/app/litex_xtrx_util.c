@@ -472,8 +472,8 @@ static void help(void)
            "gps_test                          Test GPS\n"
            "dma_test                          Test DMA\n"
            "\n"
-           "lms7002_reset                     Reset LMS7002M\n"
-           "lms7002_dump                      Dump LMS7002M registers\n"
+           "lms7002m_reset                    Reset LMS7002M\n"
+           "lms7002m_dump                     Dump LMS7002M registers\n"
            "\n"
 #ifdef CSR_FLASH_BASE
            "flash_write filename [offset]     Write file contents to SPI Flash\n"
