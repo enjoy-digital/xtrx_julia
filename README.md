@@ -89,6 +89,25 @@ make
 sudo make install
 ````
 
+TX-RX FPGA internal loopback test:
+````
+LimeSuiteGUI (and open/load xtrx.ini)
+cd software/app
+make
+./litex_xtrx_util lms_set_tx_rx_loopback 1
+./litex_xtrx_util dma_test -e -w 12 # FIXME
+````
+
+TX Pattern + LMS7002M loopback test:
+````
+LimeSuiteGUI (and open/load xtrx.ini)
+cd software/app
+make
+./litex_xtrx_util lms_set_tx_rx_loopback 0
+./litex_xtrx_util lms_set_tx_pattern 1
+../user/litepcie_test record dump.bin 0x100
+````
+
 [> Contact
 -------------
 E-mail: florent@enjoy-digital.fr
