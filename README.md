@@ -95,7 +95,7 @@ LimeSuiteGUI (and open/load xtrx.ini)
 cd software/app
 make
 ./litex_xtrx_util lms_set_tx_rx_loopback 1
-./litex_xtrx_util dma_test -e -w 12 # FIXME
+./litex_xtrx_util dma_test -e -w 12
 ````
 
 TX Pattern + LMS7002M loopback test:
