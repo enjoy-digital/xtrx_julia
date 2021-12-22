@@ -120,6 +120,7 @@ static void help(void)
 	puts("temp_test          - Test Temperature Sensor");
 	puts("vctcxo_test        - Test VCTCXO");
 	puts("rfic_test          - Test RFIC");
+	puts("digi_1v8           - Set Digital Interface to 1.8V");
 	puts("xtrx_init          - Initialize XTRX");
 }
 
@@ -218,6 +219,21 @@ static void rfic_test(void)
 		prev = curr;
 		busy_wait(100);
 	}
+}
+
+/*-----------------------------------------------------------------------*/
+/* Digital Interface                                                     */
+/*-----------------------------------------------------------------------*/
+
+static void digi_1v8(void)
+{
+	unsigned char adr;
+	unsigned char dat;
+
+	printf("PMIC-FPGA: Set Buck1 to 1880mV.\n");
+	adr = 0x0c;
+	dat = 0xb5;
+	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
 }
 
 /*-----------------------------------------------------------------------*/
@@ -373,8 +389,6 @@ static void console_service(void)
 		help();
 	else if(strcmp(token, "reboot") == 0)
 		reboot_cmd();
-	else if(strcmp(token, "xtrx_init") == 0)
-		xtrx_init();
 	else if(strcmp(token, "i2c_test") == 0)
 		i2c_test();
 	else if(strcmp(token, "temp_test") == 0)
@@ -383,6 +397,10 @@ static void console_service(void)
 		vctcxo_test(16);
 	else if(strcmp(token, "rfic_test") == 0)
 		rfic_test();
+	else if(strcmp(token, "digi_1v8") == 0)
+		digi_1v8();
+	else if(strcmp(token, "xtrx_init") == 0)
+		xtrx_init();
 	prompt();
 }
 
