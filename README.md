@@ -91,7 +91,7 @@ sudo make install
 
 TX-RX FPGA internal loopback test:
 ````
-LimeSuiteGUI (and open/load xtrx.ini)
+LimeSuiteGUI (and open/load xtrx_dlb.ini)
 cd software/app
 make
 ./litex_xtrx_util lms_set_tx_rx_loopback 1
@@ -100,12 +100,22 @@ make
 
 TX Pattern + LMS7002M loopback test:
 ````
-LimeSuiteGUI (and open/load xtrx.ini)
+LimeSuiteGUI (and open/load xtrx_dlb.ini)
 cd software/app
 make
 ./litex_xtrx_util lms_set_tx_rx_loopback 0
 ./litex_xtrx_util lms_set_tx_pattern 1
 ../user/litepcie_test record dump.bin 0x100
+````
+
+DMA+LMS7002 loopback test:
+````
+LimeSuiteGUI (and open/load xtrx_dlb.ini)
+cd software/app
+make
+./litex_xtrx_util lms_set_tx_rx_loopback 0
+./litex_xtrx_util lms_set_tx_pattern 0
+./litex_xtrx_util dma_test -e -w 12
 ````
 
 LiteScope:
