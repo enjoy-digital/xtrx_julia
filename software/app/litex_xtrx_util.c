@@ -455,6 +455,48 @@ void lms7002m_dump(void)
     close(fd);
 }
 
+void lms7002m_set_tx_pattern(uint8_t enable)
+{
+    int fd;
+    uint32_t control;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Setting LMS7002M FPGA TX pattern to %d\n", enable);
+    control  = litepcie_readl(fd, CSR_LMS7002M_CONTROL_ADDR);
+    control &= ~(1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET);
+    control |= enable *(1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET);
+    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR, control);
+
+    close(fd);
+}
+
+void lms7002m_set_tx_rx_loopback(uint8_t enable)
+{
+    int fd;
+    uint32_t control;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Setting LMS7002M FPGA TX-RX internal loopback to %d\n", enable);
+    control  = litepcie_readl(fd, CSR_LMS7002M_CONTROL_ADDR);
+    control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
+    control |= enable *(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
+    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR, control);
+
+    close(fd);
+}
+
+/* help */
+
 static void help(void)
 {
     printf("LiteX-XTRX utilities\n"
@@ -472,8 +514,10 @@ static void help(void)
            "gps_test                          Test GPS\n"
            "dma_test                          Test DMA\n"
            "\n"
-           "lms7002m_reset                    Reset LMS7002M\n"
-           "lms7002m_dump                     Dump LMS7002M registers\n"
+           "lms_reset                         Reset LMS7002M\n"
+           "lms_dump                          Dump LMS7002M registers\n"
+           "lms_set_tx_pattern                Set LMS7002M TX pattern\n"
+           "lms_set_tx_rx_loopback            Set LMS7002M TX-RX loopback (in FPGA)\n"
            "\n"
 #ifdef CSR_FLASH_BASE
            "flash_write filename [offset]     Write file contents to SPI Flash\n"
@@ -483,6 +527,8 @@ static void help(void)
            );
     exit(1);
 }
+
+/* main */
 
 int main(int argc, char **argv)
 {
@@ -564,11 +610,23 @@ int main(int argc, char **argv)
     else if (!strcmp(cmd, "flash_reload"))
         flash_reload();
 #endif
-    else if (!strcmp(cmd, "lms7002m_reset"))
+    else if (!strcmp(cmd, "lms_reset"))
         lms7002m_reset();
-    else if (!strcmp(cmd, "lms7002m_dump"))
+    else if (!strcmp(cmd, "lms_dump"))
         lms7002m_dump();
-    else
+    else if (!strcmp(cmd, "lms_set_tx_pattern")) {
+        uint8_t enable = 0;
+        if (optind + 1 > argc)
+            goto show_help;
+        enable = strtoul(argv[optind++], NULL, 0);
+        lms7002m_set_tx_pattern(enable);
+    } else if (!strcmp(cmd, "lms_set_tx_rx_loopback")) {
+        uint8_t enable = 0;
+        if (optind + 1 > argc)
+            goto show_help;
+        enable = strtoul(argv[optind++], NULL, 0);
+        lms7002m_set_tx_rx_loopback(enable);
+    } else
         goto show_help;
 
     return 0;
