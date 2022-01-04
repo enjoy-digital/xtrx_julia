@@ -29,7 +29,6 @@ from litex.soc.cores.bitbang import I2CMaster
 from litex.soc.cores.xadc import XADC
 
 from litepcie.phy.s7pciephy import S7PCIEPHY
-from litepcie.software import generate_litepcie_software
 
 from litescope import LiteScopeAnalyzer
 
@@ -38,6 +37,8 @@ from gateware.gps import GPS
 from gateware.vctcxo import VCTCXO
 from gateware.rf_switches import RFSwitches
 from gateware.lms7002m import LMS7002M
+
+from software import generate_litepcie_software
 
 # CRG ----------------------------------------------------------------------------------------------
 
