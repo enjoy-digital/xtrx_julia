@@ -12,7 +12,8 @@
 [> Intro
 --------
 
-This project aims to recreate a FPGA design for the XTRX board with LiteX/LitePCIe:
+This project aims to recreate a FPGA design for the XTRX board with
+LiteX/LitePCIe:
 
 ![](https://user-images.githubusercontent.com/1450143/147348139-503834af-76d5-4172-8ca0-e323b719fa17.png)
 
@@ -22,11 +23,13 @@ This project aims to recreate a FPGA design for the XTRX board with LiteX/LitePC
 
 ### [> Installing LiteX:
 
-LiteX can be installed by following the installation instructions from the LiteX Wiki: https://github.com/enjoy-digital/litex/wiki/Installation
+LiteX can be installed by following the installation instructions from the LiteX
+Wiki: https://github.com/enjoy-digital/litex/wiki/Installation
 
 ### [> Installing the RISC-V toolchain for the Soft-CPU:
 
-To get and install a RISC-V toolchain, please install it manually of follow the LiteX's wiki: https://github.com/enjoy-digital/litex/wiki/Installation:
+To get and install a RISC-V toolchain, please install it manually of follow the
+LiteX's wiki: https://github.com/enjoy-digital/litex/wiki/Installation:
 
 ```
 ./litex_setup.py --gcc=riscv
