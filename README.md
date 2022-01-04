@@ -69,20 +69,8 @@ make
 
 To interface with the LMS7002M chip, we provide a SoapySDR driver. This driver
 is in turn built on top of [MyriadRF's LMS7002M driver
-library](https://github.com/myriadrf/LMS7002M-driver), which you need to compile
-and install first:
-
-```
-git clone https://github.com/JuliaComputing/LMS7002M-driver -b tb/fclk_dly
-cd LMS7002M-driver
-mkdir build install
-cmake -S . -B build --install-prefix $(pwd)/install
-make -C build install
-export LMS7002M_ROOT=$(pwd)
-```
-
-With the `LMS7002M_ROOT` environment variable set, you can build the SoapySDR
-driver that's part of this repository:
+library](https://github.com/myriadrf/LMS7002M-driver), which is downloaded and
+installed automatically when you compile the SoapySDR driver:
 
 ```
 cd software/soapysdr
