@@ -89,11 +89,17 @@ cd software/soapysdr
 mkdir build
 cmake -S . -B build
 make -C build
+export SOAPY_SDR_PLUGIN_PATH=$(pwd)/build
+```
+
+```
+cd software/scripts
+julia --project -e 'using Pkg; Pkg.instantiate()'
+julia --project test_pattern.jl
 ```
 
 Alternatively, there is a modified version of LimeSuite that makes it possible
 to interactively configure the LMS7002M:
-
 
 ```
 git clone https://github.com/JuliaComputing/LimeSuite -b tb/xtrx_litepcie
