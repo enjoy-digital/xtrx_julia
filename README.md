@@ -80,6 +80,10 @@ make -C build
 export SOAPY_SDR_PLUGIN_PATH=$(pwd)/build
 ```
 
+The above snippet sets `SOAPY_SDR_PLUGIN_PATH` so that any SoapySDR application
+can find the XTRX driver. This can be used to execute the example Julia scripts
+in this repository:
+
 ```
 cd software/scripts
 julia --project -e 'using Pkg; Pkg.instantiate()'
