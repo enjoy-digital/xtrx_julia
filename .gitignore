@@ -1,0 +1,6 @@
+*.o
+*.d
+__pycache__
+csr.csv
+analyzer.csv
+prog/
