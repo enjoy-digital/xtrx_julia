@@ -7,7 +7,7 @@ if [ "$FOUND" != "" ] ; then
     exit 0
 fi
 
-INS=$(insmod litepcie.ko 2>&1)
+INS=$(sudo insmod litepcie.ko 2>&1)
 if [ "$?" != "0" ] ; then
     ERR=$(echo $INS | sed -s "s/.*litepcie.ko: //")
     case $ERR in
@@ -16,14 +16,14 @@ if [ "$?" != "0" ] ; then
         echo "Kernel may have changed, try to rebuild module"
         make -s clean
         make -s
-        insmod litepcie.ko
+        sudo insmod litepcie.ko
         set +e
         ;;
     'No such file or directory')
         set -e
         echo "Module not compiled"
         make -s
-        insmod litepcie.ko
+        sudo insmod litepcie.ko
         set +e
         ;;
     'Required key not available')
@@ -37,9 +37,9 @@ if [ "$?" != "0" ] ; then
     esac
 fi
 
-insmod liteuart.ko
+sudo insmod liteuart.ko
 
 for i in `seq 0 16` ; do
-    chmod 666 /dev/litepcie$i > /dev/null 2>&1
+    sudo chmod 666 /dev/litepcie$i > /dev/null 2>&1
 done
 
