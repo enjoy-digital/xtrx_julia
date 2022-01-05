@@ -53,7 +53,7 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     : _fd(-1), _lms(NULL), _masterClockRate(1.0e6) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
-    SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX() setup START");
+    SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
     setvbuf(stdout, NULL, _IOLBF, 0);
 
     // open LitePCIe descriptor
@@ -77,15 +77,10 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     LMS7002M_reset(_lms);
     LMS7002M_set_spi_mode(_lms, 4);
 
-    // FOR DEVELOPMENT
-    // LMS7002M_load_ini(_lms, "xtrx.ini");
-    SoapySDR::setLogLevel(SOAPY_SDR_TRACE);
-
     // read info register
     LMS7002M_regs_spi_read(_lms, 0x002f);
-    SoapySDR::logf(SOAPY_SDR_INFO, "rev 0x%x",
-                   LMS7002M_regs(_lms)->reg_0x002f_rev);
-    SoapySDR::logf(SOAPY_SDR_INFO, "ver 0x%x",
+    SoapySDR::logf(SOAPY_SDR_INFO, "LMS7002M info: revision %d, version %d",
+                   LMS7002M_regs(_lms)->reg_0x002f_rev,
                    LMS7002M_regs(_lms)->reg_0x002f_ver);
 
     // configure data port directions and data clock rates
@@ -121,8 +116,6 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     // turn the clocks on
     // XXX: what is this master clock rate? does it make sense for the XTRX?
     this->setMasterClockRate(61.44e6);
-
-    SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX() setup OK");
 
     // some defaults to avoid throwing
     _cachedSampleRates[SOAPY_SDR_RX] = 1e6;
@@ -174,17 +167,7 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         dma_init_gpu(_fd, _dma_buf, dma_buffer_total_size);
     }
 
-    // device args settings applied for debugging purposes
-    #define writeArgToSetting(a, k)                                            \
-        if (a.count(k) != 0)                                                   \
-            this->writeSetting(k, a.at(k))
-    writeArgToSetting(args, "RXTSP_TSG_CONST");
-    writeArgToSetting(args, "TXTSP_TSG_CONST");
-
-    SoapySDR::log(SOAPY_SDR_INFO, "Initialization complete");
-
-    // FOR DEVELOPMENT
-    LMS7002M_dump_ini(_lms, "wip.ini");
+    SoapySDR::log(SOAPY_SDR_INFO, "SoapyXTRX initialization complete");
 }
 
 SoapyXTRX::~SoapyXTRX(void) {
