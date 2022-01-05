@@ -98,8 +98,8 @@ git clone https://github.com/JuliaComputing/LimeSuite -b tb/xtrx_litepcie
 cd LimeSuite
 mkdir build
 LITEPCIE_ROOT=/path/to/xtrx_julia/software /
-cmake -DENABLE_XTRX=yes -DCMAKE_BUILD_TYPE=Debug -S . -B build
-make -C build
+cmake -DENABLE_XTRX=yes -DCMAKE_BUILD_TYPE=Debug -S . -B builddir
+make -C builddir
 ./build/bin/LimeSuiteGUI
 ```
 
