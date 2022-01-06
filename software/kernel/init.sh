@@ -37,8 +37,6 @@ if [ "$?" != "0" ] ; then
     esac
 fi
 
-sudo insmod liteuart.ko
-
 for i in `seq 0 16` ; do
     sudo chmod 666 /dev/litepcie$i > /dev/null 2>&1
 done

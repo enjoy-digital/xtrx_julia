@@ -93,7 +93,6 @@ struct litepcie_chan {
 
 struct litepcie_device {
 	struct pci_dev *dev;
-	struct platform_device *uart;
 	resource_size_t bar0_size;
 	phys_addr_t bar0_phys_addr;
 	uint8_t *bar0_addr; /* virtual address of BAR0 */
@@ -1422,21 +1421,6 @@ static int litepcie_pci_probe(struct pci_dev *dev, const struct pci_device_id *i
 		}
 	}
 
-#ifdef CSR_UART_XOVER_RXTX_ADDR
-	tty_res = devm_kzalloc(&dev->dev, sizeof(struct resource), GFP_KERNEL);
-	if (!tty_res)
-		return -ENOMEM;
-	tty_res->start =
-		(resource_size_t) litepcie_dev->bar0_addr +
-		CSR_UART_XOVER_RXTX_ADDR - CSR_BASE;
-	tty_res->flags = IORESOURCE_REG;
-	litepcie_dev->uart = platform_device_register_simple("liteuart", -1, tty_res, 1);
-	if (IS_ERR(litepcie_dev->uart)) {
-		ret = PTR_ERR(litepcie_dev->uart);
-		goto fail3;
-	}
-#endif
-
 	return 0;
 
 fail3:
@@ -1468,8 +1452,6 @@ static void litepcie_pci_remove(struct pci_dev *dev)
 		irq = pci_irq_vector(dev, i);
 		free_irq(irq, litepcie_dev);
 	}
-
-	platform_device_unregister(litepcie_dev->uart);
 
 	litepcie_free_chdev(litepcie_dev);
 

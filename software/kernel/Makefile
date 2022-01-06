@@ -3,7 +3,7 @@ KERNEL_VERSION:=$(shell uname -r)
 KERNEL_PATH?=/lib/modules/$(KERNEL_VERSION)/build
 ARCH?=$(shell uname -m)
 
-obj-m = litepcie.o liteuart.o
+obj-m = litepcie.o
 litepcie-objs = main.o
 #liteuart-objs = liteuart.o
 
@@ -23,7 +23,7 @@ ccflags-y += -I$(NVIDIA_SRC_DIR)
 #       https://github.com/NVIDIA/gds-nvidia-fs/blob/af3f7de96b4e500abf30e3034e5827749953bd68/src/Makefile#L108-L112
 KBUILD_MODPOST_WARN=1
 
-all: litepcie.ko liteuart.ko
+all: litepcie.ko
 
 litepcie.ko: main.c
 	make -C $(KERNEL_PATH) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) M=$(shell pwd) modules
