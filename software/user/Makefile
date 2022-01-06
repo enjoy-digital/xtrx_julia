@@ -14,13 +14,13 @@ liblitepcie/liblitepcie.a: liblitepcie/litepcie_dma.o liblitepcie/litepcie_flash
 	ranlib $@
 
 litepcie_util: liblitepcie/liblitepcie.a litepcie_util.o
-	$(CC) $(LDFLAGS) -o $@ $^ -Lliblitepcie -lcuda -llitepcie
+	$(CC) $(LDFLAGS) -o $@ $^ -Lliblitepcie -llitepcie -lcuda
 
 litepcie_test: liblitepcie/liblitepcie.a litepcie_test.o
-	$(CC) $(LDFLAGS) -o $@ $^ -Lliblitepcie -lm -lcuda -llitepcie
+	$(CC) $(LDFLAGS) -o $@ $^ -Lliblitepcie -lm -llitepcie -lcuda
 
 litepcie_dma_minimal_example: liblitepcie/liblitepcie.a litepcie_dma_minimal_example.o
-	$(CC) $(LDFLAGS) -o $@ $^ -Lliblitepcie -lcuda -llitepcie
+	$(CC) $(LDFLAGS) -o $@ $^ -Lliblitepcie -llitepcie -lcuda
 
 clean:
 	rm -f $(PROGS) *.o *.a *.d *~ liblitepcie/*.a liblitepcie/*.o liblitepcie/*.d
