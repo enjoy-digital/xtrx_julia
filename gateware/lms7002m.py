@@ -113,17 +113,19 @@ class LMS7002M(Module, AutoCSR):
         ]
 
         # TX Clk.
+        self.tx_clk_rst = CSR()
+        self.tx_clk_inc = CSR()
         rfic_tx_clk = Signal()
         self.specials += Instance("IDELAYE2",
-            p_IDELAY_TYPE      = "FIXED",
+            p_IDELAY_TYPE      = "VARIABLE",
             p_IDELAY_VALUE     = 0,
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "DATAIN",
-            i_C        = 0,
-            i_LD       = 0,
-            i_CE       = 0,
+            i_C        = ClockSignal("sys"),
+            i_LD       = self.tx_clk_rst.re,
+            i_CE       = self.tx_clk_inc.re,
             i_LDPIPEEN = 0,
-            i_INC      = 0,
+            i_INC      = 1,
             i_DATAIN   = ClockSignal("rfic"),
             o_DATAOUT  = rfic_tx_clk,
         )
@@ -133,8 +135,8 @@ class LMS7002M(Module, AutoCSR):
             i_CE = 1,
             i_S  = 0,
             i_R  = 0,
-            i_D1 = 1,
-            i_D2 = 0,
+            i_D1 = 0,
+            i_D2 = 1,
             o_Q  = pads.fclk2
         )
 
