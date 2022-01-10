@@ -14,7 +14,7 @@ from litex.soc.cores.spi import SPIMaster
 # LMS7002M -----------------------------------------------------------------------------------------
 
 class LMS7002M(Module, AutoCSR):
-    def __init__(self, pads, sys_clk_freq):
+    def __init__(self, platform, pads, sys_clk_freq):
         # Endpoints.
         self.sink   = stream.Endpoint([("data", 64)])
         self.source = stream.Endpoint([("data", 64)])
@@ -79,17 +79,38 @@ class LMS7002M(Module, AutoCSR):
 
         # Clocking.
         # ----------------
-        self.clock_domains.cd_rfic_rx = ClockDomain("rfic_rx")
-        self.clock_domains.cd_rfic_tx = ClockDomain("rfic_tx")
+        self.clock_domains.cd_rfic_rx         = ClockDomain("rfic_rx")
+        self.clock_domains.cd_rfic_tx         = ClockDomain("rfic_tx")
+        self.clock_domains.cd_rfic_tx_delayed = ClockDomain("rfic_tx_delayed")
 
         # RX & Measurement.
-        self.comb += self.cd_rfic_rx.clk.eq(pads.mclk1)
+        self.specials += Instance("IBUFG", i_I=pads.mclk1, o_O=self.cd_rfic_rx.clk)
+        platform.add_period_constraint(self.cd_rfic_rx.clk, 1e9/122.88e6)
         cycles = Signal(32)
         self.sync.rfic_rx += cycles.eq(cycles + 1)
         self.sync += If(self.cycles_latch.re, self.cycles.status.eq(cycles))
 
         # TX.
-        self.comb += self.cd_rfic_tx.clk.eq(pads.mclk1)
+        self.tx_clk_delay_rst = CSR() # FIXME: Move.
+        self.tx_clk_delay_inc = CSR() # FIXME: Move.
+        self.comb += self.cd_rfic_tx.clk.eq(self.cd_rfic_rx.clk)
+        self.specials += Instance("IDELAYE2",
+            p_SIGNAL_PATTERN        = "CLOCK",
+            p_DELAY_SRC             = "DATAIN",
+            p_CINVCTRL_SEL          = "FALSE",
+            p_HIGH_PERFORMANCE_MODE = "TRUE",
+            p_REFCLK_FREQUENCY      = 200/1e6,
+            p_PIPE_SEL              = "FALSE",
+            p_IDELAY_TYPE           = "VARIABLE",
+            p_IDELAY_VALUE          = 0,
+            i_C        = ClockSignal("sys"),
+            i_LD       = self.tx_clk_delay_rst.re,
+            i_LDPIPEEN = 0,
+            i_CE       = self.tx_clk_delay_inc.re,
+            i_INC      = 1,
+            i_DATAIN   = self.cd_rfic_rx.clk,
+            o_DATAOUT  = self.cd_rfic_tx_delayed.clk
+        )
 
         # TX Datapath.
         # ------------
@@ -117,7 +138,7 @@ class LMS7002M(Module, AutoCSR):
         # TX Clk.
         self.specials += Instance("ODDR",
             p_DDR_CLK_EDGE = "SAME_EDGE",
-            i_C  = ClockSignal("rfic_tx"),
+            i_C  = ClockSignal("rfic_tx_delayed"),
             i_CE = 1,
             i_S  = 0,
             i_R  = 0,
