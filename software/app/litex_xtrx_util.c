@@ -18,7 +18,7 @@
 #include "liblitepcie.h"
 
 #define DMA_CHECK_DATA
-#define DMA_RANDOM_DATA
+//#define DMA_RANDOM_DATA
 
 static char litepcie_device[1024];
 static int litepcie_device_num;
