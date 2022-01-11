@@ -209,8 +209,8 @@ class LMS7002M(Module, AutoCSR):
 
         # TX Datapath.
         # ------------
-        self.tx_clk_rst = CSR()
-        self.tx_clk_inc = CSR()
+        self.tx_delay_rst = CSR()
+        self.tx_delay_inc = CSR()
 
         self.submodules.tx_cdc     = tx_cdc     = stream.ClockDomainCrossing([("data", 64)], cd_from="sys", cd_to="rfic")
         self.submodules.tx_conv    = tx_conv    = ClockDomainsRenamer("rfic")(stream.Converter(64, 32))
@@ -241,8 +241,8 @@ class LMS7002M(Module, AutoCSR):
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "DATAIN",
             i_C        = ClockSignal("sys"),
-            i_LD       = self.tx_clk_rst.re,
-            i_CE       = self.tx_clk_inc.re,
+            i_LD       = self.tx_delay_rst.re,
+            i_CE       = self.tx_delay_inc.re,
             i_LDPIPEEN = 0,
             i_INC      = 1,
             i_DATAIN   = ClockSignal("rfic"),
