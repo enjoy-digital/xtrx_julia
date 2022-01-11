@@ -201,6 +201,7 @@ class LMS7002M(Module, AutoCSR):
         # ----------------
         self.clock_domains.cd_rfic = ClockDomain("rfic")
         self.comb += self.cd_rfic.clk.eq(pads.mclk1)
+        platform.add_period_constraint(pads.mclk1, 1e9/245.76e6)
 
         cycles = Signal(32)
         self.sync.rfic += cycles.eq(cycles + 1)
