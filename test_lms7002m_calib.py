@@ -29,10 +29,9 @@ def lms7002m_delay_tx_scan(port):
     # Scan all Delay values..
     for i in range(32):
         bus.regs.lms7002m_tx_clk_inc.write(1)
-        time.sleep(0.1)
         start_errors = bus.regs.lms7002m_rx_pattern_errors.read()
         time.sleep(0.1)
-        end_errors = bus.regs.lms7002m_rx_pattern_errors.read()
+        end_errors   = bus.regs.lms7002m_rx_pattern_errors.read()
         errors = (end_errors - start_errors)
         print(f"Delay: {i:d}, Errors: {errors:d}")
 
@@ -42,6 +41,7 @@ def lms7002m_delay_tx_scan(port):
     bus.regs.lms7002m_rx_pattern_control.write(0)
 
     bus.close()
+
 
 def lms7002m_delay_rx_scan(port):
     bus = RemoteClient(port=port)
@@ -65,6 +65,49 @@ def lms7002m_delay_rx_scan(port):
         end_errors = bus.regs.lms7002m_rx_pattern_errors.read()
         errors = (end_errors - start_errors)
         print(f"Delay: {i:d}, Errors: {errors:d}")
+
+    # Disable Pattern.
+    bus.regs.lms7002m_rx_delay_rst.write(1)
+    bus.regs.lms7002m_tx_pattern_control.write(0)
+    bus.regs.lms7002m_rx_pattern_control.write(0)
+
+    bus.close()
+
+def lms7002m_delay_tx_rx_scan(port):
+    bus = RemoteClient(port=port)
+    bus.open()
+
+    print("TX-RX Delay Scan...")
+
+    # Reset Delay.
+    bus.regs.lms7002m_tx_clk_rst.write(1)
+    bus.regs.lms7002m_rx_delay_rst.write(1)
+
+    # Enable Pattern.
+    bus.regs.lms7002m_tx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
+    bus.regs.lms7002m_rx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
+
+    # Scan all Delay values..
+    print("TX / RX ", end="")
+    for rx in range(32):
+        print(f"{rx:02d} ", end="")
+    print("")
+    for tx in range(32):
+        bus.regs.lms7002m_tx_clk_inc.write(1)
+        print(f"{tx:02d} |    ", end="")
+        for rx in range(32):
+            bus.regs.lms7002m_rx_delay_inc.write(1)
+            #time.sleep(0.01)
+            start_errors = bus.regs.lms7002m_rx_pattern_errors.read()
+            #time.sleep(0.01)
+            end_errors   = bus.regs.lms7002m_rx_pattern_errors.read()
+            errors = (end_errors - start_errors)
+            if errors:
+                print(" - ", end="")
+            else:
+                print(f"{rx:02d} ", end="")
+            sys.stdout.flush()
+        print("")
 
     # Disable Pattern.
     bus.regs.lms7002m_rx_delay_rst.write(1)
@@ -109,11 +152,12 @@ def lms7002m_delay_rx_set(port, delay):
 
 def main():
     parser = argparse.ArgumentParser(description="TX Clk Delay utility")
-    parser.add_argument("--port",     default="1234",  help="Host bind port.")
-    parser.add_argument("--tx-scan",  action="store_true", help="Run TX delay scan.")
-    parser.add_argument("--rx-scan",  action="store_true", help="Run RX delay scan.")
-    parser.add_argument("--tx-delay", default=None,        help="Set TX delay.")
-    parser.add_argument("--rx-delay", default=None,        help="Set RX delay.")
+    parser.add_argument("--port",       default="1234",  help="Host bind port.")
+    parser.add_argument("--tx-scan",    action="store_true", help="Run TX delay scan.")
+    parser.add_argument("--rx-scan",    action="store_true", help="Run RX delay scan.")
+    parser.add_argument("--tx-rx-scan", action="store_true", help="Run TX-RX delay scan.")
+    parser.add_argument("--tx-delay",   default=None,        help="Set TX delay.")
+    parser.add_argument("--rx-delay",   default=None,        help="Set RX delay.")
 
     args = parser.parse_args()
 
@@ -124,6 +168,9 @@ def main():
 
     if args.rx_scan:
         lms7002m_delay_rx_scan(port=port)
+
+    if args.tx_rx_scan:
+        lms7002m_delay_tx_rx_scan(port=port)
 
     if args.tx_delay is not None:
         lms7002m_delay_tx_set(port=port, delay=int(args.tx_delay, 0))
