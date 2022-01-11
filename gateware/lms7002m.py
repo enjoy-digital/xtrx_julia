@@ -174,9 +174,9 @@ class LMS7002M(Module, AutoCSR):
 
         # TX/RX Data/Frame.
         # -----------------
-        self.tx_frame = tx_frame = Signal()
+        self.tx_frame = tx_frame = Signal(2)
         self.tx_data  = tx_data  = Signal(32)
-        self.rx_frame = rx_frame = Signal()
+        self.rx_frame = rx_frame = Signal(2)
         self.rx_data  = rx_data  = Signal(32)
 
         # Drive Control Pins.
@@ -219,12 +219,12 @@ class LMS7002M(Module, AutoCSR):
         self.comb += [
             # Get Data from TX Pattern when valid...
             If(tx_pattern.source.valid,
-                tx_frame.eq(tx_pattern.source.last),
+                tx_frame.eq(Replicate(tx_pattern.source.last, 2)),
                 tx_data.eq(tx_pattern.source.data),
             # ... Else from DMA -> CDC -> DownConverter.
             ).Else(
                 tx_conv.source.ready.eq(1),
-                tx_frame.eq(tx_conv.source.last),
+                tx_frame.eq(Replicate(tx_conv.source.last, 2)),
                 tx_data.eq(tx_conv.source.data),
             )
         ]
@@ -264,8 +264,8 @@ class LMS7002M(Module, AutoCSR):
             i_CE = 1,
             i_S  = 0,
             i_R  = 0,
-            i_D1 = tx_frame,
-            i_D2 = tx_frame,
+            i_D1 = tx_frame[0],
+            i_D2 = tx_frame[1],
             o_Q  = pads.iqsel2
         )
 
@@ -298,8 +298,8 @@ class LMS7002M(Module, AutoCSR):
             i_S  = 0,
             i_R  = 0,
             i_D  = pads.iqsel1,
-            o_Q1 = rx_frame,
-            o_Q2 = Signal(),
+            o_Q1 = rx_frame[0],
+            o_Q2 = rx_frame[1],
         )
 
         # RX Data. FIXME: Add IDELAYE2.
