@@ -208,6 +208,9 @@ class LMS7002M(Module, AutoCSR):
 
         # TX Datapath.
         # ------------
+        self.tx_clk_rst = CSR()
+        self.tx_clk_inc = CSR()
+
         self.submodules.tx_cdc     = tx_cdc     = stream.ClockDomainCrossing([("data", 64)], cd_from="sys", cd_to="rfic")
         self.submodules.tx_conv    = tx_conv    = ClockDomainsRenamer("rfic")(stream.Converter(64, 32))
         self.submodules.tx_pattern = tx_pattern = TXPatternGenerator()
@@ -230,8 +233,6 @@ class LMS7002M(Module, AutoCSR):
         ]
 
         # TX Clk.
-        self.tx_clk_rst = CSR()
-        self.tx_clk_inc = CSR()
         rfic_tx_clk = Signal()
         self.specials += Instance("IDELAYE2",
             p_IDELAY_TYPE      = "VARIABLE",
@@ -284,33 +285,64 @@ class LMS7002M(Module, AutoCSR):
 
         # RX Datapath.
         # ------------
+        self.rx_delay_rst = CSR()
+        self.rx_delay_inc = CSR()
+
         self.submodules.rx_conv    = rx_conv    = ClockDomainsRenamer("rfic")(stream.Converter(32, 64))
         self.submodules.rx_pattern = rx_pattern = RXPatternChecker()
         self.submodules.rx_cdc     = rx_cdc     = stream.ClockDomainCrossing([("data", 64)], cd_from="rfic", cd_to="sys")
         self.comb += rx_conv.source.connect(rx_cdc.sink)
         self.comb += rx_cdc.source.connect(self.source)
 
-        # RX Frame. FIXME: Add IDELAYE2.
+        # RX Frame.
+        iqsel1_delayed = Signal()
+        self.specials += Instance("IDELAYE2",
+            p_IDELAY_TYPE      = "VARIABLE",
+            p_IDELAY_VALUE     = 0,
+            p_REFCLK_FREQUENCY = 200e6/1e6,
+            p_DELAY_SRC        = "IDATAIN",
+            i_C        = ClockSignal("sys"),
+            i_LD       = self.rx_delay_rst.re,
+            i_CE       = self.rx_delay_inc.re,
+            i_LDPIPEEN = 0,
+            i_INC      = 1,
+            i_IDATAIN  = pads.iqsel1,
+            o_DATAOUT  = iqsel1_delayed,
+        )
         self.specials += Instance("IDDR",
             p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
             i_C  = ClockSignal("rfic"),
             i_CE = 1,
             i_S  = 0,
             i_R  = 0,
-            i_D  = pads.iqsel1,
+            i_D  = iqsel1_delayed,
             o_Q1 = rx_frame[0],
             o_Q2 = rx_frame[1],
         )
 
-        # RX Data. FIXME: Add IDELAYE2.
+        # RX Data.
         for n in range(12):
+            diq1_n_delayed = Signal()
+            self.specials += Instance("IDELAYE2",
+                p_IDELAY_TYPE      = "VARIABLE",
+                p_IDELAY_VALUE     = 0,
+                p_REFCLK_FREQUENCY = 200e6/1e6,
+                p_DELAY_SRC        = "IDATAIN",
+                i_C        = ClockSignal("sys"),
+                i_LD       = self.rx_delay_rst.re,
+                i_CE       = self.rx_delay_inc.re,
+                i_LDPIPEEN = 0,
+                i_INC      = 1,
+                i_IDATAIN  = pads.diq1[n],
+                o_DATAOUT  = diq1_n_delayed,
+            )
             self.specials += Instance("IDDR",
                 p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
                 i_C  = ClockSignal("rfic"),
                 i_CE = 1,
                 i_S  = 0,
                 i_R  = 0,
-                i_D  = pads.diq1[n],
+                i_D  = diq1_n_delayed,
                 o_Q1 = rx_data[n + 0],
                 o_Q2 = rx_data[n + 16],
             )
