@@ -193,6 +193,7 @@ class BaseSoC(SoCCore):
                 self.lms7002m.tx_frame,
                 self.lms7002m.tx_data,
                 self.lms7002m.rx_frame,
+                self.lms7002m.rx_aligned,
                 self.lms7002m.rx_data,
             ]
             self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,

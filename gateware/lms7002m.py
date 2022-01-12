@@ -109,10 +109,12 @@ class RXPatternChecker(Module, AutoCSR):
         # -------------------
 
         # Counter.
-        count = Signal(12)
-        self.sync.rfic += count.eq(self.sink.data[0:12])
-        self.comb += If(self.sink.data[0:12]  != (count + 1), count_error.eq(1))
-        #self.comb += If(self.sink.data[16:28] != (count + 1), count_error.eq(1))
+        count0 = Signal(12)
+        count1 = Signal(12)
+        self.sync.rfic += count0.eq(self.sink.data[0:])
+        self.sync.rfic += count1.eq(self.sink.data[16:])
+        self.comb += If(self.sink.data[ 0:12] != (count0 + 1), count_error.eq(1))
+        self.comb += If(self.sink.data[16:28] != (count1 + 1), count_error.eq(1))
 
         # PRBS. FIXME: Add 12-bit masking.
         check = PRBS7Checker(32)
@@ -174,10 +176,11 @@ class LMS7002M(Module, AutoCSR):
 
         # TX/RX Data/Frame.
         # -----------------
-        self.tx_frame = tx_frame = Signal(2)
-        self.tx_data  = tx_data  = Signal(32)
-        self.rx_frame = rx_frame = Signal(2)
-        self.rx_data  = rx_data  = Signal(32)
+        self.tx_frame   = tx_frame   = Signal(2)
+        self.tx_data    = tx_data    = Signal(32)
+        self.rx_frame   = rx_frame   = Signal(2)
+        self.rx_aligned = rx_aligned = Signal()
+        self.rx_data    = rx_data    = Signal(32)
 
         # Drive Control Pins.
         # -------------------
@@ -223,12 +226,14 @@ class LMS7002M(Module, AutoCSR):
         self.comb += [
             # Get Data from TX Pattern when valid...
             If(tx_pattern.source.valid,
-                tx_frame.eq(Replicate(tx_pattern.source.last, 2)),
+                tx_frame[0].eq(tx_pattern.source.last),
+                tx_frame[1].eq(tx_pattern.source.last),
                 tx_data.eq(tx_pattern.source.data),
             # ... Else from DMA -> CDC -> DownConverter.
             ).Else(
                 tx_conv.source.ready.eq(1),
-                tx_frame.eq(Replicate(tx_conv.source.last, 2)),
+                tx_frame[0].eq(tx_conv.source.last),
+                tx_frame[1].eq(tx_conv.source.last),
                 tx_data.eq(tx_conv.source.data),
             )
         ]
@@ -320,8 +325,11 @@ class LMS7002M(Module, AutoCSR):
             o_Q1 = rx_frame[0],
             o_Q2 = rx_frame[1],
         )
+        self.comb += rx_aligned.eq((rx_frame == 0b00) | (rx_frame == 0b11))
 
         # RX Data.
+        rx_data0 = Signal(16)
+        rx_data1 = Signal(16)
         for n in range(12):
             diq1_n_delayed = Signal()
             self.specials += Instance("IDELAYE2",
@@ -344,9 +352,20 @@ class LMS7002M(Module, AutoCSR):
                 i_S  = 0,
                 i_R  = 0,
                 i_D  = diq1_n_delayed,
-                o_Q1 = rx_data[n + 0],
-                o_Q2 = rx_data[n + 16],
+                o_Q1 = rx_data0[n],
+                o_Q2 = rx_data1[n],
             )
+        rx_data1_d = Signal(16)
+        self.sync.rfic += rx_data1_d.eq(rx_data1)
+        self.comb += [
+            If(rx_aligned,
+                rx_data[:16].eq(rx_data0),
+                rx_data[16:].eq(rx_data1),
+            ).Else(
+                rx_data[:16].eq(rx_data1_d),
+                rx_data[16:].eq(rx_data0),
+            )
+        ]
 
         # TX-RX Loopback/RX Pattern/Data Mux.
         self.comb += [
