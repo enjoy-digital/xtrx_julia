@@ -56,7 +56,7 @@ class CRG(Module):
         self.submodules.pll = pll = S7PLL(speedgrade=-1)
         self.comb += pll.reset.eq(ResetSignal("pcie"))
         pll.register_clkin(ClockSignal("pcie"), 125e6)
-        pll.create_clkout(self.cd_idelay,    200e6)
+        pll.create_clkout(self.cd_idelay, 200e6)
 
         self.submodules.idelayctrl = S7IDELAYCTRL(self.cd_idelay)
 
@@ -196,8 +196,8 @@ class BaseSoC(SoCCore):
                 self.lms7002m.rx_data,
             ]
             self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
-                depth        = 512,
-                clock_domain = "sys",
+                depth        = 128,
+                clock_domain = "rfic",
                 csr_csv      = "analyzer.csv"
             )
 
