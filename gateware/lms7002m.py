@@ -6,6 +6,7 @@
 
 from migen import *
 from migen.genlib.cdc import MultiReg
+from migen.genlib.misc import WaitTimer
 
 from litex.soc.interconnect.csr import *
 from litex.soc.interconnect import stream
@@ -20,29 +21,23 @@ class TXPatternGenerator(Module, AutoCSR):
         self.source  = stream.Endpoint([("data", 32)])
         self.control = CSRStorage(fields=[
             CSRField("enable", size=1, offset=0, values=[
-                ("``0b0``", "Disable module."),
-                ("``0b1``", "Enable module.")
-            ], reset=0),
-            CSRField("mode", size=1, offset=1, values=[
-                ("``0b0``", "Count mode."),
-                ("``0b1``", "PRBS31 mode.")
-            ], reset=0),
+                ("``0b0``", "Disable Generator."),
+                ("``0b1``", "Enable Generator.")
+            ], reset=0)
         ])
 
         # # #
 
         enable = Signal()
-        mode   = Signal()
         self.specials += MultiReg(self.control.fields.enable, enable, "rfic")
-        self.specials += MultiReg(self.control.fields.mode,   mode,   "rfic")
 
         # Control-Path.
         # -------------
         self.comb      += self.source.valid.eq(enable)
         self.sync.rfic += self.source.last.eq(~self.source.last)
 
-        # Generators.
-        # -----------
+        # Generator.
+        # ----------
 
         # Counter.
         count = Signal(12)
@@ -56,23 +51,11 @@ class TXPatternGenerator(Module, AutoCSR):
             )
         ]
 
-        # PRBS.
-        gen = PRBS7Generator(32)
-        gen = ClockDomainsRenamer("rfic")(gen)
-        gen = ResetInserter()(gen)
-        self.submodules += gen
-        # Reset PRBS when disabled.
-        self.comb += gen.reset.eq(~enable)
-
         # Data-Path.
         # ----------
         self.sync.rfic += [
-            If(mode,
-                self.source.data.eq(gen.o)
-            ).Else(
-                self.source.data[ 0:16].eq(count),
-                self.source.data[16:32].eq(count),
-            )
+            self.source.data[ 0:16].eq(count),
+            self.source.data[16:32].eq(count),
         ]
 
 
@@ -81,12 +64,8 @@ class RXPatternChecker(Module, AutoCSR):
         self.sink    = stream.Endpoint([("data", 32)])
         self.control = CSRStorage(fields=[
             CSRField("enable", size=1, offset=0, values=[
-                ("``0b0``", "Disable module."),
-                ("``0b1``", "Enable module.")
-            ], reset=0),
-            CSRField("mode", size=1, offset=1, values=[
-                ("``0b0``", "Count mode."),
-                ("``0b1``", "PRBS31 mode.")
+                ("``0b0``", "Disable Checker."),
+                ("``0b1``", "Enable Checker.")
             ], reset=0),
         ])
         self.errors = CSRStatus(32)
@@ -94,34 +73,21 @@ class RXPatternChecker(Module, AutoCSR):
         # # #
 
         enable = Signal()
-        mode   = Signal()
         self.specials += MultiReg(self.control.fields.enable, enable, "rfic")
-        self.specials += MultiReg(self.control.fields.mode,   mode,   "rfic")
-
-        count_error = Signal()
-        prbs_error  = Signal()
 
         # Control-Path.
         # -------------
         self.comb += self.sink.ready.eq(enable)
 
-        # Checkers/Data-Path.
+        # Checker/Data-Path.
         # -------------------
-
-        # Counter.
-        count0 = Signal(12)
-        count1 = Signal(12)
+        count_error = Signal()
+        count0      = Signal(12)
+        count1      = Signal(12)
         self.sync.rfic += count0.eq(self.sink.data[0:])
         self.sync.rfic += count1.eq(self.sink.data[16:])
         self.comb += If(self.sink.data[ 0:12] != (count0 + 1), count_error.eq(1))
         self.comb += If(self.sink.data[16:28] != (count1 + 1), count_error.eq(1))
-
-        # PRBS. FIXME: Add 12-bit masking.
-        check = PRBS7Checker(32)
-        check = ClockDomainsRenamer("rfic")(check)
-        self.submodules += check
-        self.comb += check.i.eq(self.sink.data)
-        self.comb += prbs_error.eq(check.errors)
 
         # Errors.
         # -------
@@ -130,9 +96,8 @@ class RXPatternChecker(Module, AutoCSR):
             If(~enable,
                 errors.eq(0)
             ).Else(
-                If(( self.control.fields.mode &  prbs_error) |
-                   (~self.control.fields.mode & count_error),
-                    errors.eq(errors + 1),
+                If(count_error,
+                    errors.eq(errors + 1)
                 )
             )
         ]
@@ -167,10 +132,28 @@ class LMS7002M(Module, AutoCSR):
                 ("``0b0``", "TX-RX FPGA Loopback Disable."),
                 ("``0b1``", "TX-RX FPGA Loopback Enable.")
             ], reset=0),
-
         ])
-        self.cycles_latch   = CSR()
-        self.cycles         = CSRStatus(32)
+        self.status   = CSRStatus(fields=[
+            CSRField("rx_clk_active", size=1, offset=0, values=[
+                ("``0b0``", "RX Clk from LMS7002M is not detected."),
+                ("``0b1``", "RX Clk from LMS7002M is active.")
+            ], reset=0),
+            CSRField("rx_frame_active", size=1, offset=1, values=[
+                ("``0b0``", "RX Frame from LMS7002M is not detected."),
+                ("``0b1``", "RX Frame from LMS7002M is active.")
+            ], reset=0), # TODO.
+            CSRField("rx_frame_aligned", size=1, offset=2, values=[
+                ("``0b0``", "RX Frame from LMS7002M is not aligned."),
+                ("``0b1``", "RX Frame from LMS7002M is aligned.")
+            ], reset=0),
+        ])
+        self.delay = CSRStorage(fields=[
+            CSRField("tx_rst", size=1, offset=0, pulse=1, description="Reset TX Delay"),
+            CSRField("tx_inc", size=1, offset=1, pulse=1, description="Incr  TX Delay"),
+            CSRField("rx_rst", size=1, offset=2, pulse=1, description="Reset RX Delay"),
+            CSRField("rx_inc", size=1, offset=3, pulse=1, description="Incr  RX Delay"),
+            ]
+        )
 
         # # #
 
@@ -185,10 +168,10 @@ class LMS7002M(Module, AutoCSR):
         # Drive Control Pins.
         # -------------------
         self.comb += [
-            pads.rst_n.eq(~self.control.fields.reset),
+            pads.rst_n.eq(   ~self.control.fields.reset),
             pads.pwrdwn_n.eq(~self.control.fields.power_down),
-            pads.txen.eq(self.control.fields.tx_enable),
-            pads.rxen.eq(self.control.fields.rx_enable),
+            pads.txen.eq(     self.control.fields.tx_enable),
+            pads.rxen.eq(     self.control.fields.rx_enable),
         ]
 
         # SPI.
@@ -201,14 +184,40 @@ class LMS7002M(Module, AutoCSR):
         )
 
         # Clocking.
-        # ----------------
+        # ---------
+
+        # Use MCLK1 as RX-Clk and constraint it to 245.76MHz (61.44MSPS MIMO)
         self.clock_domains.cd_rfic = ClockDomain("rfic")
         self.comb += self.cd_rfic.clk.eq(pads.mclk1)
         platform.add_period_constraint(pads.mclk1, 1e9/245.76e6)
 
-        cycles = Signal(32)
-        self.sync.rfic += cycles.eq(cycles + 1)
-        self.sync += If(self.cycles_latch.re, self.cycles.status.eq(cycles))
+        # Pass RX-Clk active information to sys_clk.
+        clk_active_cdc = stream.ClockDomainCrossing([("active", 1)], cd_from="rfic", cd_to="sys")
+        self.submodules += clk_active_cdc
+        self.comb += clk_active_cdc.sink.valid.eq(1)
+
+        # Create timer to update RX-Clk active.
+        clk_active_timer = WaitTimer(int(1e6))
+        self.submodules += clk_active_timer
+        self.comb += clk_active_timer.wait.eq(~clk_active_timer.done)
+
+        # Verify if RX-Clk is active.
+        clk_active_count = Signal(8)
+        self.sync += [
+            # Always ack clk_active_cdc.
+            clk_active_cdc.source.ready.eq(1),
+            # Increment count.
+            If(clk_active_count != (2**8 - 1),
+                If(clk_active_cdc.source.valid,
+                    clk_active_count.eq(clk_active_count + 1)
+                )
+            ),
+            # Update RX-Clk active.
+            If(clk_active_timer.done,
+                clk_active_count.eq(0),
+                self.status.fields.rx_clk_active.eq(clk_active_count != 0),
+            )
+        ]
 
         # TX Datapath.
         # ------------
@@ -246,8 +255,8 @@ class LMS7002M(Module, AutoCSR):
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "DATAIN",
             i_C        = ClockSignal("sys"),
-            i_LD       = self.tx_delay_rst.re,
-            i_CE       = self.tx_delay_inc.re,
+            i_LD       = self.delay.fields.tx_rst,
+            i_CE       = self.delay.fields.tx_inc,
             i_LDPIPEEN = 0,
             i_INC      = 1,
             i_DATAIN   = ClockSignal("rfic"),
@@ -291,9 +300,6 @@ class LMS7002M(Module, AutoCSR):
 
         # RX Datapath.
         # ------------
-        self.rx_delay_rst = CSR()
-        self.rx_delay_inc = CSR()
-
         self.submodules.rx_conv    = rx_conv    = ClockDomainsRenamer("rfic")(stream.Converter(32, 64))
         self.submodules.rx_pattern = rx_pattern = RXPatternChecker()
         self.submodules.rx_cdc     = rx_cdc     = stream.ClockDomainCrossing([("data", 64)], cd_from="rfic", cd_to="sys")
@@ -308,8 +314,8 @@ class LMS7002M(Module, AutoCSR):
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "IDATAIN",
             i_C        = ClockSignal("sys"),
-            i_LD       = self.rx_delay_rst.re,
-            i_CE       = self.rx_delay_inc.re,
+            i_LD       = self.delay.fields.rx_rst,
+            i_CE       = self.delay.fields.rx_inc,
             i_LDPIPEEN = 0,
             i_INC      = 1,
             i_IDATAIN  = pads.iqsel1,
@@ -326,6 +332,7 @@ class LMS7002M(Module, AutoCSR):
             o_Q2 = rx_frame[1],
         )
         self.comb += rx_aligned.eq((rx_frame == 0b00) | (rx_frame == 0b11))
+        self.specials += MultiReg(rx_aligned, self.status.fields.rx_frame_aligned)
 
         # RX Data.
         rx_data0 = Signal(16)
@@ -338,8 +345,8 @@ class LMS7002M(Module, AutoCSR):
                 p_REFCLK_FREQUENCY = 200e6/1e6,
                 p_DELAY_SRC        = "IDATAIN",
                 i_C        = ClockSignal("sys"),
-                i_LD       = self.rx_delay_rst.re,
-                i_CE       = self.rx_delay_inc.re,
+                i_LD       = self.delay.fields.rx_rst,
+                i_CE       = self.delay.fields.rx_inc,
                 i_LDPIPEEN = 0,
                 i_INC      = 1,
                 i_IDATAIN  = pads.diq1[n],

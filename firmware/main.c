@@ -201,25 +201,6 @@ static void vctcxo_test(int n)
 	}
 }
 
-/*-----------------------------------------------------------------------*/
-/* RFIC                                                                  */
-/*-----------------------------------------------------------------------*/
-
-static void rfic_test(void)
-{
-	int i;
-	int prev;
-	int curr;
-	prev = 0;
-	for (i=0; i<8; i++) {
-		lms7002m_cycles_latch_write(1);
-		curr = lms7002m_cycles_read();
-		if (i > 0)
-			printf("LMS7002M RX freq: %3d.%03dMHz\n", (curr - prev)/100000, ((curr - prev)/100)%1000);
-		prev = curr;
-		busy_wait(100);
-	}
-}
 
 /*-----------------------------------------------------------------------*/
 /* Digital Interface                                                     */
@@ -395,8 +376,6 @@ static void console_service(void)
 		temp_test();
 	else if(strcmp(token, "vctcxo_test") == 0)
 		vctcxo_test(16);
-	else if(strcmp(token, "rfic_test") == 0)
-		rfic_test();
 	else if(strcmp(token, "digi_1v8") == 0)
 		digi_1v8();
 	else if(strcmp(token, "xtrx_init") == 0)

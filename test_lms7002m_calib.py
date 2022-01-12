@@ -36,6 +36,11 @@ PATTERN_ENABLE     =   (1 << 0)
 PATTERN_COUNT_MODE = 0*(1 << 1)
 PATTERN_PRBS_MODE  = 1*(1 << 1)
 
+DELAY_TX_RST = (1 << 0)
+DELAY_TX_INC = (1 << 1)
+DELAY_RX_RST = (1 << 2)
+DELAY_RX_INC = (1 << 3)
+
 def lms7002m_delay_tx_scan(port):
     bus = RemoteClient(port=port)
     bus.open()
@@ -43,7 +48,7 @@ def lms7002m_delay_tx_scan(port):
     print("TX Delay Scan...")
 
     # Reset Delay.
-    bus.regs.lms7002m_tx_delay_rst.write(1)
+    bus.regs.lms7002m_delay.write(DELAY_TX_RST)
 
     # Enable Pattern.
     bus.regs.lms7002m_tx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
@@ -51,7 +56,7 @@ def lms7002m_delay_tx_scan(port):
 
     # Scan all Delay values..
     for i in range(32):
-        bus.regs.lms7002m_tx_delay_inc.write(1)
+        bus.regs.lms7002m_delay.write(DELAY_TX_INC)
         start_errors = bus.regs.lms7002m_rx_pattern_errors.read()
         time.sleep(0.1)
         end_errors   = bus.regs.lms7002m_rx_pattern_errors.read()
@@ -73,7 +78,7 @@ def lms7002m_delay_rx_scan(port):
     print("RX Delay Scan...")
 
     # Reset Delay.
-    bus.regs.lms7002m_rx_delay_rst.write(1)
+    bus.regs.lms7002m_delay.write(DELAY_TX_RST)
 
     # Enable Pattern.
     bus.regs.lms7002m_tx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
@@ -81,7 +86,7 @@ def lms7002m_delay_rx_scan(port):
 
     # Scan all Delay values..
     for i in range(32):
-        bus.regs.lms7002m_rx_delay_inc.write(1)
+        bus.regs.lms7002m_delay.write(DELAY_TX_INC)
         time.sleep(0.1)
         start_errors = bus.regs.lms7002m_rx_pattern_errors.read()
         time.sleep(0.1)
@@ -103,8 +108,7 @@ def lms7002m_delay_tx_rx_scan(port):
     print("TX-RX Delay Scan...")
 
     # Reset Delay.
-    bus.regs.lms7002m_tx_delay_rst.write(1)
-    bus.regs.lms7002m_rx_delay_rst.write(1)
+    bus.regs.lms7002m_delay.write(DELAY_TX_RST | DELAY_RX_RST)
 
     # Enable Pattern.
     bus.regs.lms7002m_tx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
@@ -116,10 +120,10 @@ def lms7002m_delay_tx_rx_scan(port):
         print(f"{rx:02d} ", end="")
     print("")
     for tx in range(32):
-        bus.regs.lms7002m_tx_delay_inc.write(1)
+        bus.regs.lms7002m_delay.write(DELAY_TX_INC)
         print(f"{tx:02d} |    ", end="")
         for rx in range(32):
-            bus.regs.lms7002m_rx_delay_inc.write(1)
+            bus.regs.lms7002m_delay.write(DELAY_RX_INC)
             #time.sleep(0.01)
             start_errors = bus.regs.lms7002m_rx_pattern_errors.read()
             #time.sleep(0.01)
@@ -133,7 +137,7 @@ def lms7002m_delay_tx_rx_scan(port):
         print("")
 
     # Disable Pattern.
-    bus.regs.lms7002m_rx_delay_rst.write(1)
+    bus.regs.lms7002m_delay.write(DELAY_TX_RST | DELAY_RX_RST)
     bus.regs.lms7002m_tx_pattern_control.write(0)
     bus.regs.lms7002m_rx_pattern_control.write(0)
 
@@ -148,11 +152,11 @@ def lms7002m_delay_tx_set(port, delay):
     assert delay < 32
 
     # Reset Delay.
-    bus.regs.lms7002m_tx_delay_rst.write(1)
+    bus.regs.lms7002m_delay.write(DELAY_TX_RST)
 
     # Configure Delay.
     for i in range(delay):
-        bus.regs.lms7002m_tx_delay_inc.write(1)
+        bus.regs.lms7002m_delay.write(DELAY_TX_INC)
 
     bus.close()
 
@@ -163,11 +167,11 @@ def lms7002m_delay_rx_set(port, delay):
     assert delay < 32
 
     # Reset Delay.
-    bus.regs.lms7002m_rx_delay_rst.write(1)
+    bus.regs.lms7002m_delay.write(DELAY_RX_RST)
 
     # Configure Delay.
     for i in range(delay):
-        bus.regs.lms7002m_rx_delay_inc.write(1)
+        bus.regs.lms7002m_delay.write(DELAY_RX_INC)
 
     bus.close()
 
