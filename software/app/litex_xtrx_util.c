@@ -565,10 +565,10 @@ void lms7002m_set_tx_pattern(uint8_t enable)
     }
 
     printf("Setting LMS7002M FPGA TX pattern to %d\n", enable);
-    control  = litepcie_readl(fd, CSR_LMS7002M_CONTROL_ADDR);
-    control &= ~(1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET);
-    control |= enable *(1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET);
-    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR, control);
+    control  = litepcie_readl(fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
+    control &= ~(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
+    control |= enable *(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
+    litepcie_writel(fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR, control);
 
     close(fd);
 }
