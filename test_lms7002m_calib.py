@@ -6,6 +6,29 @@ import argparse
 
 from litex import RemoteClient
 
+# LMS7002M Pattern ---------------------------------------------------------------------------------
+
+def lms7002m_pattern_enable(bus):
+    bus.regs.lms7002m_tx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
+    bus.regs.lms7002m_rx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
+
+
+def lms7002m_pattern_disable(bus):
+    bus.regs.lms7002m_tx_pattern_control.write(0)
+    bus.regs.lms7002m_rx_pattern_control.write(0)
+
+def lms7002m_pattern(port, enable):
+    bus = RemoteClient(port=port)
+    bus.open()
+
+    if enable:
+        bus.regs.lms7002m_tx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
+        bus.regs.lms7002m_rx_pattern_control.write(PATTERN_ENABLE | PATTERN_COUNT_MODE)
+    else:
+        bus.regs.lms7002m_tx_pattern_control.write(0)
+        bus.regs.lms7002m_rx_pattern_control.write(0)
+
+    bus.close()
 
 # LMS7002M Delay Scan ------------------------------------------------------------------------------
 
@@ -158,6 +181,7 @@ def main():
     parser.add_argument("--tx-rx-scan", action="store_true", help="Run TX-RX delay scan.")
     parser.add_argument("--tx-delay",   default=None,        help="Set TX delay.")
     parser.add_argument("--rx-delay",   default=None,        help="Set RX delay.")
+    parser.add_argument("--pattern",    default=None,        help="Enable/Disable Pattern.")
 
     args = parser.parse_args()
 
@@ -177,6 +201,9 @@ def main():
 
     if args.rx_delay is not None:
         lms7002m_delay_rx_set(port=port, delay=int(args.rx_delay, 0))
+
+    if args.pattern is not None:
+        lms7002m_pattern(port=port, enable=int(args.pattern, 0))
 
 if __name__ == "__main__":
     main()
