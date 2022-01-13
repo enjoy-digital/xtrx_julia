@@ -204,6 +204,11 @@ class BaseSoC(SoCCore):
                 csr_csv      = "analyzer.csv"
             )
 
+        # Timing Constraints/False Paths -----------------------------------------------------------
+        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks       icap_clk] -asynchronous")
+        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks     vctcxo_clk] -asynchronous")
+        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks lms7002m_mclk1] -asynchronous")
+
 # Build --------------------------------------------------------------------------------------------
 
 def main():
