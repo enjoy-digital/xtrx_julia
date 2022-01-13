@@ -105,7 +105,7 @@ class RXPatternChecker(Module, AutoCSR):
 # LMS7002M -----------------------------------------------------------------------------------------
 
 class LMS7002M(Module, AutoCSR):
-    def __init__(self, platform, pads, sys_clk_freq):
+    def __init__(self, platform, pads, sys_clk_freq, tx_delay_init=16, rx_delay_init=16):
         # Endpoints.
         self.sink   = stream.Endpoint([("data", 64)])
         self.source = stream.Endpoint([("data", 64)])
@@ -148,10 +148,8 @@ class LMS7002M(Module, AutoCSR):
             ], reset=0),
         ])
         self.delay = CSRStorage(fields=[
-            CSRField("tx_rst", size=1, offset=0, pulse=1, description="Reset TX Delay"),
-            CSRField("tx_inc", size=1, offset=1, pulse=1, description="Incr  TX Delay"),
-            CSRField("rx_rst", size=1, offset=2, pulse=1, description="Reset RX Delay"),
-            CSRField("rx_inc", size=1, offset=3, pulse=1, description="Incr  RX Delay"),
+            CSRField("tx_delay", size=5, offset=0, description="TX Delay Value (0-31)", reset=tx_delay_init),
+            CSRField("rx_delay", size=5, offset=8, description="RX Delay Value (0-31)", reset=rx_delay_init),
             ]
         )
 
@@ -250,17 +248,18 @@ class LMS7002M(Module, AutoCSR):
         # TX Clk.
         rfic_tx_clk = Signal()
         self.specials += Instance("IDELAYE2",
-            p_IDELAY_TYPE      = "VARIABLE",
-            p_IDELAY_VALUE     = 0,
+            p_IDELAY_TYPE      = "VAR_LOAD",
+            p_IDELAY_VALUE     = tx_delay_init,
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "DATAIN",
-            i_C        = ClockSignal("sys"),
-            i_LD       = self.delay.fields.tx_rst,
-            i_CE       = self.delay.fields.tx_inc,
-            i_LDPIPEEN = 0,
-            i_INC      = 1,
-            i_DATAIN   = ClockSignal("rfic"),
-            o_DATAOUT  = rfic_tx_clk,
+            i_C          = ClockSignal("sys"),
+            i_LD         = self.delay.re,
+            i_CNTVALUEIN = self.delay.fields.tx_delay,
+            i_CE         = 0,
+            i_LDPIPEEN   = 0,
+            i_INC        = 1,
+            i_DATAIN     = ClockSignal("rfic"),
+            o_DATAOUT    = rfic_tx_clk,
         )
         self.specials += Instance("ODDR",
             p_DDR_CLK_EDGE = "SAME_EDGE",
@@ -309,17 +308,17 @@ class LMS7002M(Module, AutoCSR):
         # RX Frame.
         iqsel1_delayed = Signal()
         self.specials += Instance("IDELAYE2",
-            p_IDELAY_TYPE      = "VARIABLE",
-            p_IDELAY_VALUE     = 0,
+            p_IDELAY_TYPE      = "VAR_LOAD",
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "IDATAIN",
-            i_C        = ClockSignal("sys"),
-            i_LD       = self.delay.fields.rx_rst,
-            i_CE       = self.delay.fields.rx_inc,
-            i_LDPIPEEN = 0,
-            i_INC      = 1,
-            i_IDATAIN  = pads.iqsel1,
-            o_DATAOUT  = iqsel1_delayed,
+            i_C          = ClockSignal("sys"),
+            i_LD         = self.delay.re,
+            i_CNTVALUEIN = self.delay.fields.rx_delay,
+            i_CE         = 0,
+            i_LDPIPEEN   = 0,
+            i_INC        = 1,
+            i_IDATAIN    = pads.iqsel1,
+            o_DATAOUT    = iqsel1_delayed,
         )
         self.specials += Instance("IDDR",
             p_DDR_CLK_EDGE = "SAME_EDGE_PIPELINED",
@@ -340,15 +339,15 @@ class LMS7002M(Module, AutoCSR):
         for n in range(12):
             diq1_n_delayed = Signal()
             self.specials += Instance("IDELAYE2",
-                p_IDELAY_TYPE      = "VARIABLE",
-                p_IDELAY_VALUE     = 0,
+                p_IDELAY_TYPE      = "VAR_LOAD",
                 p_REFCLK_FREQUENCY = 200e6/1e6,
                 p_DELAY_SRC        = "IDATAIN",
-                i_C        = ClockSignal("sys"),
-                i_LD       = self.delay.fields.rx_rst,
-                i_CE       = self.delay.fields.rx_inc,
-                i_LDPIPEEN = 0,
-                i_INC      = 1,
+                i_C          = ClockSignal("sys"),
+                i_LD         = self.delay.re,
+                i_CNTVALUEIN = self.delay.fields.rx_delay,
+                i_CE         = 0,
+                i_LDPIPEEN   = 0,
+                i_INC        = 1,
                 i_IDATAIN  = pads.diq1[n],
                 o_DATAOUT  = diq1_n_delayed,
             )
