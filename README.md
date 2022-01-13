@@ -90,7 +90,13 @@ julia --project -e 'using Pkg; Pkg.instantiate()'
 julia --project test_pattern.jl
 ```
 
-Alternatively, there is a modified version of LimeSuite that makes it possible
+**NOTE**: sometimes, the SoapySDR driver doesn't properly initialize the SDR
+(indicated by `test_pattern.jl` reading only zeros, or `test_loopback.jl` only
+reporting under/overflows). This can be worked around by launching
+`litepcie_test` (e.g. `litepcie_test record /dev/null 1024`). Afterwards, the
+chip should be in a good state.
+
+There is also a modified version of LimeSuite available that makes it possible
 to interactively configure the LMS7002M:
 
 ```
