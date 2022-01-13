@@ -84,7 +84,7 @@ class BaseSoC(SoCCore):
         "rf_switches" : 25,
         "lms7002m"    : 26,
     }
-    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=True):
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
         # SoCCore ----------------------------------------------------------------------------------
@@ -181,7 +181,10 @@ class BaseSoC(SoCCore):
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))
 
         # LMS7002M ---------------------------------------------------------------------------------
-        self.submodules.lms7002m = LMS7002M(platform, platform.request("lms7002m"), sys_clk_freq)
+        self.submodules.lms7002m = LMS7002M(platform, platform.request("lms7002m"), sys_clk_freq,
+            tx_delay_init = 16,
+            rx_delay_init = 16
+        )
         self.comb += self.pcie_dma0.source.connect(self.lms7002m.sink)
         self.comb += self.lms7002m.source.connect(self.pcie_dma0.sink)
         platform.add_false_path_constraints(self.crg.cd_sys.clk, self.lms7002m.cd_rfic.clk)

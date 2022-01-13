@@ -105,7 +105,7 @@ class RXPatternChecker(Module, AutoCSR):
 # LMS7002M -----------------------------------------------------------------------------------------
 
 class LMS7002M(Module, AutoCSR):
-    def __init__(self, platform, pads, sys_clk_freq, tx_delay_init=16, rx_delay_init=16):
+    def __init__(self, platform, pads, sys_clk_freq, tx_delay_init=0, rx_delay_init=0):
         # Endpoints.
         self.sink   = stream.Endpoint([("data", 64)])
         self.source = stream.Endpoint([("data", 64)])
@@ -249,11 +249,10 @@ class LMS7002M(Module, AutoCSR):
         rfic_tx_clk = Signal()
         self.specials += Instance("IDELAYE2",
             p_IDELAY_TYPE      = "VAR_LOAD",
-            p_IDELAY_VALUE     = tx_delay_init,
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "DATAIN",
             i_C          = ClockSignal("sys"),
-            i_LD         = self.delay.re,
+            i_LD         = ResetSignal("sys") | self.delay.re,
             i_CNTVALUEIN = self.delay.fields.tx_delay,
             i_CE         = 0,
             i_LDPIPEEN   = 0,
@@ -312,7 +311,7 @@ class LMS7002M(Module, AutoCSR):
             p_REFCLK_FREQUENCY = 200e6/1e6,
             p_DELAY_SRC        = "IDATAIN",
             i_C          = ClockSignal("sys"),
-            i_LD         = self.delay.re,
+            i_LD         = ResetSignal("sys") | self.delay.re,
             i_CNTVALUEIN = self.delay.fields.rx_delay,
             i_CE         = 0,
             i_LDPIPEEN   = 0,
@@ -343,7 +342,7 @@ class LMS7002M(Module, AutoCSR):
                 p_REFCLK_FREQUENCY = 200e6/1e6,
                 p_DELAY_SRC        = "IDATAIN",
                 i_C          = ClockSignal("sys"),
-                i_LD         = self.delay.re,
+                i_LD         = ResetSignal("sys") | self.delay.re,
                 i_CNTVALUEIN = self.delay.fields.rx_delay,
                 i_CE         = 0,
                 i_LDPIPEEN   = 0,
