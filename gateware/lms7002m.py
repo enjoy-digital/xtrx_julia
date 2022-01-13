@@ -362,8 +362,8 @@ class LMS7002M(Module, AutoCSR):
                 o_Q2 = rx_data1[n],
             )
         rx_data1_d = Signal(16)
-        self.sync.rfic += rx_data1_d.eq(rx_data1)
-        self.comb += [
+        self.sync.rfic += [
+            rx_data1_d.eq(rx_data1),
             If(rx_aligned,
                 rx_data[:16].eq(rx_data0),
                 rx_data[16:].eq(rx_data1),
