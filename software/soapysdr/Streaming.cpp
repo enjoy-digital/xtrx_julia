@@ -8,6 +8,16 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
+// TODO
+//
+// - we're not properly setting the channels here, see ch2LMS/setAntenna/etc
+//   in the EVB7 driver (https://github.com/myriadrf/LMS7002M-driver/tree/master/evb7)
+//
+// - we're also completely ignoring formats
+//
+// - implement the user-friendlier non-zero copy API on top of this? see e.g.
+//   https://github.com/pothosware/SoapyHackRF/blob/master/HackRF_Streaming.cpp
+
 #include "XTRXDevice.hpp"
 
 #include <chrono>
@@ -305,6 +315,3 @@ void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream *stream, size_t handle,
     mmap_dma_update.sw_count = handle + 1;
     checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_READER_UPDATE, &mmap_dma_update);
 }
-
-// TODO: implement the user-friendlier, non zero-copy interface
-//       on top of this direct direct buffer access API implementation
