@@ -173,7 +173,9 @@ class BaseSoC(SoCCore):
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
         # VCTCXO ------------------------------------------------------------------------------------
-        self.submodules.vctcxo = VCTCXO(platform.request("vctcxo"))
+        vctxo_pads = platform.request("vctcxo")
+        self.submodules.vctcxo = VCTCXO(vctxo_pads)
+        platform.add_period_constraint(vctxo_pads.clk, 1e9/26e6)
 
         # RF Switches ------------------------------------------------------------------------------
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))
