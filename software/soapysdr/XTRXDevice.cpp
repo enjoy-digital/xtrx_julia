@@ -140,9 +140,8 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     LMS7002M_ldo_enable(_lms, true, LMS7002M_LDO_ALL);
     LMS7002M_xbuf_share_tx(_lms, true);
 
-    // turn the clocks on
-    // XXX: what is this master clock rate? does it make sense for the XTRX?
-    this->setMasterClockRate(61.44e6);
+    // turn the clocks on (tested frequencies: 61.44MHZ, 122.88MHZ)
+    this->setMasterClockRate(122.88e6);
 
     // some defaults to avoid throwing
     _cachedSampleRates[SOAPY_SDR_RX] = 1e6;
