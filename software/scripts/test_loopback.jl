@@ -11,8 +11,10 @@ dev = open(devs[1])
 chan_rx = dev.rx[1]
 chan_tx = dev.tx[1]
 
-# enable the loopback
+# enable a loopback
 SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
+# NOTE: we use the LMS7002M's loopback to validate the entire chain,
+#       but this also works with the FPGA's loopback
 
 # open RX and TX streams
 stream_rx = SoapySDR.Stream(ComplexF32, [chan_rx])

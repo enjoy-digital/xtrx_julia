@@ -19,8 +19,10 @@ dev = open(dev_args)
 chan = dev.rx[1]
 
 # enable the TX pattern generator and loop it back
-SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
 SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_TX_PATTERN", "1")
+SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
+# NOTE: we use the LMS7002M's loopback to validate the entire chain,
+#       but this also works with the FPGA's loopback
 
 # open RX stream
 stream = SoapySDR.Stream(ComplexF32, [chan])

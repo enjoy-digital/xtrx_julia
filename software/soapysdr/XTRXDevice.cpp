@@ -852,9 +852,6 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR, control);
     } else if (key == "FPGA_TX_PATTERN") {
-        // XXX: can we also use the pattern generator with the FPGA's loopback
-        //      instead of the LMS7002M's? It should work according to Florent,
-        //      but I haven't been able to get that working.
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
         if (value == "1") {
