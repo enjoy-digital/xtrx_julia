@@ -107,13 +107,13 @@ function dma_test(stream_tx, stream_rx)
                         else
                             errors_min = typemax(Int)
                             error_threshold = (rd_sz ÷ sizeof(UInt16)) ÷ 2
-                            for delay = 0:(rd_sz÷sizeof(UInt16))
+                            for delay = 0:wr_sz
                                 seed_rd[] = delay
                                 errors = check_pn_data(buffs[1], bytes, rd_total_sz)
                                 if errors < errors_min
                                     errors_min = errors
                                 end
-                                if errors < error_threshold
+                                if errors <= error_threshold
                                     println("RX_DELAY: $delay (errors: $errors)")
                                     run = true
                                     break
