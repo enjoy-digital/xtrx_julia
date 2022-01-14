@@ -56,7 +56,7 @@ class CRG(Module):
         self.submodules.pll = pll = S7PLL(speedgrade=-1)
         self.comb += pll.reset.eq(ResetSignal("pcie"))
         pll.register_clkin(ClockSignal("pcie"), 125e6)
-        pll.create_clkout(self.cd_idelay,    200e6)
+        pll.create_clkout(self.cd_idelay, 200e6)
 
         self.submodules.idelayctrl = S7IDELAYCTRL(self.cd_idelay)
 
@@ -84,7 +84,7 @@ class BaseSoC(SoCCore):
         "rf_switches" : 25,
         "lms7002m"    : 26,
     }
-    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=True):
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
         # SoCCore ----------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ class BaseSoC(SoCCore):
             cd         = "pcie"
         )
         self.add_pcie(phy=self.pcie_phy, ndmas=1,
-            with_dma_buffering = True, dma_buffering_depth=1024,
+            with_dma_buffering = True, dma_buffering_depth=16384,
             with_dma_loopback  = True,
             with_msi           = True
         )
@@ -173,15 +173,21 @@ class BaseSoC(SoCCore):
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
         # VCTCXO ------------------------------------------------------------------------------------
-        self.submodules.vctcxo = VCTCXO(platform.request("vctcxo"))
+        vctxo_pads = platform.request("vctcxo")
+        self.submodules.vctcxo = VCTCXO(vctxo_pads)
+        platform.add_period_constraint(vctxo_pads.clk, 1e9/26e6)
 
         # RF Switches ------------------------------------------------------------------------------
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))
 
         # LMS7002M ---------------------------------------------------------------------------------
-        self.submodules.lms7002m = LMS7002M(platform.request("lms7002m"), sys_clk_freq)
+        self.submodules.lms7002m = LMS7002M(platform, platform.request("lms7002m"), sys_clk_freq,
+            tx_delay_init = 16,
+            rx_delay_init = 16
+        )
         self.comb += self.pcie_dma0.source.connect(self.lms7002m.sink)
         self.comb += self.lms7002m.source.connect(self.pcie_dma0.sink)
+        platform.add_false_path_constraints(self.crg.cd_sys.clk, self.lms7002m.cd_rfic.clk)
 
         # Analyzer ---------------------------------------------------------------------------------
         if with_analyzer:
@@ -192,13 +198,19 @@ class BaseSoC(SoCCore):
                 self.lms7002m.tx_frame,
                 self.lms7002m.tx_data,
                 self.lms7002m.rx_frame,
+                self.lms7002m.rx_aligned,
                 self.lms7002m.rx_data,
             ]
             self.submodules.analyzer = LiteScopeAnalyzer(analyzer_signals,
-                depth        = 512,
-                clock_domain = "sys",
+                depth        = 128,
+                clock_domain = "rfic",
                 csr_csv      = "analyzer.csv"
             )
+
+        # Timing Constraints/False Paths -----------------------------------------------------------
+        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks       icap_clk] -asynchronous")
+        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks     vctcxo_clk] -asynchronous")
+        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks lms7002m_mclk1] -asynchronous")
 
 # Build --------------------------------------------------------------------------------------------
 

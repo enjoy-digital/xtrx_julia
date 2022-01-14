@@ -18,8 +18,9 @@ dev = open(dev_args)
 # get the RX channel
 chan = dev.rx[1]
 
-# enable pattern generator
-SoapySDR.SoapySDRDevice_writeSetting(dev, "TX_PATTERN", "1")
+# enable the TX pattern generator and loop it back
+SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
+SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_TX_PATTERN", "1")
 
 # open RX stream
 stream = SoapySDR.Stream(ComplexF32, [chan])

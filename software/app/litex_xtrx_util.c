@@ -18,7 +18,7 @@
 #include "liblitepcie.h"
 
 #define DMA_CHECK_DATA
-#define DMA_RANDOM_DATA
+//#define DMA_RANDOM_DATA
 
 static char litepcie_device[1024];
 static int litepcie_device_num;
@@ -424,13 +424,13 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
             } else {
                 /* find delay/seed */
                 uint32_t errors_min = 0xffffffff;
-                for (int delay = 0; delay < DMA_BUFFER_SIZE / sizeof(uint16_t); delay++) {
+                for (int delay = 0; delay < DMA_BUFFER_SIZE; delay++) {
                     seed_rd = delay;
                     errors = check_pn_data((uint16_t *) buf_rd, DMA_BUFFER_SIZE / sizeof(uint16_t), &seed_rd, data_width);
-                    //printf("delay: %d / errors: %d\n", delay, errors);
+                    printf("delay: %d / errors: %d\n", delay, errors);
                     if (errors < errors_min)
                         errors_min = errors;
-                    if (errors < (DMA_BUFFER_SIZE / sizeof(uint16_t)) / 2) {
+                    if (errors <= (DMA_BUFFER_SIZE / sizeof(uint16_t)) / 2) {
                         printf("RX_DELAY: %d (errors: %d)\n", delay, errors);
                         run = 1;
                         break;
@@ -565,10 +565,10 @@ void lms7002m_set_tx_pattern(uint8_t enable)
     }
 
     printf("Setting LMS7002M FPGA TX pattern to %d\n", enable);
-    control  = litepcie_readl(fd, CSR_LMS7002M_CONTROL_ADDR);
-    control &= ~(1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET);
-    control |= enable *(1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET);
-    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR, control);
+    control  = litepcie_readl(fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
+    control &= ~(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
+    control |= enable *(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
+    litepcie_writel(fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR, control);
 
     close(fd);
 }
