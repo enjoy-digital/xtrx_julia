@@ -243,6 +243,10 @@ void litepcie_dma_free_gpu(void *data) {
 	if (s && s->dma_source == GPU) {
 		// TODO: wait for outstanding DMAs to complete?
 
+		error = nvidia_p2p_free_dma_mapping(s->gpu_dma_mapping);
+		if (error != 0)
+			dev_err(&s->dev->dev, "Error in nvidia_p2p_free_dma_mapping()\n");
+
 		error = nvidia_p2p_free_page_table(s->gpu_page_table);
 		if (error != 0)
 			dev_err(&s->dev->dev, "Error in nvidia_p2p_free_page_table()\n");
