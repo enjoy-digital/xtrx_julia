@@ -180,11 +180,25 @@ class SoapyXTRX : public SoapySDR::Device {
     //    Use BYP, LBF, HBF for bypassing or filter path.
     //    Use LB_BYP, LB_LBF, LB_HBF for loopback versions.
     //
-    //  - TX_RX_LOOPBACK_ENABLE(TRUE/FALSE) - enable TX/RX loopback.
+    //  - LOOPBACK_ENABLE(TRUE/FALSE)
+    //    Enable the LMS7002M's digital loopback
     //
-    //  - TX_PATTERN(pattern) - set the TX pattern.
+    //  - FPGA_LOOPBACK_ENABLE(TRUE/FALSE)
+    //    Enable a TX/RX loopback within the FPGA (before the LMS7002M PHY).
+    //
+    //  - FPGA_TX_PATTERN(pattern) - set the pattern for the TX pattern generator.
     //    pattern 0: disable pattern generator
     //    pattern 1: counter
+    //    This pattern generator can be used with both the FPGA's and the
+    //    LMS7002M's loopback to validate the digital chain.
+    //
+    //  - FPGA_RX_PATTERN(pattern) - set the pattern for the TX pattern checker.
+    //    pattern 0: disable pattern generator
+    //    pattern 1: counter
+    //    This can be useful to validate the LMS7002M PHY and determine delays
+    //    without involving the DMA. With the LMS7002M's loopback enabled, that
+    //    means TX generator -> PHY -> LMS7002M -> PHY -> RX checker.
+    //    TODO: expose CSR_LMS7002M_RX_PATTERN_ERRORS.
     void writeSetting(const std::string &key,
                       const std::string &value) override;
 

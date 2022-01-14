@@ -74,11 +74,29 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         throw std::runtime_error(
             "SoapyXTRX(): failed to open /dev/litepcie0");
 
-    // reset XTRX-specific LMS7002M controls (loopback, pattern generator, etc)
+    // reset the LMS7002M
     litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR,
-                    1 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET));
+        1 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)
+    );
     litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR,
-                    0 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET));
+        0 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)
+    );
+
+    // reset XTRX-specific LMS7002M controls
+    litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR,
+        0 * (1 << CSR_LMS7002M_CONTROL_POWER_DOWN_OFFSET) |
+        1 * (1 << CSR_LMS7002M_CONTROL_TX_ENABLE_OFFSET)  |
+        1 * (1 << CSR_LMS7002M_CONTROL_RX_ENABLE_OFFSET)  |
+        0 * (1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET)
+    );
+
+    // reset other FPGA peripherals
+    litepcie_writel(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR,
+        0 * (1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET)
+    );
+    litepcie_writel(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR,
+        0 * (1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET)
+    );
 
     // setup LMS7002M
     _lms = LMS7002M_create(litepcie_interface_transact, &_fd);
@@ -97,8 +115,6 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     // configure data port directions and data clock rates
     LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
     LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, 1);
-    LMS7002M_invert_fclk(_lms, true);
-    LMS7002M_delay_fclk(_lms, 3); // TODO: proper delay calibration
 
     // enable components
     LMS7002M_afe_enable(_lms, LMS_TX, LMS_CHA, true);
@@ -815,26 +831,43 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         LMS7002M_rbb_set_path(_lms, LMS_CHAB, path);
-    } else if (key == "TX_RX_LOOPBACK_ENABLE") {
+    } else if (key == "LOOPBACK_ENABLE") {
+        if (value == "TRUE") {
+            LMS7002M_setup_digital_loopback(_lms);
+        } else
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") unknown value");
+        // XXX: how to disable?
+    } else if (key == "FPGA_LOOPBACK_ENABLE") {
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
         if (value == "TRUE") {
             control |= (1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
-            LMS7002M_setup_digital_loopback(_lms); // XXX: how to disable?
         } else if (value != "FALSE")
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR, control);
-    } else if (key == "TX_PATTERN") {
-        uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
-        control &= ~(1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET);
+    } else if (key == "FPGA_TX_PATTERN") {
+        // XXX: can we also use the pattern generator with the FPGA's loopback
+        //      instead of the LMS7002M's? It should work according to Florent,
+        //      but I haven't been able to get that working.
+        uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
+        control &= ~(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
         if (value == "1") {
-            control |= 1 << CSR_LMS7002M_CONTROL_TX_PATTERN_ENABLE_OFFSET;
-            LMS7002M_setup_digital_loopback(_lms); // XXX: how to disable?
+            control |= 1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET;
         } else if (value != "0")
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
-        litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR, control);
+        litepcie_writel(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR, control);
+    } else if (key == "FPGA_RX_PATTERN") {
+        uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR);
+        control &= ~(1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET);
+        if (value == "1") {
+            control |= 1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET;
+        } else if (value != "0")
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") unknown value");
+        litepcie_writel(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR, control);
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");

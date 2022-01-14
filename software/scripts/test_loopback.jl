@@ -11,8 +11,8 @@ dev = open(devs[1])
 chan_rx = dev.rx[1]
 chan_tx = dev.tx[1]
 
-# enable loopback
-SoapySDR.SoapySDRDevice_writeSetting(dev, "TX_RX_LOOPBACK_ENABLE", "TRUE")
+# enable the loopback
+SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
 
 # open RX and TX streams
 stream_rx = SoapySDR.Stream(ComplexF32, [chan_rx])
