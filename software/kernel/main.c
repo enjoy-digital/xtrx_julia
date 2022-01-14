@@ -235,21 +235,46 @@ static int litepcie_dma_deinit_cpu(struct litepcie_device *s)
 #define GPU_PAGE_MASK		(~GPU_PAGE_OFFSET)
 
 // callback for when the GPU mapping needs to be revoked earlier,
-// e.g. because the userspace process exited or freed the buffer.
+// e.g. because the userspace process exited, freed the buffer, or
+// when the NVIDIA driver handle is released before the LitePCIe one.
 void litepcie_dma_free_gpu(void *data) {
-	int res;
+	int error;
 	struct litepcie_device *s = (struct litepcie_device *)data;
-	if (s) {
+	if (s && s->dma_source == GPU) {
 		// TODO: wait for outstanding DMAs to complete?
 
-		// XXX: how exactly does this play together with litepcie_dma_deinit_gpu?
-		//      is this function also called during nvidia_p2p_put_pages?
-		//      in case of a crash, is nvidia_p2p_put_pages also called?
+		error = nvidia_p2p_free_dma_mapping(s->gpu_dma_mapping);
+		if (error != 0)
+			dev_err(&s->dev->dev, "Error in nvidia_p2p_free_dma_mapping()\n");
 
-		res = nvidia_p2p_free_page_table(s->gpu_page_table);
-		if (res != 0)
+		error = nvidia_p2p_free_page_table(s->gpu_page_table);
+		if (error != 0)
 			dev_err(&s->dev->dev, "Error in nvidia_p2p_free_page_table()\n");
+
+		// this ensures later release of the LitePCIe driver handle
+		// won't try to release these GPU resources again.
+		s->dma_source = None;
 	}
+}
+
+static int litepcie_dma_deinit_gpu(struct litepcie_device *s)
+{
+	int error;
+
+	error = nvidia_p2p_dma_unmap_pages(s->dev, s->gpu_page_table, s->gpu_dma_mapping);
+	if (error != 0) {
+		dev_err(&s->dev->dev, "Error in nvidia_p2p_dma_unmap_pages()\n");
+		return -EINVAL;
+	}
+
+	error = nvidia_p2p_put_pages(0, 0, s->gpu_virt_start, s->gpu_page_table);
+	if (error != 0) {
+		dev_err(&s->dev->dev, "Error in nvidia_p2p_put_pages()\n");
+		return -EINVAL;
+	}
+
+	s->dma_source = None;
+	return 0;
 }
 
 static int litepcie_dma_init_gpu(struct litepcie_device *s, uint64_t addr, uint64_t size)
@@ -357,26 +382,6 @@ do_unlock_pages:
 	nvidia_p2p_put_pages(0, 0, s->gpu_virt_start, s->gpu_page_table);
 do_exit:
 	return error;
-}
-
-static int litepcie_dma_deinit_gpu(struct litepcie_device *s)
-{
-	int error;
-
-	error = nvidia_p2p_dma_unmap_pages(s->dev, s->gpu_page_table, s->gpu_dma_mapping);
-	if (error != 0) {
-		dev_err(&s->dev->dev, "Error in nvidia_p2p_dma_unmap_pages()\n");
-		return -EINVAL;
-	}
-
-	error = nvidia_p2p_put_pages(0, 0, s->gpu_virt_start, s->gpu_page_table);
-	if (error != 0) {
-		dev_err(&s->dev->dev, "Error in nvidia_p2p_put_pages()\n");
-		return -EINVAL;
-	}
-
-	s->dma_source = None;
-	return 0;
 }
 
 static int litepcie_dma_writer_start(struct litepcie_device *s, int chan_num)
