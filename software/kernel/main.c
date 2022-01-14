@@ -253,6 +253,26 @@ void litepcie_dma_free_gpu(void *data) {
 	}
 }
 
+static int litepcie_dma_deinit_gpu(struct litepcie_device *s)
+{
+	int error;
+
+	error = nvidia_p2p_dma_unmap_pages(s->dev, s->gpu_page_table, s->gpu_dma_mapping);
+	if (error != 0) {
+		dev_err(&s->dev->dev, "Error in nvidia_p2p_dma_unmap_pages()\n");
+		return -EINVAL;
+	}
+
+	error = nvidia_p2p_put_pages(0, 0, s->gpu_virt_start, s->gpu_page_table);
+	if (error != 0) {
+		dev_err(&s->dev->dev, "Error in nvidia_p2p_put_pages()\n");
+		return -EINVAL;
+	}
+
+	s->dma_source = None;
+	return 0;
+}
+
 static int litepcie_dma_init_gpu(struct litepcie_device *s, uint64_t addr, uint64_t size)
 {
 	int error;
@@ -358,26 +378,6 @@ do_unlock_pages:
 	nvidia_p2p_put_pages(0, 0, s->gpu_virt_start, s->gpu_page_table);
 do_exit:
 	return error;
-}
-
-static int litepcie_dma_deinit_gpu(struct litepcie_device *s)
-{
-	int error;
-
-	error = nvidia_p2p_dma_unmap_pages(s->dev, s->gpu_page_table, s->gpu_dma_mapping);
-	if (error != 0) {
-		dev_err(&s->dev->dev, "Error in nvidia_p2p_dma_unmap_pages()\n");
-		return -EINVAL;
-	}
-
-	error = nvidia_p2p_put_pages(0, 0, s->gpu_virt_start, s->gpu_page_table);
-	if (error != 0) {
-		dev_err(&s->dev->dev, "Error in nvidia_p2p_put_pages()\n");
-		return -EINVAL;
-	}
-
-	s->dma_source = None;
-	return 0;
 }
 
 static int litepcie_dma_writer_start(struct litepcie_device *s, int chan_num)
