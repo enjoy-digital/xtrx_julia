@@ -1,3 +1,9 @@
 mem.h
 soc.h
 csr.h
+*.ko
+*.cmd
+*.mod
+*.mod.c
+Module.symvers
+modules.order
