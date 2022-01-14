@@ -194,6 +194,11 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         dma_init_gpu(_fd, _dma_buf, dma_buffer_total_size);
     }
 
+    // NOTE: if initialization misses a setting/register, try experimenting in
+    //       LimeGUI and loading that register dump here
+    //if (LMS7002M_load_ini(_lms, "configs/xtrx.ini"))
+    //    throw std::runtime_error("failed to load XTRX configuration");
+
     SoapySDR::log(SOAPY_SDR_INFO, "SoapyXTRX initialization complete");
 }
 
