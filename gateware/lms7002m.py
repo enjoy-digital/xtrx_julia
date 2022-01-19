@@ -14,6 +14,69 @@ from litex.soc.cores.prbs import PRBS7Generator, PRBS7Checker
 
 from litex.soc.cores.spi import SPIMaster
 
+# Architecture -------------------------------------------------------------------------------------
+#
+# The LMS7002M PHY has the following simplified architecture:
+#
+#                                                              ┌───────────────────┐
+#                                                              │                   │
+#                                                              │     SPI Core      ├──► SPI
+#                                                              │                   │
+#                                                              └───────────────────┘
+#                ┌─────────────────────────────────────────────────────────────────┐
+#                │                                                                 │
+#                │            ┌────────────┐  ┌───┐                                │
+#                │            │            │  │   │                                │
+#                │            │ RX Pattern ◄──┤   │                                │
+#                │            │            │  │ D │    ┌───────────┐  ┌────────┐   │
+#                │            └────────────┘  │ E │    │  RX Data  │  │        │   │
+#                │                            │ M ◄────┤    2:1    ◄──┤RX Delay◄───┼─── RX Data
+#                │      ┌──────┐    ┌──────┐  │ U │    │    DDR    │  │        │   │
+#                │Source│      │    │      │  │ X │    └───────────┘  └────────┘   │
+# To PCIe  ◄─────┼──────┤64<-32◄────┤ CDC  ◄──┤   ◄─┐           X12                │
+#                │      │      │    │      │  │   │ │                              │   From LMS7002M
+#                │      └──────┘    └──────┘  └───┘ │                              │
+#                │                                  │               ┌───────────┐  │
+#                │                                  │    RFIC Clk   │  RX Clk   │  │
+#                │                                  │       ┌───────┤    BUF    ◄──┼─── RX Clk
+#                │                                 T│       │       │           │  │
+#                │                                 X│       │       └───────────┘  │
+#                │                                 -│       │                      │
+#                └─────────────────────────────────R├───────┼──────────────────────┘
+#                                                  X│       │
+#                                                  -│       │
+#                ┌─────────────────────────────────L├───────┼──────────────────────┐
+#                │                                 o│       │                      │
+#                │                                 o│  ┌────▼────┐  ┌───────────┐  │
+#                │                                 p│  │         │  │  TX Clk   │  │
+#                │                                 b│  │ TX Delay├──►    2:1    ├──┼──► TX Clk
+#                │                                 a│  │         │  │    DDR    │  │
+#                │                                 c│  └─────────┘  └───────────┘  │
+#                │                                 k│                              │
+#                │           ┌────────────┐  ┌───┐  │                              │
+#                │           │            │  │   │  │                              │   To LMS7002M
+#                │           │ TX Pattern ├──►   │  │                              │
+#                │           │            │  │   │  │  ┌───────────┐               │
+#                │           └────────────┘  │ M │  │  │  TX Data  │               │
+#                │                           │ U ├──┴──►    2:1    ├───────────────┼──► TX Data
+#                │     ┌──────┐    ┌──────┐  │ X │     │    DDR    │               │
+#                │ Sink│      │    │      │  │   │     └───────────┘               │
+#  From PCIe ────┼─────►64->32├────► CDC  ├──►   │               X12               │
+#                │     │      │    │      │  │   │                                 │
+#                │     └──────┘    └──────┘  └───┘                                 │
+#                │                                                                 │
+#                └─────────────────────────────────────────────────────────────────┘
+#
+# - LiteX's SPI Core is used for the LMS7002M control SPI interface.
+# - The rfic_clk is recovered from the LMS7002M RX Clk through a Clk buffer.
+# - The rfic_clk is used for both TX/RX.
+# - 2:1 Serialization/Deserialiation is used on TX/RX.
+# - RX sampling (on the FPGA) can be adjusted through a delay on the RX Data path.
+# - TX sampling (on the LMS7002M) can be adjusted through a delay on the TX Clk path.
+# - An optional TX-RX loopback is implemented.
+# - Sink/Source stream operate in sys_clk domain @ 64-bit and are converted to/from rfic_clk @ 32-bit
+#   internally.
+
 # TX/RX Pattern Generator/Checker ------------------------------------------------------------------
 
 class TXPatternGenerator(Module, AutoCSR):
@@ -219,9 +282,6 @@ class LMS7002M(Module, AutoCSR):
 
         # TX Datapath.
         # ------------
-        self.tx_delay_rst = CSR()
-        self.tx_delay_inc = CSR()
-
         self.submodules.tx_cdc     = tx_cdc     = stream.ClockDomainCrossing([("data", 64)], cd_from="sys", cd_to="rfic")
         self.submodules.tx_conv    = tx_conv    = ClockDomainsRenamer("rfic")(stream.Converter(64, 32))
         self.submodules.tx_pattern = tx_pattern = TXPatternGenerator()
