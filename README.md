@@ -102,13 +102,13 @@ to interactively configure the LMS7002M:
 ```
 git clone https://github.com/JuliaComputing/LimeSuite -b tb/xtrx_litepcie
 cd LimeSuite
-mkdir build
-LITEPCIE_ROOT=/path/to/xtrx_julia/software /
-cmake -DENABLE_XTRX=yes -DCMAKE_BUILD_TYPE=Debug -S . -B builddir
-make -C builddir
-./build/bin/LimeSuiteGUI
+mkdir builddir
+cd builddir
+export LITEPCIE_ROOT=/path/to/xtrx_julia/software
+cmake -DENABLE_XTRX=yes -DCMAKE_BUILD_TYPE=Debug ../
+make
+sudo make install
 ```
-
 
 [> Development
 --------------
