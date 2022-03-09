@@ -16,5 +16,8 @@ def generate_litepcie_software_headers(soc, dst):
 
 def generate_litepcie_software(soc, dst, use_litepcie_software=False):
     if use_litepcie_software:
+        cdir = os.path.abspath(os.path.dirname(__file__))
+        os.system(f"cp {cdir}/__init__.py {cdir}/__init__.py.orig")
         copy_litepcie_software(dst)
+        os.system(f"cp {cdir}/__init__.py.orig {cdir}/__init__.py")
     generate_litepcie_software_headers(soc, os.path.join(dst, "kernel"))
