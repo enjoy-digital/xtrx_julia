@@ -135,7 +135,7 @@ class BaseSoC(SoCCore):
             bar0_size  = 0x20000,
             cd         = "pcie"
         )
-        self.add_pcie(phy=self.pcie_phy, ndmas=1,
+        self.add_pcie(phy=self.pcie_phy, address_width=64, ndmas=1,
             with_dma_buffering = True, dma_buffering_depth=16384,
             with_dma_loopback  = True,
             with_msi           = True
