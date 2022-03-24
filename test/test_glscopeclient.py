@@ -103,7 +103,7 @@ class SCPIServer:
                                         sample = (data[4*n + 1] << 8) + data[4*n + 0]
                                     if self.channels == 2:
                                         sample = (data[2*n + 2*c + 1] << 8) + data[2*n + 2*c + 0]
-                                    sample = sample >> 8
+                                    sample = sample >> 4
                                     sample = sample & 0xff
                                     # 2's complement to decimal.
                                     if sample & 0x80:
