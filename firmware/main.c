@@ -22,8 +22,8 @@
 
 #define TMP108_I2C_ADDR  0x4a
 #define LP8758_I2C_ADDR  0x60
-#define MPC4725_I2C_ADDR 0x62
-#define LTC26x6_I2C_ADDR 0x62 /* CHECKME */
+#define MPC4725_I2C_ADDR 0x62 /* Rev4 */
+#define LTC26x6_I2C_ADDR 0x62 /* Rev5 CHECKME */
 
 #define LMS7002M_RESET      (1 << 0)
 #define LMS7002M_POWER_DOWN (1 << 1)
@@ -194,12 +194,27 @@ static void temp_test(void)
 /*-----------------------------------------------------------------------*/
 
 static void vctcxo_dac_set(int value) {
-	unsigned char dat0;
-	unsigned char dat1;
-	value = value & 0xfff;
-	dat0 = (0b0000 << 4) | (value >> 8);
-	dat1 = (value & 0xff);
-	i2c1_write(MPC4725_I2C_ADDR, dat0, &dat1, 1);
+	int board_revision;
+	unsigned char cmd;
+	unsigned char dat[2];
+
+	/* Get board revision */
+	board_revision = board_get_revision();
+
+	/* Rev4 is equipped with a MCP7525 */
+	if (board_revision == 4) {
+		value = value & 0xfff; /* 12-bit full range */
+		cmd    = (0b0000 << 4) | (value >> 8);
+		dat[0] = (value & 0xff);
+		i2c1_write(MPC4725_I2C_ADDR, cmd, dat, 1);
+	/* Rev5 is equipped with a LTC26X6 */
+	} else {
+		value = value & 0xfff;       /* 12-bit full range */
+		cmd    = (0b0011 << 4);      /* Write to and update */
+		dat[0] = (value >> 4);       /* 8 MSBs */
+		dat[1] = (value & 0xf) << 4; /* 4 LSBs + padding */
+		i2c1_write(LTC26x6_I2C_ADDR, cmd, dat, 2);
+	}
 }
 
 static void vctcxo_test(int n)
