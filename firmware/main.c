@@ -23,6 +23,7 @@
 #define TMP108_I2C_ADDR  0x4a
 #define LP8758_I2C_ADDR  0x60
 #define MPC4725_I2C_ADDR 0x62
+#define LTC26x6_I2C_ADDR 0x62 /* CHECKME */
 
 #define LMS7002M_RESET      (1 << 0)
 #define LMS7002M_POWER_DOWN (1 << 1)
@@ -131,6 +132,32 @@ static void help(void)
 static void reboot_cmd(void)
 {
 	ctrl_reset_write(1);
+}
+
+/*-----------------------------------------------------------------------*/
+/* Board                                                                 */
+/*-----------------------------------------------------------------------*/
+
+static int board_get_revision(void)
+{
+	/* Get board revision from SPI DACs:
+	   - XTRX Rev4 is equipped with a MCP4725.
+	   - XTRX Rev5 is equipped with a LTC26X6.
+	   The LTC26X6 has the particularity of only accepting write commands,
+	   so we detect MCP4725 presence (and thus Rev4 revision) by doing a
+	   I2C read to the MCP4725 I2C address.
+	*/
+
+	/* Check MCP4725 presence */
+	int has_mcp4725;
+	i2c1_start();
+	has_mcp4725 = i2c1_transmit_byte(I2C1_ADDR_RD(MPC4725_I2C_ADDR));
+	i2c1_stop();
+
+	if (has_mcp4725)
+		return 4;
+	else
+		return 5;
 }
 
 /*-----------------------------------------------------------------------*/
@@ -325,6 +352,11 @@ static int xtrx_init(void)
 		printf("0x%02x: 0x%02x\n", adr, dat);
 	}
 #endif
+
+	printf("\n");
+	printf("Getting Board Revision...\n");
+	printf("-------------------------\n");
+	printf("Rev%d.\n", board_get_revision());
 
 	printf("\n");
 	printf("VCTCXO Initialization...\n");

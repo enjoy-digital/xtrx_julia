@@ -29,7 +29,7 @@ static inline void i2c1_oe_scl_sda(bool oe, bool scl, bool sda)
 }
 
 // START condition: 1-to-0 transition of SDA when SCL is 1
-static void i2c1_start(void)
+void i2c1_start(void)
 {
 	i2c1_oe_scl_sda(1, 1, 1);
 	I2C1_DELAY(1);
@@ -40,7 +40,7 @@ static void i2c1_start(void)
 }
 
 // STOP condition: 0-to-1 transition of SDA when SCL is 1
-static void i2c1_stop(void)
+void i2c1_stop(void)
 {
 	i2c1_oe_scl_sda(1, 0, 0);
 	I2C1_DELAY(1);
@@ -80,7 +80,7 @@ static int i2c1_receive_bit(void)
 }
 
 // Send data byte and return 1 if slave sends ACK
-static bool i2c1_transmit_byte(unsigned char data)
+bool i2c1_transmit_byte(unsigned char data)
 {
 	int i;
 	int ack;

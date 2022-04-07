@@ -15,6 +15,10 @@ extern "C" {
 #define I2C1_ADDR_WR(addr) ((addr) << 1)
 #define I2C1_ADDR_RD(addr) (((addr) << 1) | 1u)
 
+void i2c1_start(void);
+void i2c1_stop(void);
+bool i2c1_transmit_byte(unsigned char data);
+
 void i2c1_reset(void);
 bool i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len);
 bool i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop);
