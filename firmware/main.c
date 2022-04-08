@@ -130,6 +130,7 @@ static void help(void)
 	puts("rfic_test          - Test RFIC");
 	puts("digi_1v8           - Set Digital Interface to 1.8V");
 	puts("xtrx_init          - Initialize XTRX");
+	puts("pmic_dump          - Dump PMIC Registers");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -165,6 +166,21 @@ static int board_get_revision(void)
 		return 4;
 	else
 		return 5;
+}
+
+static void pmic_dump(void){
+	unsigned char adr;
+	unsigned char dat;
+	printf("PMIC-LMS Dump...\n");
+	for (adr=0; adr<32; adr++) {
+		i2c0_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
+		printf("0x%02x: 0x%02x\n", adr, dat);
+	}
+	printf("PMIC-FPGA Dump...\n");
+	for (adr=0; adr<32; adr++) {
+		i2c1_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
+		printf("0x%02x: 0x%02x\n", adr, dat);
+	}
 }
 
 /*-----------------------------------------------------------------------*/
@@ -336,7 +352,6 @@ static int xtrx_init(void)
 		printf("OK.\n");
 	}
 
-
 	printf("PMIC-LMS: Enable Buck0.\n");
 	adr = 0x02;
 	dat = 0x88;
@@ -356,20 +371,6 @@ static int xtrx_init(void)
 	adr = 0x0c;
 	dat = 0xfb;
 	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-
-#if 0
-	printf("PMIC-LMS Dump...\n");
-	for (adr=0; adr<32; adr++) {
-		i2c0_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
-		printf("0x%02x: 0x%02x\n", adr, dat);
-	}
-	printf("PMIC-FPGA Dump...\n");
-	for (adr=0; adr<32; adr++) {
-		i2c1_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
-		printf("0x%02x: 0x%02x\n", adr, dat);
-	}
-#endif
 
 	/* Get board revision */
 	board_revision = board_get_revision();
@@ -433,6 +434,8 @@ static void console_service(void)
 		digi_1v8();
 	else if(strcmp(token, "xtrx_init") == 0)
 		xtrx_init();
+	else if(strcmp(token, "pmic_dump") == 0)
+		pmic_dump();
 	prompt();
 }
 
