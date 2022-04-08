@@ -36,6 +36,7 @@
 /*-----------------------------------------------------------------------*/
 
 static int board_revision;
+static unsigned char dac_addr;
 
 /*-----------------------------------------------------------------------*/
 /* Helpers                                                               */
@@ -131,6 +132,7 @@ static void help(void)
 	puts("digi_1v8           - Set Digital Interface to 1.8V");
 	puts("xtrx_init          - Initialize XTRX");
 	puts("pmic_dump          - Dump PMIC Registers");
+	puts("dac_dump           - Dump DAC Registers");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -162,10 +164,13 @@ static int board_get_revision(void)
 	has_mcp4725 = i2c1_transmit_byte(I2C1_ADDR_RD(MPC4725_I2C_ADDR));
 	i2c1_stop();
 
-	if (has_mcp4725)
+	if (has_mcp4725) {
+		dac_addr = MPC4725_I2C_ADDR;
 		return 4;
-	else
+	} else {
+		dac_addr = DAC60501_I2C_ADDR;
 		return 5;
+	}
 }
 
 static void pmic_dump(void){
@@ -180,6 +185,19 @@ static void pmic_dump(void){
 	for (adr=0; adr<32; adr++) {
 		i2c1_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
 		printf("0x%02x: 0x%02x\n", adr, dat);
+	}
+}
+
+static void dac_dump(void){
+	unsigned char adr;
+	unsigned char dat[2];
+	if (dac_addr == DAC60501_I2C_ADDR) {
+		// TODO: Fix endianness
+		printf("DAC @0x%02x Dump...\n", dac_addr);
+		for (adr=0; adr<9; adr++) {
+			i2c1_read(dac_addr, adr, dat, 2, true);
+			printf("0x%02x: 0x%04x\n", adr, *dat);
+		}
 	}
 }
 
@@ -436,6 +454,8 @@ static void console_service(void)
 		xtrx_init();
 	else if(strcmp(token, "pmic_dump") == 0)
 		pmic_dump();
+	else if(strcmp(token, "dac_dump") == 0)
+		dac_dump();
 	prompt();
 }
 
