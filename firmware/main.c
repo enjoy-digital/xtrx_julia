@@ -22,7 +22,7 @@
 
 #define TMP108_I2C_ADDR  0x4a
 #define LP8758_I2C_ADDR  0x60
-#define MPC4725_I2C_ADDR 0x62 /* Rev4 */
+#define MCP4725_I2C_ADDR 0x62 /* Rev4 */
 #define DAC60501_I2C_ADDR 0x4b /* Rev5 */
 
 #define LMS7002M_RESET      (1 << 0)
@@ -161,11 +161,11 @@ static int board_get_revision(void)
 	/* Check MCP4725 presence */
 	int has_mcp4725;
 	i2c1_start();
-	has_mcp4725 = i2c1_transmit_byte(I2C1_ADDR_RD(MPC4725_I2C_ADDR));
+	has_mcp4725 = i2c1_transmit_byte(I2C1_ADDR_RD(MCP4725_I2C_ADDR));
 	i2c1_stop();
 
 	if (has_mcp4725) {
-		dac_addr = MPC4725_I2C_ADDR;
+		dac_addr = MCP4725_I2C_ADDR;
 		return 4;
 	} else {
 		dac_addr = DAC60501_I2C_ADDR;
@@ -238,9 +238,9 @@ static void dac_init(void) {
 	unsigned char cmd;
 	unsigned char dat[2];
 
-	/* Rev4 is equipped with a MCP7525 */
+	/* Rev4 is equipped with a MCP4725 */
 	if (board_revision == 4) {
-		printf("DAC is MCP7525\n");
+		printf("DAC is MCP4725\n");
 	/* Rev5 is equipped with a DAC60501 */
 	} else {
 		printf("DAC is DAC60501.\n");
@@ -260,12 +260,12 @@ static void vctcxo_dac_set(int value) {
 	unsigned char cmd;
 	unsigned char dat[2];
 
-	/* Rev4 is equipped with a MCP7525 */
+	/* Rev4 is equipped with a MCP4725 */
 	if (board_revision == 4) {
 		value = value & 0xfff; /* 12-bit full range */
 		cmd    = (0b0000 << 4) | (value >> 8);
 		dat[0] = (value & 0xff);
-		i2c1_write(MPC4725_I2C_ADDR, cmd, dat, 1);
+		i2c1_write(MCP4725_I2C_ADDR, cmd, dat, 1);
 	/* Rev5 is equipped with a DAC60501 */
 	} else {
 
