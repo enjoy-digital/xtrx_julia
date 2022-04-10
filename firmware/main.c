@@ -234,6 +234,28 @@ static void temp_test(void)
 /* VCTCXO                                                                */
 /*-----------------------------------------------------------------------*/
 
+static void dac_init(void) {
+	unsigned char cmd;
+	unsigned char dat[2];
+
+	/* Rev4 is equipped with a MCP7525 */
+	if (board_revision == 4) {
+		printf("DAC is MCP7525\n");
+	/* Rev5 is equipped with a DAC60501 */
+	} else {
+		printf("DAC is DAC60501.\n");
+		// The stock XTRX does this read, but we don't need it.
+		//cmd = 0x04;
+		//i2c1_read(DAC60501_I2C_ADDR, cmd, dat, 2, true);
+
+		// Gain register
+		cmd = 0x04;
+		dat[0] = 0x01; // Buffer Amplifier Gain -> 2
+		dat[1] = 0x01; // Reference divider -> 2
+		i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
+	}
+}
+
 static void vctcxo_dac_set(int value) {
 	unsigned char cmd;
 	unsigned char dat[2];
@@ -246,11 +268,7 @@ static void vctcxo_dac_set(int value) {
 		i2c1_write(MPC4725_I2C_ADDR, cmd, dat, 1);
 	/* Rev5 is equipped with a DAC60501 */
 	} else {
-		//value = value & 0xfff;       /* 12-bit full range */
-		//cmd    = (0b0011 << 4);      /* Write to and update */
-		//dat[0] = (value >> 4);       /* 8 MSBs */
-		//dat[1] = (value & 0xf) << 4; /* 4 LSBs + padding */
-		//i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
+
 	}
 }
 
@@ -304,7 +322,6 @@ static int xtrx_init(void)
 {
 	unsigned char adr;
 	unsigned char dat;
-	unsigned char dat_2[2];
 
 	printf("PMICs Initialization...\n");
 	printf("-----------------------\n");
@@ -392,24 +409,18 @@ static int xtrx_init(void)
 	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
 	/* Get board revision */
-	board_revision = board_get_revision();
-
 	printf("\n");
 	printf("Getting Board Revision...\n");
 	printf("-------------------------\n");
+
+	board_revision = board_get_revision();
+
 	printf("Rev%d.\n", board_revision);
 
-	printf("Intializing DAC configuration...\n");
-	if (board_revision == 5) {
-		printf("DAC is DAC60501.\n");
-		// Set Gain register
-		adr = 0x04;
-		i2c1_read(DAC60501_I2C_ADDR, adr, dat_2, 2, true);
-		adr = 0x04;
-		dat_2[0] = 0x01;
-		dat_2[1] = 0x01;
-		i2c1_write(DAC60501_I2C_ADDR, adr, dat_2, 2);
-	}
+	printf("\n");
+	printf("DAC initialization...\n");
+	printf("-------------------------\n");
+	dac_init();
 
 	printf("\n");
 	printf("VCTCXO Initialization...\n");
