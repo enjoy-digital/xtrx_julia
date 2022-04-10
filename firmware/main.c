@@ -304,6 +304,7 @@ static int xtrx_init(void)
 {
 	unsigned char adr;
 	unsigned char dat;
+	unsigned char dat_2[2];
 
 	printf("PMICs Initialization...\n");
 	printf("-----------------------\n");
@@ -397,6 +398,18 @@ static int xtrx_init(void)
 	printf("Getting Board Revision...\n");
 	printf("-------------------------\n");
 	printf("Rev%d.\n", board_revision);
+
+	printf("Intializing DAC configuration...\n");
+	if (board_revision == 5) {
+		printf("DAC is DAC60501.\n");
+		// Set Gain register
+		adr = 0x04;
+		i2c1_read(DAC60501_I2C_ADDR, adr, dat_2, 2, true);
+		adr = 0x04;
+		dat_2[0] = 0x01;
+		dat_2[1] = 0x01;
+		i2c1_write(DAC60501_I2C_ADDR, adr, dat_2, 2);
+	}
 
 	printf("\n");
 	printf("VCTCXO Initialization...\n");
