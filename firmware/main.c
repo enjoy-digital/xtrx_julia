@@ -273,7 +273,7 @@ static void vctcxo_dac_set(int value) {
 		dat[0] = value & 0xff;
 		dat[1] = (value & 0xff00) >> 4;
 		cmd = 0x08;
-		i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 1);
+		i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
 	}
 }
 
