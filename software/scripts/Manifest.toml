@@ -294,9 +294,9 @@ uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[deps.SoapySDR]]
 deps = ["Intervals", "Unitful", "soapysdr_jll"]
-git-tree-sha1 = "4a9c2699a17d38cb5ab32054e5166f4cfc4ba70c"
-repo-rev = "kwargs"
-repo-url = "https://github.com/maleadt/SoapySDR.jl"
+git-tree-sha1 = "7635dee0261b1f6c42afa583a0531f7941e0cff5"
+repo-rev = "main"
+repo-url = "https://github.com/juliatelecom/SoapySDR.jl"
 uuid = "4fa426e6-03fd-45b2-b2dd-25f726820c03"
 version = "0.2.0"
 
