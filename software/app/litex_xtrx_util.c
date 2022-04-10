@@ -23,6 +23,8 @@
 static char litepcie_device[1024];
 static int litepcie_device_num;
 
+static int cuda_device_num;
+
 sig_atomic_t keep_running = 1;
 
 void intHandler(int dummy) {
@@ -63,6 +65,31 @@ static void info(void)
            (double)litepcie_readl(fd, CSR_XADC_VCCBRAM_ADDR) / 4096 * 3);
 #endif
     close(fd);
+
+    if (cuda_device_num >= 0) {
+        checked_cuda_call(cuInit(0));
+
+        CUdevice device;
+        checked_cuda_call(cuDeviceGet(&device, cuda_device_num));
+
+        char name[256];
+        checked_cuda_call(cuDeviceGetName(name, 256, device));
+        fprintf(stderr, "GPU identification: %s\n", name);
+
+        // get compute capabilities and the devicename
+        int major = 0, minor = 0;
+        checked_cuda_call(
+            cuDeviceGetAttribute(&major, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, device));
+        checked_cuda_call(
+            cuDeviceGetAttribute(&minor, CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, device));
+        fprintf(stderr, "GPU compute capability: %d.%d\n", major, minor);
+
+        size_t global_mem = 0;
+        checked_cuda_call(cuDeviceTotalMem(&global_mem, device));
+        fprintf(stderr, "GPU global memory: %llu MB\n", (unsigned long long)(global_mem >> 20));
+        if (global_mem > (unsigned long long)4 * 1024 * 1024 * 1024L)
+            fprintf(stderr, "GPU 64-bit memory address support\n");
+    }
 }
 
 /* gps */
@@ -313,10 +340,41 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
     uint8_t  run = 0;
 #endif
 
+    CUdevice gpu_dev;
+    CUcontext gpu_ctx;
+    if (cuda_device_num >= 0) {
+        checked_cuda_call(cuInit(0));
+        checked_cuda_call(cuDeviceGet(&gpu_dev, cuda_device_num));
+        checked_cuda_call(cuCtxCreate(&gpu_ctx, 0, gpu_dev));
+    }
+
     signal(SIGINT, intHandler);
 
-    if (litepcie_dma_init(&dma, litepcie_device, zero_copy))
+    if (litepcie_dma_init(&dma, litepcie_device, zero_copy, cuda_device_num >= 0))
         exit(1);
+
+#ifdef DMA_CHECK_DATA
+    if (cuda_device_num >= 0) {
+        write_pn_data((uint32_t *) dma.buf_wr, DMA_BUFFER_TOTAL_SIZE/4, &seed_wr, data_width);
+
+        // check whether GPU memory, initialized by writing to mmapped memory,
+        // can be read back and verified using CUDA API calls.
+        void* cpu_buf = malloc(2*DMA_BUFFER_TOTAL_SIZE);
+        checked_cuda_call(cuMemcpyDtoH(cpu_buf, dma.gpu_buf, 2*DMA_BUFFER_TOTAL_SIZE));
+        for (i = 0; i < DMA_BUFFER_COUNT; i++) {
+            // access the underlying memory in the way the kernel driver would
+            errors += check_pn_data(
+                (uint32_t *) cpu_buf + i*DMA_BUFFER_SIZE/2,
+                DMA_BUFFER_SIZE/4,
+                &seed_rd, data_width
+            );
+        }
+        if (errors) {
+            fprintf(stderr, "GPU memory initialization failed (%d errors), exiting.\n", errors);
+            exit(1);
+        }
+    }
+#endif
 
     /* test loop */
     last_time = get_time_ms();
@@ -331,8 +389,11 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
         char *buf_wr;
         char *buf_rd;
 
+        // XXX: these individual read/write operations are very expensive
+        //      when backed by a GPU buffer, so disable data verification.
+
         /* write tx-buffers */
-        while (1) {
+        while (cuda_device_num == -1) {
             /* get buffer */
             buf_wr = litepcie_dma_next_write_buffer(&dma);
 
@@ -344,7 +405,7 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
         }
 
         /* read/check rx-buffers */
-        while (1) {
+        while (cuda_device_num == -1) {
             /* get buffer */
             buf_rd = litepcie_dma_next_read_buffer(&dma);
 
@@ -541,7 +602,8 @@ static void help(void)
            "\n"
            "options:\n"
            "-h                                Help\n"
-           "-c device_num                     Select the device (default = 0)\n"
+           "-c device_num                     Select the FPGA device (default = 0)\n"
+           "-g device_num                     Select the GPU device (default = -1, disabled)\n"
            "-z                                Enable zero-copy DMA mode\n"
            "-e                                Use external loopback (default = internal)\n"
            "-w data_width                     Width of data bus (default = 16)\n"
@@ -581,9 +643,11 @@ int main(int argc, char **argv)
     litepcie_device_zero_copy = 0;
     litepcie_device_external_loopback = 0;
 
+    cuda_device_num = -1;
+
     /* parameters */
     for (;;) {
-        c = getopt(argc, argv, "hc:w:ze");
+        c = getopt(argc, argv, "hc:g:w:ze");
         if (c == -1)
             break;
         switch(c) {
@@ -598,6 +662,9 @@ int main(int argc, char **argv)
             break;
         case 'z':
             litepcie_device_zero_copy = 1;
+            break;
+        case 'g':
+            cuda_device_num = atoi(optarg);
             break;
         case 'e':
             litepcie_device_external_loopback = 1;
