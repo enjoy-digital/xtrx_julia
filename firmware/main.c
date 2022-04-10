@@ -260,15 +260,20 @@ static void vctcxo_dac_set(int value) {
 	unsigned char cmd;
 	unsigned char dat[2];
 
+	value = value & 0xfff; /* 12-bit full range clamp */
+
 	/* Rev4 is equipped with a MCP4725 */
 	if (board_revision == 4) {
-		value = value & 0xfff; /* 12-bit full range */
 		cmd    = (0b0000 << 4) | (value >> 8);
 		dat[0] = (value & 0xff);
 		i2c1_write(MCP4725_I2C_ADDR, cmd, dat, 1);
 	/* Rev5 is equipped with a DAC60501 */
 	} else {
-
+		value = value << 4;
+		dat[0] = value & 0xff;
+		dat[1] = (value & 0xff00) >> 4;
+		cmd = 0x08;
+		i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 1);
 	}
 }
 
