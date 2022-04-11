@@ -182,6 +182,9 @@ litex_server --jtag --jtag-config=openocd_xc7_ft232.cfg
 litescope_cli
 ```
 
+GLScopeClient (WIP):
+https://github.com/juliacomputing/scopehal-apps/tree/sjk/xtrx1
+
 
 [> Contact
 ----------
