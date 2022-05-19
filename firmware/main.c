@@ -22,13 +22,21 @@
 
 #define TMP108_I2C_ADDR  0x4a
 #define LP8758_I2C_ADDR  0x60
-#define MPC4725_I2C_ADDR 0x62 /* Rev4 */
-#define LTC26x6_I2C_ADDR 0x62 /* Rev5 CHECKME */
+#define MCP4725_I2C_ADDR 0x62 /* Rev4 */
+#define DAC60501_I2C_ADDR 0x4b /* Rev5 */
 
 #define LMS7002M_RESET      (1 << 0)
 #define LMS7002M_POWER_DOWN (1 << 1)
 #define LMS7002M_TX_ENABLE  (1 << 2)
 #define LMS7002M_RX_ENABLE  (1 << 3)
+
+
+/*-----------------------------------------------------------------------*/
+/* Global Variables                                                      */
+/*-----------------------------------------------------------------------*/
+
+static int board_revision;
+static unsigned char dac_addr;
 
 /*-----------------------------------------------------------------------*/
 /* Helpers                                                               */
@@ -123,6 +131,8 @@ static void help(void)
 	puts("rfic_test          - Test RFIC");
 	puts("digi_1v8           - Set Digital Interface to 1.8V");
 	puts("xtrx_init          - Initialize XTRX");
+	puts("pmic_dump          - Dump PMIC Registers");
+	puts("dac_dump           - Dump DAC Registers");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -151,13 +161,44 @@ static int board_get_revision(void)
 	/* Check MCP4725 presence */
 	int has_mcp4725;
 	i2c1_start();
-	has_mcp4725 = i2c1_transmit_byte(I2C1_ADDR_RD(MPC4725_I2C_ADDR));
+	has_mcp4725 = i2c1_transmit_byte(I2C1_ADDR_RD(MCP4725_I2C_ADDR));
 	i2c1_stop();
 
-	if (has_mcp4725)
+	if (has_mcp4725) {
+		dac_addr = MCP4725_I2C_ADDR;
 		return 4;
-	else
+	} else {
+		dac_addr = DAC60501_I2C_ADDR;
 		return 5;
+	}
+}
+
+static void pmic_dump(void){
+	unsigned char adr;
+	unsigned char dat;
+	printf("PMIC-LMS Dump...\n");
+	for (adr=0; adr<32; adr++) {
+		i2c0_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
+		printf("0x%02x: 0x%02x\n", adr, dat);
+	}
+	printf("PMIC-FPGA Dump...\n");
+	for (adr=0; adr<32; adr++) {
+		i2c1_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
+		printf("0x%02x: 0x%02x\n", adr, dat);
+	}
+}
+
+static void dac_dump(void){
+	unsigned char adr;
+	unsigned char dat[2];
+	if (dac_addr == DAC60501_I2C_ADDR) {
+		// TODO: Fix endianness
+		printf("DAC @0x%02x Dump...\n", dac_addr);
+		for (adr=0; adr<9; adr++) {
+			i2c1_read(dac_addr, adr, dat, 2, true);
+			printf("0x%02x: 0x%04x\n", adr, *dat);
+		}
+	}
 }
 
 /*-----------------------------------------------------------------------*/
@@ -193,27 +234,46 @@ static void temp_test(void)
 /* VCTCXO                                                                */
 /*-----------------------------------------------------------------------*/
 
-static void vctcxo_dac_set(int value) {
-	int board_revision;
+static void dac_init(void) {
 	unsigned char cmd;
 	unsigned char dat[2];
 
-	/* Get board revision */
-	board_revision = board_get_revision();
-
-	/* Rev4 is equipped with a MCP7525 */
+	/* Rev4 is equipped with a MCP4725 */
 	if (board_revision == 4) {
-		value = value & 0xfff; /* 12-bit full range */
+		printf("DAC is MCP4725\n");
+	/* Rev5 is equipped with a DAC60501 */
+	} else {
+		printf("DAC is DAC60501.\n");
+		// The stock XTRX does this read, but we don't need it.
+		//cmd = 0x04;
+		//i2c1_read(DAC60501_I2C_ADDR, cmd, dat, 2, true);
+
+		// Gain register
+		cmd = 0x04;
+		dat[0] = 0x01; // Buffer Amplifier Gain -> 2
+		dat[1] = 0x01; // Reference divider -> 2
+		i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
+	}
+}
+
+static void vctcxo_dac_set(int value) {
+	unsigned char cmd;
+	unsigned char dat[2];
+
+	value = value & 0xfff; /* 12-bit full range clamp */
+
+	/* Rev4 is equipped with a MCP4725 */
+	if (board_revision == 4) {
 		cmd    = (0b0000 << 4) | (value >> 8);
 		dat[0] = (value & 0xff);
-		i2c1_write(MPC4725_I2C_ADDR, cmd, dat, 1);
-	/* Rev5 is equipped with a LTC26X6 */
+		i2c1_write(MCP4725_I2C_ADDR, cmd, dat, 1);
+	/* Rev5 is equipped with a DAC60501 */
 	} else {
-		value = value & 0xfff;       /* 12-bit full range */
-		cmd    = (0b0011 << 4);      /* Write to and update */
-		dat[0] = (value >> 4);       /* 8 MSBs */
-		dat[1] = (value & 0xf) << 4; /* 4 LSBs + padding */
-		i2c1_write(LTC26x6_I2C_ADDR, cmd, dat, 2);
+		value = value << 4;
+		dat[0] = value & 0xff;
+		dat[1] = (value & 0xff00) >> 4;
+		cmd = 0x08;
+		i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
 	}
 }
 
@@ -333,7 +393,6 @@ static int xtrx_init(void)
 		printf("OK.\n");
 	}
 
-
 	printf("PMIC-LMS: Enable Buck0.\n");
 	adr = 0x02;
 	dat = 0x88;
@@ -354,24 +413,19 @@ static int xtrx_init(void)
 	dat = 0xfb;
 	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
-
-#if 0
-	printf("PMIC-LMS Dump...\n");
-	for (adr=0; adr<32; adr++) {
-		i2c0_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
-		printf("0x%02x: 0x%02x\n", adr, dat);
-	}
-	printf("PMIC-FPGA Dump...\n");
-	for (adr=0; adr<32; adr++) {
-		i2c1_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
-		printf("0x%02x: 0x%02x\n", adr, dat);
-	}
-#endif
-
+	/* Get board revision */
 	printf("\n");
 	printf("Getting Board Revision...\n");
 	printf("-------------------------\n");
-	printf("Rev%d.\n", board_get_revision());
+
+	board_revision = board_get_revision();
+
+	printf("Rev%d.\n", board_revision);
+
+	printf("\n");
+	printf("DAC initialization...\n");
+	printf("-------------------------\n");
+	dac_init();
 
 	printf("\n");
 	printf("VCTCXO Initialization...\n");
@@ -427,6 +481,10 @@ static void console_service(void)
 		digi_1v8();
 	else if(strcmp(token, "xtrx_init") == 0)
 		xtrx_init();
+	else if(strcmp(token, "pmic_dump") == 0)
+		pmic_dump();
+	else if(strcmp(token, "dac_dump") == 0)
+		dac_dump();
 	prompt();
 }
 
