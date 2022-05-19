@@ -3,14 +3,12 @@ LDFLAGS=-g
 CC=$(CROSS_COMPILE)gcc
 AR=ar
 
-CFLAGS += $(shell pkgconf --cflags cuda)
-
 PROGS=litex_xtrx_util
 
 all: $(PROGS)
 
 litex_xtrx_util: litex_xtrx_util.o
-	$(CC) $(LDFLAGS) -o $@ $^ -L../user/liblitepcie -lcuda -llitepcie
+	$(CC) $(LDFLAGS) -o $@ $^ -L../user/liblitepcie -llitepcie
 
 clean:
 	rm -f $(PROGS) *.o *.a *.d *~
