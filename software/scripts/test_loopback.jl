@@ -1,6 +1,12 @@
 # configure loopback mode in the the XTRX and LMS7002M RF IC, so transmitted
 # buffers should appear on the RX side.
 
+if isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
+    ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr/build")
+end
+
+@show ENV["SOAPY_SDR_PLUGIN_PATH"]
+
 using SoapySDR, Printf
 
 # open the first device
