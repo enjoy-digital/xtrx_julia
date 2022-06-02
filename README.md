@@ -18,6 +18,17 @@ LiteX/LitePCIe:
 ![](https://user-images.githubusercontent.com/1450143/147348139-503834af-76d5-4172-8ca0-e323b719fa17.png)
 
 
+This Julia Computing remote contains support for GPU P2P operations.
+
+[> GPU Setup
+------------
+
+For P2P operation the open source Nvidia drivers are required, which can be installed with the instructions in the main
+repository:
+
+https://github.com/NVIDIA/open-gpu-kernel-modules
+
+
 [> Getting started
 ------------------
 
@@ -49,7 +60,7 @@ Build the Linux kernel driver and load it:
 
 ```
 cd software/kernel
-make
+make NVIDIA_SRC_DIR=<path-to>/open-gpu-kernel-modules/kernel-open/nvidia
 sudo ./init.sh
 ```
 

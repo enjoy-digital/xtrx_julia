@@ -2,17 +2,23 @@
 # and try receiving that pattern using the LMS7002M RF IC.
 # the pattern is just a counter, so the array should contain increasing numbers.
 
+if isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
+    ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr/build")
+end
+
+@show ENV["SOAPY_SDR_PLUGIN_PATH"]
+
 using SoapySDR
 
 # GPU: initialize the device
-#using CUDA
-#CuArray([1])
+using CUDA
+CuArray([1])
 
 # open the first device
 devs = Devices()
 dev_args = devs[1]
 # GPU: set the DMA target
-#dev_args["device"] = "GPU"
+dev_args["device"] = "GPU"
 dev = open(dev_args)
 
 # get the RX channel
@@ -45,9 +51,9 @@ function dma_test(stream)
         println("Data rate: $(Base.format_bytes(total_bytes / time))/s")
 
         # print last array, for verification
-        arr = unsafe_wrap(Array, buffs[1], bytes ÷ sizeof(UInt32))
+        # arr = unsafe_wrap(Array, buffs[1], bytes ÷ sizeof(UInt32))
         # GPU: wrap as a CuArray instead
-        #unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), ...)
+        arr = unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
         display(arr[1:10])
         println("\n ...")
     finally

@@ -36,3 +36,9 @@ liteuart.ko: liteuart.c
 clean:
 	make -C $(KERNEL_PATH) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) M=$(shell pwd) clean
 	rm -f *~
+
+uninstall:
+	rmmod litepcie
+	rmmod liteuart
+
+print-%  : ; @echo $* = $($*)
