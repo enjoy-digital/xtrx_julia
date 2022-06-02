@@ -64,6 +64,12 @@ make NVIDIA_SRC_DIR=<path-to>/open-gpu-kernel-modules/kernel-open/nvidia
 sudo ./init.sh
 ```
 
+Note that if a thunderbolt carrier is in use, it may be necessary rescan the pci bus:
+
+```
+sudo bash -c 'echo "1" > /sys/bus/pci/rescan'
+```
+
 Build the Linux user-space utilities and test them:
 
 ```
