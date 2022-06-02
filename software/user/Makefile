@@ -4,6 +4,7 @@ CC=$(CROSS_COMPILE)gcc
 AR=ar
 
 CFLAGS += $(shell pkgconf --cflags cuda)
+# CFLAGS += -I/usr/local/cuda-11.7/include
 
 PROGS=litepcie_util litepcie_test litepcie_dma_minimal_example
 
