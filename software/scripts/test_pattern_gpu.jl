@@ -2,7 +2,7 @@
 # and try receiving that pattern using the LMS7002M RF IC.
 # the pattern is just a counter, so the array should contain increasing numbers.
 
-if isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
+if !haskey(ENV, "SOAPY_SDR_PLUGIN_PATH") || isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
     ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr/build")
 end
 
