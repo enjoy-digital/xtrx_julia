@@ -80,6 +80,12 @@ make
 ./litepcie_util dma_test
 ```
 
+If anything goes wrong:
+
+```
+ sudo bash -c 'echo "1" > /sys/bus/pci/devices/0000\:02\:00.0/reset'
+```
+
 
 [> User-space software
 ----------------------
