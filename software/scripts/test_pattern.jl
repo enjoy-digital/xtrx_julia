@@ -10,12 +10,26 @@ end
 
 using SoapySDR
 
+const GPU = Ref(false)
+
+if "gpu" in ARGS
+    using CUDA
+    GPU[] = true
+
+    # GPU: initialize the device# GPU: initialize the device
+    device!(0)
+    CuArray(UInt32[1]) .= 1
+    # XXX: actually creating an array to initialize CUDA won't be required anymore
+    #      in the next version of CUDA.jl, but it helps to ensure code is compiled
+
+end
+
 
 # open the first device
 devs = Devices()
 dev_args = devs[1]
 # GPU: set the DMA target
-dev_args["device"] = "CPU"
+dev_args["device"] = GPU[] ? "GPU" : "CPU"
 dev = open(dev_args)
 
 # get the RX channel
@@ -30,8 +44,14 @@ SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
 # open RX stream
 stream = SoapySDR.Stream(ComplexF32, [chan])
 
-function dma_test(stream)
+function dma_test(stream, use_gpu=GPU[])
     SoapySDR.activate!(stream)
+
+    if use_gpu[]
+        println("Using GPU")
+    else
+        println("Using CPU")
+    end
 
     try
         # acquire buffers using the low-level API
@@ -42,15 +62,33 @@ function dma_test(stream)
         println("Receiving data")
         time = @elapsed for i in 1:100
             bytes, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
+         
+            if use_gpu[]
+                arr = unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
+                arr .= 1        # to verify we can actually do something with this
+                synchronize()   # data without running into overflows
+            end
+
+            # GPU NOTE:
+            # this is very tight with our 8K buffers: a kernel launch +
+            # 8K broadcast + sync takes ~10, while at a data rate of 1Gbps we
+            # can only spend ~60us per buffer. we'll need to use larger buffers,
+            # but that requires a larger BAR size and thus Above 4G decoding.
+            #
+            # we also shouldn't wait for the GPU to finish processing the data,
+            # but that requires more careful design that's out of scope here.
+         
             SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
             total_bytes += bytes
         end
         println("Data rate: $(Base.format_bytes(total_bytes / time))/s")
 
         # print last array, for verification
-        arr = unsafe_wrap(Array, buffs[1], bytes ÷ sizeof(UInt32))
-        # GPU: wrap as a CuArray instead
-        # arr = unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
+        arr = if use_gpu[]
+            unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
+        else
+            unsafe_wrap(Array, buffs[1], bytes ÷ sizeof(UInt32))
+        end
         display(arr[1:10])
         println("\n ...")
     finally
