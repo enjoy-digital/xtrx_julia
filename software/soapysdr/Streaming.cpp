@@ -226,17 +226,6 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
         assert(buffers_available > 0);
     }
 
-    // detect overflows of the underlying circular buffer
-    // NOTE: the kernel driver is more aggressive here and
-    //       treats a difference of half the count as an overflow
-    if ((_rx_stream.hw_count - _rx_stream.sw_count) >
-        _dma_mmap_info.dma_rx_buf_count) {
-        // NOTE: a warning for now, because it's easy to trigger these
-        //       from Julia (being JIT-compiled and garbage collected)
-        SoapySDR::log(SOAPY_SDR_ERROR,
-                      "SoapyXTRX::acquireReadBuffer(): detected RX overflow");
-        // return SOAPY_SDR_OVERFLOW;
-    }
 
     // get the buffer
     int buf_offset = _rx_stream.user_count % _dma_mmap_info.dma_rx_buf_count;
@@ -246,7 +235,20 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
     handle = _rx_stream.user_count;
     _rx_stream.user_count++;
 
-    return getStreamMTU(stream);
+    // detect overflows of the underlying circular buffer
+    // NOTE: the kernel driver is more aggressive here and
+    //       treats a difference of half the count as an overflow
+    if ((_rx_stream.hw_count - _rx_stream.sw_count) >
+        _dma_mmap_info.dma_rx_buf_count) {
+        // NOTE: a warning for now, because it's easy to trigger these
+        //       from Julia (being JIT-compiled and garbage collected)
+        SoapySDR::log(SOAPY_SDR_ERROR,
+                      "SoapyXTRX::acquireReadBuffer(): detected RX overflow");
+        flags |= SOAPY_SDR_END_ABRUPT;
+        return SOAPY_SDR_OVERFLOW;
+    } else {
+        return getStreamMTU(stream);
+    }
 }
 
 void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream *stream, size_t handle) {
@@ -297,7 +299,7 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
         //       from Julia (being JIT-compiled and garbage collected)
         SoapySDR::log(SOAPY_SDR_ERROR,
                       "SoapyXTRX::acquireWriteBuffer(): detected TX underflow");
-        // return SOAPY_SDR_UNDERFLOW;
+        return SOAPY_SDR_UNDERFLOW;
     }
 
     // get the buffer
