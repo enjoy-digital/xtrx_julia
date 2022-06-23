@@ -41,6 +41,8 @@ class SoapyXTRX : public SoapySDR::Device {
     size_t getNumChannels(const int) const { return 2; }
     bool getFullDuplex(const int, const size_t) const { return true; }
 
+    std::string getNativeStreamFormat(const int direction, const size_t channel, double &fullScale) const {fullScale = 4096; return SOAPY_SDR_CS16; }
+
     // Stream API
     SoapySDR::Stream *setupStream(const int direction,
                                   const std::string &format,
