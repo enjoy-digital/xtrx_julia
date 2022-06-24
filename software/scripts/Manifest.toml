@@ -303,7 +303,9 @@ uuid = "1a1011a3-84de-559e-8e89-a11a2f7dc383"
 
 [[deps.SoapySDR]]
 deps = ["CEnum", "Intervals", "Unitful", "soapysdr_jll"]
-path = "/home/sjkelly/.julia/dev/SoapySDR"
+git-tree-sha1 = "d1f17a7d0ebe391e0527cc7e928befad428f90db"
+repo-rev = "sjk/highlevel2"
+repo-url = "https://github.com/JuliaTelecom/SoapySDR.jl.git"
 uuid = "4fa426e6-03fd-45b2-b2dd-25f726820c03"
 version = "0.2.0"
 
