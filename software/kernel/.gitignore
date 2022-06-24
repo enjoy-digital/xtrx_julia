@@ -1,6 +1,3 @@
-mem.h
-soc.h
-csr.h
 *.ko
 *.cmd
 *.mod
