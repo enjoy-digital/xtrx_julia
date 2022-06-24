@@ -78,14 +78,19 @@ class SoapyXTRX : public SoapySDR::Device {
     std::map<int, std::map<size_t, std::string>> _cachedAntValues;
 
     // Frontend corrections API
+    bool hasDCOffsetMode(const int direction,
+                         const size_t channel) const override;
     void setDCOffsetMode(const int direction, const size_t channel,
                          const bool automatic) override;
     bool getDCOffsetMode(const int direction,
                          const size_t channel) const override;
+    bool hasDCOffset(const int direction,
+                     const size_t channel) const override;
     void setDCOffset(const int direction, const size_t channel,
                      const std::complex<double> &offset) override;
     std::complex<double> getDCOffset(const int direction,
                                      const size_t channel) const override;
+    bool hasIQBalance(const int direction, const size_t channel) const {return true;};
     void setIQBalance(const int direction, const size_t channel,
                       const std::complex<double> &balance) override;
     std::complex<double> getIQBalance(const int direction,
