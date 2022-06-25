@@ -2,6 +2,29 @@
 
 using Test
 
+
+"""
+Check if there are permission issues with accessing litepci device on the current
+system.
+"""
+function check_device_access()
+    @static if Sys.isunix()
+        current_user = ENV["USER"]
+        in_dialout() || @warn """User $current_user is not in the 'dialout' group.
+                                 They can be added with:
+                                  'usermod -a -G dialout $current_user'"""
+    end
+end
+
+"""
+On Unix, test if the current user is in the 'dialout' group.
+"""
+function in_dialout()
+    @static if Sys.isunix()
+        "dialout" in split(read(`groups`, String))
+    end
+end
+
 @testset "Device and Kernel Checks" begin
     @info "Checking Kernel Version"
     expect = "5.15.0-39-generic\n"
@@ -46,6 +69,11 @@ using Test
     """
     check = String(read(pipeline(`lsmod`, `grep nvidia`)))
     @test check == expect
+
+
+    @info "Check user groups..."
+    check_device_access()
+    @test in_dialout()
 
 end
 
