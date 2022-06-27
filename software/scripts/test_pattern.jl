@@ -77,7 +77,7 @@ function dma_test(use_gpu=false)
                 # we also shouldn't wait for the GPU to finish processing the data,
                 # but that requires more careful design that's out of scope here.
          
-                arr = unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
+                arr = unsafe_wrap(CuArray{UInt32, 1}, reinterpret(CuPtr{UInt32}, buffs[1]), Int64(mtu ÷ 4))
                 arr .= 1        # to verify we can actually do something with this
                 synchronize()   # data without running into overflows
             else
@@ -111,12 +111,6 @@ function dma_test(use_gpu=false)
         end
         @info "Data rate: $(Base.format_bytes(total_bytes / time))/s"
         @info "Overflow Events: $overflow_events"
-
-        arr = if use_gpu
-            unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
-        else
-            unsafe_wrap(Array, buffs[1], bytes ÷ sizeof(UInt32))
-        end
 
     finally
         SoapySDR.deactivate!(stream)
