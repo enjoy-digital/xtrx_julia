@@ -9,6 +9,9 @@ end
 @show ENV["SOAPY_SDR_PLUGIN_PATH"]
 
 using SoapySDR
+using Test
+
+SoapySDR.register_log_handler()
 
 const GPU = Ref(false)
 
@@ -44,10 +47,18 @@ SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
 # open RX stream
 stream = SoapySDR.Stream(ComplexF32, [chan])
 
-function dma_test(stream, use_gpu=GPU[])
-    SoapySDR.activate!(stream)
+function dma_test(stream, use_gpu=false)
 
-    if use_gpu[]
+    mtu = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream)
+
+
+    wr_nbufs = SoapySDR.SoapySDRDevice_getNumDirectAccessBuffers(dev, stream)
+    @info "Number of DMA buffers:", wr_nbufs
+    @info "MTU:", mtu
+
+    buf_store = [Vector{Complex{Int16}}(undef, mtu) for _ in 1:200]
+
+    if use_gpu
         println("Using GPU")
     else
         println("Using CPU")
@@ -56,14 +67,47 @@ function dma_test(stream, use_gpu=GPU[])
     try
         # acquire buffers using the low-level API
         buffs = Ptr{UInt32}[C_NULL]
-        bytes = 0
+        bytes = mtu ÷ 4
         total_bytes = 0
 
-        println("Receiving data")
-        time = @elapsed for i in 1:100
-            bytes, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
-         
-            if use_gpu[]
+        prior_pointer = Ptr{UInt32}(0)
+        counter = one(Int)
+
+        overflow_events = 0
+
+        println("Receiving data...")
+        SoapySDR.activate!(stream)
+        time = @elapsed for i in 1:200
+            err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
+
+            if err == SoapySDR.SOAPY_SDR_OVERFLOW
+                overflow_events += 1
+            end
+
+            # if we have an overflow conditions we can just use the MTU
+            buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), mtu ÷ 4)
+
+            buf_pointer = reinterpret(Ptr{UInt32}, buffs[1])
+
+            # sync the counter on start
+            if i == 1
+                counter = Int(real(buf[1]))
+            end
+
+            # make sure we aren't recycling the same buffer
+            if i != 1
+                @assert prior_pointer != buf_pointer
+            end
+
+            for j in eachindex(buf)
+                @assert buf[j] == Complex{Int16}(counter, counter)
+                counter = (counter + 0x1) & 0xfff
+            end
+
+            prior_pointer = buf_pointer
+
+            # TODO
+            if use_gpu
                 arr = unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
                 arr .= 1        # to verify we can actually do something with this
                 synchronize()   # data without running into overflows
@@ -82,9 +126,9 @@ function dma_test(stream, use_gpu=GPU[])
             total_bytes += bytes
         end
         println("Data rate: $(Base.format_bytes(total_bytes / time))/s")
-
+        println("Overflow Events: ", overflow_events)
         # print last array, for verification
-        arr = if use_gpu[]
+        arr = if use_gpu
             unsafe_wrap(CuArray, reinterpret(CuPtr{UInt32}, buffs[1]), bytes ÷ sizeof(UInt32))
         else
             unsafe_wrap(Array, buffs[1], bytes ÷ sizeof(UInt32))
@@ -95,7 +139,7 @@ function dma_test(stream, use_gpu=GPU[])
         SoapySDR.deactivate!(stream)
     end
 end
-dma_test(stream)
+dma_test(stream, GPU[])
 
 # close everything
 close(stream)
