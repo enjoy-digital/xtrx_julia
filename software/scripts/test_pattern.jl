@@ -51,7 +51,7 @@ function dma_test(use_gpu=false)
     try
         # acquire buffers using the low-level API
         buffs = Ptr{UInt32}[C_NULL]
-        bytes = mtu ÷ 4
+        bytes = mtu
         total_bytes = 0
 
         prior_pointer = Ptr{UInt32}(0)
