@@ -1,3 +1,7 @@
+name = "xtrx_julia"
+uuid = "ef582bba-f4c1-11ec-12bc-29cfc4c85e37"
+version = "0.1.0"
+
 [deps]
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 SoapySDR = "4fa426e6-03fd-45b2-b2dd-25f726820c03"
