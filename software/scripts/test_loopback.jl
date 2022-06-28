@@ -93,7 +93,6 @@ function dma_test()
         while true
 
             # write tx-buffer
-            i = 1
             while true
                 buffs = Ptr{UInt16}[C_NULL]
                 err, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(dev, stream_tx, buffs, 0)
@@ -106,7 +105,6 @@ function dma_test()
                 write_pn_data(buffs[1], err, wr_total_sz)
                 SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
                 written_bytes += err
-                i += 1
             end
 
             # read/check rx-buffer
@@ -137,10 +135,13 @@ function dma_test()
                                 break
                             end
                         end
-                        read_bytes += err
                         run ||
-                            error("Unable to find DMA RX_DELAY (min errors: $(errors_min)/$(error_threshold))")
+                            error("""
+                                  Unable to find DMA RX_DELAY (min errors: $(errors_min)/$(error_threshold))
+                                  You may want to run the ./test/reset.sh script!!
+                                  """)
                     end
+                    read_bytes += err
                 end
                 SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream_rx, handle)
             end
