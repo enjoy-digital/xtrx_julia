@@ -9,6 +9,8 @@ end
 
 using SoapySDR, Printf
 
+SoapySDR.register_log_handler()
+
 # open the first device
 devs = Devices()
 dev = open(devs[1])
@@ -71,8 +73,7 @@ function dma_test(stream_tx, stream_rx)
     wr_total_sz = wr_sz * wr_nbufs
     rd_total_sz = rd_sz * rd_nbufs
 
-    SoapySDR.activate!(stream_tx)
-    SoapySDR.activate!(stream_rx)
+
 
     run = false
 
@@ -86,59 +87,54 @@ function dma_test(stream_tx, stream_rx)
         written_bytes = 0
         last_written_bytes = 0
 
+        SoapySDR.activate!(stream_tx)
+        SoapySDR.activate!(stream_rx)
+
         while true
 
             # write tx-buffer
             while true
-                try
-                    buffs = Ptr{UInt16}[C_NULL]
-                    bytes, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(dev, stream_tx, buffs, 0)
-                    write_pn_data(buffs[1], bytes, wr_total_sz)
-                    SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
-                    written_bytes += bytes
-                catch err
-                    if !isa(err, SoapySDR.SoapySDRAPIError) || err.code != SoapySDR.SOAPY_SDR_TIMEOUT
-                        rethrow()
-                    end
+                buffs = Ptr{UInt16}[C_NULL]
+                err, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(dev, stream_tx, buffs, 0)
+                if err == SoapySDR.SOAPY_SDR_TIMEOUT
                     break
                 end
+                write_pn_data(buffs[1], err, wr_total_sz)
+                SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
+                written_bytes += err
             end
 
             # read/check rx-buffer
             while true
-                try
-                    buffs = Ptr{UInt16}[C_NULL]
-                    bytes, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream_rx, buffs, 0)
-                    if handle >= wr_nbufs
-                        if run
-                            errors += check_pn_data(buffs[1], bytes, rd_total_sz)
-                        else
-                            errors_min = typemax(Int)
-                            error_threshold = (rd_sz ÷ sizeof(UInt16)) ÷ 2
-                            for delay = 0:wr_sz
-                                seed_rd[] = delay
-                                errors = check_pn_data(buffs[1], bytes, rd_total_sz)
-                                if errors < errors_min
-                                    errors_min = errors
-                                end
-                                if errors <= error_threshold
-                                    println("RX_DELAY: $delay (errors: $errors)")
-                                    run = true
-                                    break
-                                end
-                            end
-                            run ||
-                                error("Unable to find DMA RX_DELAY (min errors: $(errors_min)/$(error_threshold))")
-                        end
-                        read_bytes += bytes
-                    end
-                    SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream_rx, handle)
-                catch err
-                    if !isa(err, SoapySDR.SoapySDRAPIError) || err.code != SoapySDR.SOAPY_SDR_TIMEOUT
-                        rethrow()
-                    end
+                buffs = Ptr{UInt16}[C_NULL]
+                err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream_rx, buffs, 0)
+                if err == SoapySDR.SOAPY_SDR_TIMEOUT
                     break
                 end
+                if handle >= wr_nbufs
+                    if run
+                        errors += check_pn_data(buffs[1], err, rd_total_sz)
+                    else
+                        errors_min = typemax(Int)
+                        error_threshold = (rd_sz ÷ sizeof(UInt16)) ÷ 2
+                        for delay = 0:wr_sz
+                            seed_rd[] = delay
+                            errors = check_pn_data(buffs[1], err, rd_total_sz)
+                            if errors < errors_min
+                                errors_min = errors
+                            end
+                            if errors <= error_threshold
+                                println("RX_DELAY: $delay (errors: $errors)")
+                                run = true
+                                break
+                            end
+                        end
+                        run ||
+                            error("Unable to find DMA RX_DELAY (min errors: $(errors_min)/$(error_threshold))")
+                    end
+                    read_bytes += err
+                end
+                SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream_rx, handle)
             end
 
             # statistics
