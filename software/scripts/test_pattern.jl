@@ -10,6 +10,7 @@ end
 
 using SoapySDR
 using Test
+using CUDA
 
 SoapySDR.register_log_handler()
 
@@ -56,6 +57,8 @@ function dma_test(use_gpu=false)
         prior_pointer = Ptr{UInt32}(0)
         counter = one(Int16)
 
+        comp = Vector{Complex{Int16}}(undef, mtu ÷ 4)
+
         overflow_events = 0
 
         @info "Receiving data..."
@@ -77,8 +80,29 @@ function dma_test(use_gpu=false)
                 # we also shouldn't wait for the GPU to finish processing the data,
                 # but that requires more careful design that's out of scope here.
          
-                arr = unsafe_wrap(CuArray{UInt32, 1}, reinterpret(CuPtr{UInt32}, buffs[1]), Int64(mtu ÷ 4))
-                arr .= 1        # to verify we can actually do something with this
+                arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu ÷ 4))
+                if i == 1
+                    #setup arrays for comparison
+                    CUDA.@allowscalar counter = Int16(real(arr[1]))
+                end
+
+                buf_pointer = reinterpret(Ptr{UInt32}, buffs[1])
+
+                # copy the array over to the CPU for validation
+                copyto!(comp, arr)
+
+                for j in eachindex(comp)
+                    @assert comp[j] == Complex{Int16}(counter, counter)
+                    counter = (counter + 0x1) & 0xfff
+                end
+
+                # make sure we aren't recycling the same buffer
+                if i != 1
+                    @assert prior_pointer != buf_pointer
+                end
+
+                #arr .= 1        # to verify we can actually do something with this
+                prior_pointer = buf_pointer
                 synchronize()   # data without running into overflows
             else
                                 # if we have an overflow conditions we can just use the MTU
@@ -89,7 +113,6 @@ function dma_test(use_gpu=false)
                 # sync the counter on start
                 if i == 1
                     counter = Int16(real(buf[1]))
-                    #@info "Counter start:" counter
                 end
 
                 # make sure we aren't recycling the same buffer
