@@ -11,23 +11,6 @@ using SoapySDR, Printf
 
 SoapySDR.register_log_handler()
 
-# open the first device
-devs = Devices()
-dev = open(devs[1])
-
-# get the RX and TX channels
-chan_rx = dev.rx[1]
-chan_tx = dev.tx[1]
-
-# enable a loopback
-SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
-# NOTE: we use the LMS7002M's loopback to validate the entire chain,
-#       but this also works with the FPGA's loopback
-
-# open RX and TX streams
-stream_rx = SoapySDR.Stream(ComplexF32, [chan_rx])
-stream_tx = SoapySDR.Stream(ComplexF32, [chan_tx])
-
 const seed_base = rand(UInt16)
 const seed_wr = Ref{UInt16}(0)
 const seed_rd = Ref{UInt16}(0)
@@ -58,7 +41,24 @@ function check_pn_data(buf::Ptr{T}, sz, max_sz, data_width=12) where {T}
     return errors
 end
 
-function dma_test(stream_tx, stream_rx)
+function dma_test()
+    # open the first device
+    devs = Devices()
+    dev = open(devs[1])
+
+    # get the RX and TX channels
+    chan_rx = dev.rx[1]
+    chan_tx = dev.tx[1]
+
+    # enable a loopback
+    SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
+    # NOTE: we use the LMS7002M's loopback to validate the entire chain,
+    #       but this also works with the FPGA's loopback
+
+    # open RX and TX streams
+    stream_rx = SoapySDR.Stream(ComplexF32, [chan_rx])
+    stream_tx = SoapySDR.Stream(ComplexF32, [chan_tx])
+
     # the size of every buffer, in bytes
     wr_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_tx)
     rd_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_rx)
@@ -69,11 +69,11 @@ function dma_test(stream_tx, stream_rx)
     rd_nbufs = SoapySDR.SoapySDRDevice_getNumDirectAccessBuffers(dev, stream_rx)
     @assert wr_nbufs == rd_nbufs
 
+
     # the total size of the stream's buffers, in bytes
     wr_total_sz = wr_sz * wr_nbufs
     rd_total_sz = rd_sz * rd_nbufs
-
-
+    @info "number of buffers: $(Int(wr_nbufs)), buffer size (bytes): $(Int(wr_sz))"
 
     run = false
 
@@ -93,15 +93,20 @@ function dma_test(stream_tx, stream_rx)
         while true
 
             # write tx-buffer
+            i = 1
             while true
                 buffs = Ptr{UInt16}[C_NULL]
                 err, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(dev, stream_tx, buffs, 0)
                 if err == SoapySDR.SOAPY_SDR_TIMEOUT
                     break
+                elseif err == SoapySDR.SOAPY_SDR_UNDERFLOW
+                    err = wr_sz # nothing to do, should be the MTU
                 end
+                @assert err > 0
                 write_pn_data(buffs[1], err, wr_total_sz)
                 SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
                 written_bytes += err
+                i += 1
             end
 
             # read/check rx-buffer
@@ -110,7 +115,10 @@ function dma_test(stream_tx, stream_rx)
                 err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream_rx, buffs, 0)
                 if err == SoapySDR.SOAPY_SDR_TIMEOUT
                     break
+                elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
+                    err = rd_sz # nothing to do, should be the MTU
                 end
+                @assert err > 0
                 if handle >= wr_nbufs
                     if run
                         errors += check_pn_data(buffs[1], err, rd_total_sz)
@@ -129,10 +137,10 @@ function dma_test(stream_tx, stream_rx)
                                 break
                             end
                         end
+                        read_bytes += err
                         run ||
                             error("Unable to find DMA RX_DELAY (min errors: $(errors_min)/$(error_threshold))")
                     end
-                    read_bytes += err
                 end
                 SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream_rx, handle)
             end
@@ -165,9 +173,10 @@ function dma_test(stream_tx, stream_rx)
         SoapySDR.deactivate!(stream_rx)
         SoapySDR.deactivate!(stream_tx)
     end
+    # close everything
+    close.([stream_rx, stream_tx])
+    close(dev)
 end
-dma_test(stream_tx, stream_rx)
+dma_test()
 
-# close everything
-close.([stream_rx, stream_tx])
-close(dev)
+

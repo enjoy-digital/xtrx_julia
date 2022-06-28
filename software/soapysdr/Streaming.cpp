@@ -289,11 +289,6 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
 
     int buffers_available = _dma_mmap_info.dma_tx_buf_count - buffers_pending;
 
-    // detect underflows
-    if (buffers_pending < 0) {
-        return SOAPY_SDR_UNDERFLOW;
-    }
-
     // get the buffer
     int buf_offset = _tx_stream.user_count % _dma_mmap_info.dma_tx_buf_count;
     getDirectAccessBufferAddrs(stream, buf_offset, buffs);
@@ -302,7 +297,12 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
     handle = _tx_stream.user_count;
     _tx_stream.user_count++;
 
-    return getStreamMTU(stream);
+    // detect underflows
+    if (buffers_pending < 0) {
+        return SOAPY_SDR_UNDERFLOW;
+    } else { 
+        return getStreamMTU(stream);
+    }
 }
 
 void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream *stream, size_t handle,
