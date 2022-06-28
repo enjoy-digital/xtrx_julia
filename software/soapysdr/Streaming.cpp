@@ -240,10 +240,6 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
     //       treats a difference of half the count as an overflow
     if ((_rx_stream.hw_count - _rx_stream.sw_count) >
         _dma_mmap_info.dma_rx_buf_count) {
-        // NOTE: a warning for now, because it's easy to trigger these
-        //       from Julia (being JIT-compiled and garbage collected)
-        SoapySDR::log(SOAPY_SDR_ERROR,
-                      "SoapyXTRX::acquireReadBuffer(): detected RX overflow");
         flags |= SOAPY_SDR_END_ABRUPT;
         return SOAPY_SDR_OVERFLOW;
     } else {
@@ -295,10 +291,6 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
 
     // detect underflows
     if (buffers_pending < 0) {
-        // NOTE: a warning for now, because it's easy to trigger these
-        //       from Julia (being JIT-compiled and garbage collected)
-        SoapySDR::log(SOAPY_SDR_ERROR,
-                      "SoapyXTRX::acquireWriteBuffer(): detected TX underflow");
         return SOAPY_SDR_UNDERFLOW;
     }
 
