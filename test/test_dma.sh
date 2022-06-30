@@ -6,4 +6,4 @@ echo "Testing CPU DMA"
 julia --project=../software/scripts/ ../software/scripts/test_pattern.jl
 
 echo "Testing GPU DMA"
-julia --project=../software/scripts/ ../software/scripts/test_pattern_gpu.jl
+julia --project=../software/scripts/ ../software/scripts/test_pattern.jl gpu

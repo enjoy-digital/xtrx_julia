@@ -56,6 +56,9 @@ SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
         litepcie_dma_writer(_fd, 0, &_rx_stream.hw_count, &_rx_stream.sw_count);
 
         _rx_stream.opened = true;
+
+        _rx_stream.format = format;
+
         return RX_STREAM;
     } else if (direction == SOAPY_SDR_TX) {
         if (_tx_stream.opened)
@@ -81,6 +84,9 @@ SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
         litepcie_dma_reader(_fd, 0, &_tx_stream.hw_count, &_tx_stream.sw_count);
 
         _tx_stream.opened = true;
+
+        _rx_stream.format = format;
+
         return TX_STREAM;
     } else {
         throw std::runtime_error("Invalid direction");
@@ -220,17 +226,6 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
         assert(buffers_available > 0);
     }
 
-    // detect overflows of the underlying circular buffer
-    // NOTE: the kernel driver is more aggressive here and
-    //       treats a difference of half the count as an overflow
-    if ((_rx_stream.hw_count - _rx_stream.sw_count) >
-        _dma_mmap_info.dma_rx_buf_count) {
-        // NOTE: a warning for now, because it's easy to trigger these
-        //       from Julia (being JIT-compiled and garbage collected)
-        SoapySDR::log(SOAPY_SDR_ERROR,
-                      "SoapyXTRX::acquireReadBuffer(): detected RX overflow");
-        // return SOAPY_SDR_OVERFLOW;
-    }
 
     // get the buffer
     int buf_offset = _rx_stream.user_count % _dma_mmap_info.dma_rx_buf_count;
@@ -240,7 +235,16 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
     handle = _rx_stream.user_count;
     _rx_stream.user_count++;
 
-    return getStreamMTU(stream);
+    // detect overflows of the underlying circular buffer
+    // NOTE: the kernel driver is more aggressive here and
+    //       treats a difference of half the count as an overflow
+    if ((_rx_stream.hw_count - _rx_stream.sw_count) >
+        _dma_mmap_info.dma_rx_buf_count) {
+        flags |= SOAPY_SDR_END_ABRUPT;
+        return SOAPY_SDR_OVERFLOW;
+    } else {
+        return getStreamMTU(stream);
+    }
 }
 
 void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream *stream, size_t handle) {
@@ -285,15 +289,6 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
 
     int buffers_available = _dma_mmap_info.dma_tx_buf_count - buffers_pending;
 
-    // detect underflows
-    if (buffers_pending < 0) {
-        // NOTE: a warning for now, because it's easy to trigger these
-        //       from Julia (being JIT-compiled and garbage collected)
-        SoapySDR::log(SOAPY_SDR_ERROR,
-                      "SoapyXTRX::acquireWriteBuffer(): detected TX underflow");
-        // return SOAPY_SDR_UNDERFLOW;
-    }
-
     // get the buffer
     int buf_offset = _tx_stream.user_count % _dma_mmap_info.dma_tx_buf_count;
     getDirectAccessBufferAddrs(stream, buf_offset, buffs);
@@ -302,7 +297,12 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
     handle = _tx_stream.user_count;
     _tx_stream.user_count++;
 
-    return getStreamMTU(stream);
+    // detect underflows
+    if (buffers_pending < 0) {
+        return SOAPY_SDR_UNDERFLOW;
+    } else { 
+        return getStreamMTU(stream);
+    }
 }
 
 void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream *stream, size_t handle,
@@ -315,3 +315,213 @@ void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream *stream, size_t handle,
     mmap_dma_update.sw_count = handle + 1;
     checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_READER_UPDATE, &mmap_dma_update);
 }
+
+
+/*
+void readbuf(int8_t * src, void * dst, uint32_t len,std::string format,size_t offset){
+
+    if(format==SOAPY_SDR_CS8){
+        int8_t *samples_cs8=(int8_t *) dst+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            samples_cs8[i*BYTES_PER_SAMPLE] = src[i*BYTES_PER_SAMPLE];
+            samples_cs8[i*BYTES_PER_SAMPLE+1] = src[i*BYTES_PER_SAMPLE+1];
+        }
+
+    }else if(format==SOAPY_SDR_CS16){
+
+        int16_t *samples_cs16=(int16_t *) dst+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            samples_cs16[i*BYTES_PER_SAMPLE] = (int16_t)(src[i*BYTES_PER_SAMPLE]<<8);
+            samples_cs16[i*BYTES_PER_SAMPLE+1] = (int16_t)(src[i*BYTES_PER_SAMPLE+1]<<8);
+        }
+    }else if(format==SOAPY_SDR_CF32){
+        float *samples_cf32=(float *) dst+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            samples_cf32[i*BYTES_PER_SAMPLE] = (float)(src[i*BYTES_PER_SAMPLE]/127.0);
+            samples_cf32[i*BYTES_PER_SAMPLE+1] = (float)(src[i*BYTES_PER_SAMPLE+1]/127.0);
+        }
+    }else if(format==SOAPY_SDR_CF64){
+        double *samples_cf64=(double *) dst+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            samples_cf64[i*BYTES_PER_SAMPLE] = (double)(src[i*BYTES_PER_SAMPLE]/127.0);
+            samples_cf64[i*BYTES_PER_SAMPLE+1] = (double)(src[i*BYTES_PER_SAMPLE+1]/127.0);
+        }
+    } else {
+        SoapySDR_log( SOAPY_SDR_ERROR, "read format not support" );
+    }
+}
+
+
+void writebuf(const void * src, int8_t* dst, uint32_t len,std::String format,size_t offset) {
+    if(format==SOAPY_SDR_CS8){
+        int8_t *samples_cs8=(int8_t *) src+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            dst[i*BYTES_PER_SAMPLE] = samples_cs8[i*BYTES_PER_SAMPLE];
+            dst[i*BYTES_PER_SAMPLE+1] = samples_cs8[i*BYTES_PER_SAMPLE+1];
+        }
+
+    }else if(format==SOAPY_SDR_CS16){
+        int16_t *samples_cs16=(int16_t *) src+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            dst[i*BYTES_PER_SAMPLE] = (int8_t) (samples_cs16[i*BYTES_PER_SAMPLE] >> 8);
+            dst[i*BYTES_PER_SAMPLE+1] = (int8_t) (samples_cs16[i*BYTES_PER_SAMPLE+1] >> 8);
+        }
+    }else if(format==SOAPY_SDR_CF32){
+        float *samples_cf32=(float *) src+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            dst[i*BYTES_PER_SAMPLE] = (int8_t) (samples_cf32[i*BYTES_PER_SAMPLE] * 127.0);
+            dst[i*BYTES_PER_SAMPLE+1] = (int8_t) (samples_cf32[i*BYTES_PER_SAMPLE+1] * 127.0);
+        }
+    }else if(format==SOAPY_SDR_CF64){
+        double *samples_cf64=(double *) src+offset*BYTES_PER_SAMPLE;
+        for (uint32_t i=0;i<len;++i){
+            dst[i*BYTES_PER_SAMPLE] = (int8_t) (samples_cf64[i*BYTES_PER_SAMPLE] * 127.0);
+            dst[i*BYTES_PER_SAMPLE+1] = (int8_t) (samples_cf64[i*BYTES_PER_SAMPLE+1] * 127.0);
+        }
+
+    }else {
+        SoapySDR_log( SOAPY_SDR_ERROR, "write format not support" );
+
+    }
+}
+*/
+
+
+int SoapyXTRX::readStream(
+    SoapySDR::Stream *stream,
+    void * const *buffs,
+    const size_t numElems,
+    int &flags,
+    long long &timeNs,
+    const long timeoutUs )
+{
+    if(stream != RX_STREAM){
+        return SOAPY_SDR_NOT_SUPPORTED;
+    }
+    /* this is the user's buffer for channel 0 */
+    size_t returnedElems = std::min(numElems,this->getStreamMTU(stream));
+
+    size_t samp_avail=0;
+
+    if(_rx_stream.remainderHandle >= 0){
+
+        const size_t n =std::min(_rx_stream.remainderSamps,returnedElems);
+
+        if(n<returnedElems){
+            samp_avail=n;
+        }
+
+        //readbuf(_rx_stream.remainderBuff+_rx_stream.remainderOffset*BYTES_PER_SAMPLE,buffs[0],n,_rx_stream.format,0);
+
+        _rx_stream.remainderOffset+=n;
+        _rx_stream.remainderSamps -=n;
+
+        if(_rx_stream.remainderSamps==0){
+
+            this->releaseReadBuffer(stream,_rx_stream.remainderHandle);
+            _rx_stream.remainderHandle=-1;
+            _rx_stream.remainderOffset=0;
+        }
+
+        if(n==returnedElems)
+            return returnedElems;
+    }
+
+    size_t handle;
+    int ret = this->acquireReadBuffer(stream, handle, (const void **)&_rx_stream.remainderBuff, flags, timeNs, timeoutUs);
+
+    if (ret < 0){
+        if((ret == SOAPY_SDR_TIMEOUT) && (samp_avail > 0)){
+            return samp_avail;
+        }
+        return ret;
+    }
+
+    _rx_stream.remainderHandle=handle;
+    _rx_stream.remainderSamps=ret;
+
+
+    const size_t n =std::min((returnedElems-samp_avail),_rx_stream.remainderSamps);
+
+    //readbuf(_rx_stream.remainderBuff,buffs[0],n,_rx_stream.format,samp_avail);
+    _rx_stream.remainderSamps -=n;
+    _rx_stream.remainderOffset +=n;
+
+    if(_rx_stream.remainderSamps==0){
+        this->releaseReadBuffer(stream,_rx_stream.remainderHandle);
+        _rx_stream.remainderHandle=-1;
+        _rx_stream.remainderOffset=0;
+    }
+
+    return(returnedElems);
+}
+
+
+int SoapyXTRX::writeStream(
+        SoapySDR::Stream *stream,
+        const void * const *buffs,
+        const size_t numElems,
+        int &flags,
+        const long long timeNs,
+        const long timeoutUs )
+{
+    if(stream != TX_STREAM){
+        return SOAPY_SDR_NOT_SUPPORTED;
+    }
+
+    size_t returnedElems = std::min(numElems,this->getStreamMTU(stream));
+
+    size_t samp_avail = 0;
+
+    if(_tx_stream.remainderHandle>=0){
+
+        const size_t n =std::min(_tx_stream.remainderSamps,returnedElems);
+
+        if(n<returnedElems){
+            samp_avail=n;
+        }
+
+       // writebuf(buffs[0],_tx_stream.remainderBuff+_tx_stream.remainderOffset*BYTES_PER_SAMPLE,n,_tx_stream.format,0);
+        _tx_stream.remainderSamps -=n;
+        _tx_stream.remainderOffset +=n;
+
+        if(_tx_stream.remainderSamps==0){
+            this->releaseWriteBuffer(stream,_tx_stream.remainderHandle,_tx_stream.remainderOffset,flags,timeNs);
+            _tx_stream.remainderHandle=-1;
+            _tx_stream.remainderOffset=0;
+        }
+
+        if(n==returnedElems)
+            return returnedElems;
+
+    }
+
+    size_t handle;
+
+    int ret=this->acquireWriteBuffer(stream,handle,(void **)&_tx_stream.remainderBuff,timeoutUs);
+    if(ret < 0){
+        if((ret == SOAPY_SDR_TIMEOUT) && (samp_avail > 0)){
+            return samp_avail;
+        }
+        return ret;
+    }
+
+    _tx_stream.remainderHandle=handle;
+    _tx_stream.remainderSamps=ret;
+
+    const size_t n =std::min((returnedElems-samp_avail),_tx_stream.remainderSamps);
+
+    //writebuf(buffs[0],_tx_stream.remainderBuff,n,_tx_stream.format,samp_avail);
+    _tx_stream.remainderSamps -=n;
+    _tx_stream.remainderOffset +=n;
+
+    if(_tx_stream.remainderSamps==0){
+        this->releaseWriteBuffer(stream,_tx_stream.remainderHandle,_tx_stream.remainderOffset,flags,timeNs);
+        _tx_stream.remainderHandle=-1;
+        _tx_stream.remainderOffset=0;
+    }
+
+    return returnedElems;
+
+}
+

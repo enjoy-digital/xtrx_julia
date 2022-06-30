@@ -11,6 +11,7 @@
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Logger.hpp>
 #include <SoapySDR/Time.hpp>
+#include <SoapySDR/Formats.hpp>
 #include <mutex>
 #include <cstring>
 #include <cstdlib>
@@ -19,6 +20,9 @@
 
 #include <LMS7002M/LMS7002M.h>
 #include "liblitepcie.h"
+
+
+#define BYTES_PER_SAMPLE 2 // TODO validate this 
 
 enum class TargetDevice { CPU, GPU };
 
@@ -36,6 +40,8 @@ class SoapyXTRX : public SoapySDR::Device {
     // Channels API
     size_t getNumChannels(const int) const { return 2; }
     bool getFullDuplex(const int, const size_t) const { return true; }
+
+    std::string getNativeStreamFormat(const int direction, const size_t channel, double &fullScale) const {fullScale = 4096; return SOAPY_SDR_CS16; }
 
     // Stream API
     SoapySDR::Stream *setupStream(const int direction,
@@ -72,14 +78,19 @@ class SoapyXTRX : public SoapySDR::Device {
     std::map<int, std::map<size_t, std::string>> _cachedAntValues;
 
     // Frontend corrections API
+    bool hasDCOffsetMode(const int direction,
+                         const size_t channel) const override;
     void setDCOffsetMode(const int direction, const size_t channel,
                          const bool automatic) override;
     bool getDCOffsetMode(const int direction,
                          const size_t channel) const override;
+    bool hasDCOffset(const int direction,
+                     const size_t channel) const override;
     void setDCOffset(const int direction, const size_t channel,
                      const std::complex<double> &offset) override;
     std::complex<double> getDCOffset(const int direction,
                                      const size_t channel) const override;
+    bool hasIQBalance(const int direction, const size_t channel) const {return true;};
     void setIQBalance(const int direction, const size_t channel,
                       const std::complex<double> &balance) override;
     std::complex<double> getIQBalance(const int direction,
@@ -202,6 +213,23 @@ class SoapyXTRX : public SoapySDR::Device {
     void writeSetting(const std::string &key,
                       const std::string &value) override;
 
+    int readStream(
+        SoapySDR::Stream *stream,
+        void * const *buffs,
+        const size_t numElems,
+        int &flags,
+        long long &timeNs,
+        const long timeoutUs = 100000 );
+
+
+    int writeStream(
+            SoapySDR::Stream *stream,
+            const void * const *buffs,
+            const size_t numElems,
+            int &flags,
+            const long long timeNs = 0,
+            const long timeoutUs = 100000);
+
   private:
     SoapySDR::Stream *const TX_STREAM = (SoapySDR::Stream *)0x1;
     SoapySDR::Stream *const RX_STREAM = (SoapySDR::Stream *)0x2;
@@ -217,10 +245,41 @@ class SoapyXTRX : public SoapySDR::Device {
         void *buf;
         struct pollfd fds;
         int64_t hw_count, sw_count, user_count;
+
+        int32_t remainderHandle;
+        size_t remainderSamps;
+        size_t remainderOffset;
+        int8_t* remainderBuff;
+        std::string format;
     };
 
-    Stream _rx_stream;
-    Stream _tx_stream;
+    struct RXStream: Stream {
+        uint32_t vga_gain;
+        uint32_t lna_gain;
+        uint8_t amp_gain;
+        double samplerate;
+        uint32_t bandwidth;
+        uint64_t frequency;
+
+        bool overflow;
+    };
+
+    struct TXStream: Stream {
+        uint32_t vga_gain;
+        uint8_t amp_gain;
+        double samplerate;
+        uint32_t bandwidth;
+        uint64_t frequency;
+        bool bias;
+
+        bool underflow;
+
+        bool burst_end;
+        int32_t burst_samps;
+    } ;
+
+    RXStream _rx_stream;
+    TXStream _tx_stream;
 
     LMS7002M_dir_t dir2LMS(const int direction) const {
         return (direction == SOAPY_SDR_RX) ? LMS_RX : LMS_TX;

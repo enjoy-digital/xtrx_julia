@@ -309,6 +309,15 @@ std::string SoapyXTRX::getAntenna(const int direction,
  * Frontend corrections API
  ******************************************************************/
 
+bool SoapyXTRX::hasDCOffsetMode(const int direction, const size_t channel) const {
+
+    if (direction == SOAPY_SDR_RX) {
+        return true;
+    } else {
+        return false;
+    }
+}
+
 void SoapyXTRX::setDCOffsetMode(const int direction, const size_t channel,
                                 const bool automatic) {
     std::lock_guard<std::mutex> lock(_mutex);
@@ -328,6 +337,15 @@ bool SoapyXTRX::getDCOffsetMode(const int direction,
         return _rxDCOffsetMode;
     } else {
         return SoapySDR::Device::getDCOffsetMode(direction, channel);
+    }
+}
+
+bool SoapyXTRX::hasDCOffset(const int direction, const size_t channel) const {
+
+    if (direction == SOAPY_SDR_TX) {
+        return true;
+    } else {
+        return false;
     }
 }
 
