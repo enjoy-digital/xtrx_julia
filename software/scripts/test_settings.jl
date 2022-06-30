@@ -48,6 +48,7 @@ for dir in (dev.rx, dev.tx)
             end
             @testset "Bandwidth Settings" begin
             for rate in SoapySDR.bandwidth_ranges(txrx)
+                in(txrx, dev.tx) && first(rate) >= 2.4u"MHz" && break
                 txrx.bandwidth = first(rate)
                 @test txrx.bandwidth == first(rate)
                 txrx.bandwidth = last(rate)
@@ -76,3 +77,5 @@ for dir in (dev.rx, dev.tx)
     end
 end
 end
+
+close(dev)
