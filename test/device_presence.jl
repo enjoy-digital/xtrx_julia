@@ -47,7 +47,7 @@ end
     @info "Checking for LitePCIe Kernel Modules..."
     expect = """
     litepcie               24576  0
-    nvidia               4567040  206 litepcie,nvidia_modeset
+    nvidia               4567040  207 litepcie,nvidia_uvm,nvidia_modeset
     """
     check = String(read(pipeline(`lsmod`, `grep litepcie`)))
     @test check == expect
@@ -61,10 +61,11 @@ end
 
     @info "Checking for Nvidia Kernel Modules..."
     expect = """
+    nvidia_uvm           1306624  0
     nvidia_drm             69632  3
     nvidia_modeset       1064960  5 nvidia_drm
     drm_kms_helper        307200  1 nvidia_drm
-    nvidia               4567040  206 litepcie,nvidia_modeset
+    nvidia               4567040  207 litepcie,nvidia_uvm,nvidia_modeset
     drm                   606208  7 drm_kms_helper,nvidia,nvidia_drm
     """
     check = String(read(pipeline(`lsmod`, `grep nvidia`)))
