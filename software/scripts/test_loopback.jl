@@ -99,14 +99,12 @@ function dma_test()
                 if err == SoapySDR.SOAPY_SDR_TIMEOUT
                     break
                 elseif err == SoapySDR.SOAPY_SDR_UNDERFLOW
-                    err = wr_sz # nothing to do, should be the MTU
-                else
-                    err = err * 4
+                    err = 1 # keep going
                 end
                 @assert err > 0
-                write_pn_data(buffs[1], err, wr_total_sz)
+                write_pn_data(buffs[1], wr_sz, wr_total_sz)
                 SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
-                written_bytes += err
+                written_bytes += wr_sz
             end
 
             # read/check rx-buffer
@@ -116,20 +114,18 @@ function dma_test()
                 if err == SoapySDR.SOAPY_SDR_TIMEOUT
                     break
                 elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
-                    err = rd_sz # nothing to do, should be the MTU
-                else
-                    err = err * 4
+                    err = 1 # nothing to do, should be the MTU
                 end
                 @assert err > 0
                 if handle >= wr_nbufs
                     if run
-                        errors += check_pn_data(buffs[1], err, rd_total_sz)
+                        errors += check_pn_data(buffs[1], rd_sz, rd_total_sz)
                     else
                         errors_min = typemax(Int)
                         error_threshold = (rd_sz ÷ sizeof(UInt16)) ÷ 2
                         for delay = 0:wr_sz
                             seed_rd[] = delay
-                            errors = check_pn_data(buffs[1], err, rd_total_sz)
+                            errors = check_pn_data(buffs[1], rd_sz, rd_total_sz)
                             if errors < errors_min
                                 errors_min = errors
                             end
@@ -145,7 +141,7 @@ function dma_test()
                                   You may want to run the ./test/reset.sh script!!
                                   """)
                     end
-                    read_bytes += err
+                    read_bytes += rd_sz
                 end
                 SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream_rx, handle)
             end
