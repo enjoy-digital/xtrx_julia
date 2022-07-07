@@ -22,7 +22,7 @@ function dma_test(use_gpu=false)
     dev_args = devs[1]
     # GPU: set the DMA target
     dev_args["device"] = use_gpu ? "GPU" : "CPU"
-    dev = open(dev_args)
+    dev = Device(dev_args)
 
     # get the RX channel
     chan = dev.rx[1]
@@ -51,23 +51,27 @@ function dma_test(use_gpu=false)
     try
         # acquire buffers using the low-level API
         buffs = Ptr{UInt32}[C_NULL]
-        bytes = mtu
+        bytes = mtu*4
         total_bytes = 0
 
         prior_pointer = Ptr{UInt32}(0)
         counter = one(Int16)
 
-        comp = Vector{Complex{Int16}}(undef, mtu ÷ 4)
+        comp = Vector{Complex{Int16}}(undef, mtu)
 
         overflow_events = 0
+
+        initialized_count = false
 
         @info "Receiving data..."
         SoapySDR.activate!(stream)
         time = @elapsed for i in 1:300
             err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
-
             if err == SoapySDR.SOAPY_SDR_OVERFLOW
                 overflow_events += 1
+            elseif err == SoapySDR.SOAPY_SDR_TIMEOUT
+                SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
+                continue
             end
 
             if use_gpu
@@ -80,10 +84,11 @@ function dma_test(use_gpu=false)
                 # we also shouldn't wait for the GPU to finish processing the data,
                 # but that requires more careful design that's out of scope here.
          
-                arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu ÷ 4))
-                if i == 1
+                arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu))
+                if !initialized_count
                     #setup arrays for comparison
                     CUDA.@allowscalar counter = Int16(real(arr[1]))
+                    initialized_count = true
                 end
 
                 buf_pointer = reinterpret(Ptr{UInt32}, buffs[1])
@@ -106,13 +111,14 @@ function dma_test(use_gpu=false)
                 synchronize()   # data without running into overflows
             else
                                 # if we have an overflow conditions we can just use the MTU
-                buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), mtu ÷ 4)
+                buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), mtu)
 
                 buf_pointer = reinterpret(Ptr{UInt32}, buffs[1])
 
                 # sync the counter on start
-                if i == 1
+                if !initialized_count
                     counter = Int16(real(buf[1]))
+                    initialized_count = true
                 end
 
                 # make sure we aren't recycling the same buffer
@@ -138,8 +144,8 @@ function dma_test(use_gpu=false)
     finally
         SoapySDR.deactivate!(stream)
     end
-    close(stream)
-    close(dev)
+    finalize(stream)
+    finalize(dev)
 end
 
 dma_test(false)
@@ -152,6 +158,4 @@ CuArray(UInt32[1]) .= 1
 #      in the next version of CUDA.jl, but it helps to ensure code is compiled
 
 dma_test(true)
-
-# close everything
 

@@ -44,7 +44,7 @@ end
 function dma_test()
     # open the first device
     devs = Devices()
-    dev = open(devs[1])
+    dev = Device(devs[1])
 
     # get the RX and TX channels
     chan_rx = dev.rx[1]
@@ -60,8 +60,8 @@ function dma_test()
     stream_tx = SoapySDR.Stream(ComplexF32, [chan_tx])
 
     # the size of every buffer, in bytes
-    wr_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_tx)
-    rd_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_rx)
+    wr_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_tx) * 4
+    rd_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_rx) * 4
     @assert wr_sz == rd_sz
 
     # the number of buffers each stream has
@@ -100,6 +100,8 @@ function dma_test()
                     break
                 elseif err == SoapySDR.SOAPY_SDR_UNDERFLOW
                     err = wr_sz # nothing to do, should be the MTU
+                else
+                    err = err * 4
                 end
                 @assert err > 0
                 write_pn_data(buffs[1], err, wr_total_sz)
@@ -175,8 +177,8 @@ function dma_test()
         SoapySDR.deactivate!(stream_tx)
     end
     # close everything
-    close.([stream_rx, stream_tx])
-    close(dev)
+    finalize.([stream_rx, stream_tx])
+    finalize(dev)
 end
 dma_test()
 
