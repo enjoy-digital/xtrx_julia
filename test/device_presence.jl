@@ -46,28 +46,29 @@ end
 
     @info "Checking for LitePCIe Kernel Modules..."
     expect = """
-    litepcie               24576  0
-    nvidia               4567040  206 litepcie,nvidia_modeset
+    litepcie
+    nvidia
     """
-    check = String(read(pipeline(`lsmod`, `grep litepcie`)))
+    check = String(read(pipeline(`lsmod`, `grep litepcie`, `cut -d' ' -f1`)))
     @test check == expect
 
     @info "Checking for LiteUART Kernel Modules..."
     expect = """
-    liteuart               16384  0
+    liteuart
     """
-    check = String(read(pipeline(`lsmod`, `grep liteuart`)))
+    check = String(read(pipeline(`lsmod`, `grep liteuart`, `cut -d' ' -f1`)))
     @test check == expect
 
     @info "Checking for Nvidia Kernel Modules..."
     expect = """
-    nvidia_drm             69632  3
-    nvidia_modeset       1064960  5 nvidia_drm
-    drm_kms_helper        307200  1 nvidia_drm
-    nvidia               4567040  206 litepcie,nvidia_modeset
-    drm                   606208  7 drm_kms_helper,nvidia,nvidia_drm
+    nvidia_uvm
+    nvidia_drm
+    nvidia_modeset
+    drm_kms_helper
+    nvidia
+    drm
     """
-    check = String(read(pipeline(`lsmod`, `grep nvidia`)))
+    check = String(read(pipeline(`lsmod`, `grep nvidia`, `cut -d' ' -f1`)))
     @test check == expect
 
 
