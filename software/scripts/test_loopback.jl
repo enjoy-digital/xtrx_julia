@@ -117,6 +117,8 @@ function dma_test()
                     break
                 elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
                     err = rd_sz # nothing to do, should be the MTU
+                else
+                    err = err * 4
                 end
                 @assert err > 0
                 if handle >= wr_nbufs
