@@ -1,5 +1,5 @@
 steps:
-  - label: ":linux: :corn: :hammer_and_wrench: Build NVIDIA driver"
+  - label: ":linux: :corn: :hammer_and_wrench: Build NVIDIA and litepcie kernel modules"
     plugins:
       # buildkite does not yet have a way to specify `--depth=1` for `git submodule update`
       - thedyrt/skip-checkout#v0.1.1: ~
@@ -22,6 +22,9 @@ steps:
       make -C "$${KERNEL_DIR}" defconfig -j$$(nproc)
       make -C "$${KERNEL_DIR}" -j$$(nproc)
 
+      echo "--- Bundle kernel"
+      cp -La software/kernel/arch/$$(uname -m)/boot/bzImage bzImage
+
       echo "--- Build NVIDIA driver"
       NVIDIA_MODLIB=$$(pwd)/nvidia-build
       mkdir -p "$${NVIDIA_MODLIB}"
@@ -30,8 +33,17 @@ steps:
 
       echo "--- Bundle NVIDIA kernel modules"
       tar -czf nvidia-kernel-modules.tar.gz -C "$${NVIDIA_MODLIB}" .
+
+      echo "--- Build litepcie kernel modules"
+      make -C software/litepcie-kernel-module -j$$(nproc)
+      
+      echo "--- Bundle litepci kernel modules"
+      LITEPCIE_KOS=$$(cd software/litepcie-kernel-module; ls *.ko)
+      tar -czf litepcie-kernel-modules.tar.gz -C software/litepcie-kernel-module $${LITEPCIE_KOS}
     artifact_paths:
       - "nvidia-kernel-modules.tar.gz"
+      - "litepcie-kernel-modules.tar.gz"
+      - "bzImage"
     agents:
       sandbox_capable: "true"
       os: "linux"
