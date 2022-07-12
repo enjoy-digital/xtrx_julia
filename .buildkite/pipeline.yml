@@ -18,11 +18,14 @@ steps:
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
-          rootfs_url: "https://github.com/JuliaCI/rootfs-images/releases/download/v5.27/package_linux.x86_64.tar.gz"
-          rootfs_treehash: "0de936e6b256d1b46eb769e4f7713231e1c7776e"
+          rootfs_url: "https://github.com/JuliaComputing/rootfs-images/releases/download/kernel-builder-1/kernel_builder.x86_64.tar.gz"
+          rootfs_treehash: "00ea53659b154719aefbe2ad8924b3355ea2792b"
           workspaces:
             - "/cache/repos:/cache/repos"
     commands: |
+      echo "--- Install missing apt packages"
+      apt update && apt install -y libelf
+
       echo "--- Prepare kernel for modules"
       make -C linux defconfig -j$$(nproc)
       make -C linux modules_prepare -j$$(nproc)
