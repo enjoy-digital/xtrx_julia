@@ -1,42 +1,35 @@
 steps:
-  - label: ":linux: :desktop_computer: :hammer_and_wrench: Build NVIDIA driver"
+  - label: ":linux: :corn: :hammer_and_wrench: Build NVIDIA driver"
     plugins:
-      # Skip xtrx_julia checkout, as we're going to check out the NVIDIA repo and the linux kernel
-      - staticfloat/smooth-checkout#sf/add_depth:
-          repos:
-            # This branch contains our patches, revert to upstream once it's merged
-            # X-ref: https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3
-            - config:
-              - url: "https://github.com/JuliaComputing/open-gpu-kernel-modules"
-                ref: "sjk/rebar2"
-            # Keep this in-sync with the kernel version built and running on `triadbot`!
-            # X-ref: https://github.com/JuliaComputing/DARPA-TRIAD-coreboot-config
-            - config:
-              - url: "https://github.com/torvalds/linux"
-                ref: "v5.18"
-                depth: 1
+      # buildkite does not yet have a way to specify `--depth=1` for `git submodule update`
+      - thedyrt/skip-checkout#v0.1.1: ~
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
-          rootfs_url: "https://github.com/JuliaComputing/rootfs-images/releases/download/kernel-builder-1/kernel_builder.x86_64.tar.gz"
-          rootfs_treehash: "00ea53659b154719aefbe2ad8924b3355ea2792b"
+          rootfs_url: "https://github.com/JuliaComputing/rootfs-images/releases/download/kernel-builder-2022-07-12/kernel_builder.x86_64.tar.gz"
+          rootfs_treehash: "c0660b88baa6e9607ef859b5daa349fc8de8712c"
           workspaces:
             - "/cache/repos:/cache/repos"
     commands: |
-      echo "--- Install missing apt packages"
-      apt update && apt install -y libelf
+      echo "--- Clone repo (note, this doesn't work for 3rd party forks)"
+      git clone $${BUILDKITE_GIT_CLONE_FLAGS} "$${BUILDKITE_REPO}" .
+      git checkout --force "$${BUILDKITE_COMMIT}"
+      git submodule update --init --recursive --force --depth=1
 
-      echo "--- Prepare kernel for modules"
-      make -C linux defconfig -j$$(nproc)
-      make -C linux modules_prepare -j$$(nproc)
+      # We must do a full kernel build to get `Module.symvers`, which makes the nvidia build happy
+      echo "--- Build kernel"
+      KERNEL_DIR=$$(pwd)/software/kernel
+      make -C "$${KERNEL_DIR}" defconfig -j$$(nproc)
+      make -C "$${KERNEL_DIR}" -j$$(nproc)
 
       echo "--- Build NVIDIA driver"
-      mkdir build
-      make -C open-gpu-kernel-modules -j$$(nproc) KBUILD_EXTMOD=$$(pwd)/linux MODLIB=$$(pwd)/build
-      make -C open-gpu-kernel-modules -j$$(nproc) KBUILD_EXTMOD=$$(pwd)/linux MODLIB=$$(pwd)/build modules_install
+      NVIDIA_MODLIB=$$(pwd)/nvidia-build
+      mkdir -p "$${NVIDIA_MODLIB}"
+      make -C software/nvidia-driver -j$$(nproc) SYSSRC="$${KERNEL_DIR}" MODLIB="$${NVIDIA_MODLIB}"
+      make -C software/nvidia-driver -j$$(nproc) SYSSRC="$${KERNEL_DIR}" MODLIB="$${NVIDIA_MODLIB}" modules_install
 
-      echo "--- Bundle kernel modules"
-      tar -czf nvidia-kernel-modules.tar.gz -C build .
+      echo "--- Bundle NVIDIA kernel modules"
+      tar -czf nvidia-kernel-modules.tar.gz -C "$${NVIDIA_MODLIB}" .
     artifact_paths:
       - "nvidia-kernel-modules.tar.gz"
     agents:
