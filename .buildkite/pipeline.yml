@@ -1,0 +1,41 @@
+steps:
+  - label: ":linux: :desktop_computer: :hammer_and_wrench: Build NVIDIA driver"
+    plugins:
+      # Skip xtrx_julia checkout, as we're going to check out the NVIDIA repo and the linux kernel
+      - hasura/smooth-checkout#v4.0.0:
+          repos:
+            # This branch contains our patches, revert to upstream once it's merged
+            # X-ref: https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3
+            - config:
+              - url: "https://github.com/JuliaComputing/open-gpu-kernel-modules"
+                ref: "sjk/rebar2"
+            # Keep this in-sync with the kernel version built and running on `triadbot`!
+            # X-ref: https://github.com/JuliaComputing/DARPA-TRIAD-coreboot-config
+            - config:
+              - url: "https://github.com/torvalds/linux"
+                ref: "v5.18"
+      - JuliaCI/julia#v1:
+          version: '1'
+      - staticfloat/sandbox#v1:
+          rootfs_url: "https://github.com/JuliaCI/rootfs-images/releases/download/v5.27/package_linux.x86_64.tar.gz"
+          rootfs_treehash: "0de936e6b256d1b46eb769e4f7713231e1c7776e"
+          workspaces:
+            - "/cache/repos:/cache/repos"
+    commands: |
+      echo "--- Prepare kernel for modules"
+      make -C linux defconfig -j$$(nproc)
+      make -C linux modules_prepare -j$$(nproc)
+
+      echo "--- Build NVIDIA driver"
+      mkdir build
+      make -C open-gpu-kernel-modules -j$$(nproc) KBUILD_EXTMOD=$$(pwd)/linux MODLIB=$$(pwd)/build
+      make -C open-gpu-kernel-modules -j$$(nproc) KBUILD_EXTMOD=$$(pwd)/linux MODLIB=$$(pwd)/build modules_install
+
+      echo "--- Bundle kernel modules"
+      tar -czf nvidia-kernel-modules.tar.gz -C build .
+    artifact_paths:
+      - "nvidia-kernel-modules.tar.gz"
+    agents:
+      sandbox_capable: "true"
+      os: "linux"
+      arch: "x86_64"
