@@ -2,7 +2,7 @@ steps:
   - label: ":linux: :desktop_computer: :hammer_and_wrench: Build NVIDIA driver"
     plugins:
       # Skip xtrx_julia checkout, as we're going to check out the NVIDIA repo and the linux kernel
-      - hasura/smooth-checkout#v4.0.0:
+      - staticfloat/smooth-checkout#sf/add_depth:
           repos:
             # This branch contains our patches, revert to upstream once it's merged
             # X-ref: https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3
@@ -14,6 +14,7 @@ steps:
             - config:
               - url: "https://github.com/torvalds/linux"
                 ref: "v5.18"
+                depth: 1
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
