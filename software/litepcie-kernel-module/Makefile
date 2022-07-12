@@ -1,22 +1,17 @@
-# Makefile for kernel module
-KERNEL_VERSION:=$(shell uname -r)
-KERNEL_PATH?=/lib/modules/$(KERNEL_VERSION)/build
-ARCH?=$(shell uname -m)
+REPO_DIR ?= $(shell dirname $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))))
+export REPO_DIR
+
+# Link to the other checkouts in this repository by default
+# Override these if you want to do a "local" build
+KERNEL_PATH ?= $(REPO_DIR)/software/kernel
+NVIDIA_PATH ?= $(REPO_DIR)/software/nvidia-driver
+
+# We will always assume that we're doing a native build
+ARCH ?= $(shell uname -m)
 
 obj-m = litepcie.o liteuart.o
 litepcie-objs = main.o
-#liteuart-objs = liteuart.o
-
-# discover the sources of the NVIDIA driver based on the loaded module
-# (just in case there are sources for couple of versions)
-nv_version=$(shell /sbin/modinfo -F version -k $(KERNEL_VERSION) nvidia 2>/dev/null)
-nv_sources=$(shell /bin/ls -d /usr/src/nvidia-$(nv_version)/ 2>/dev/null)
-ifneq ($(shell test -d "$(nv_sources)" && echo "true" || echo "" ),)
-	NVIDIA_SRC_DIR ?= $(shell find "$(nv_sources)" -name "nv-p2p.h"|head -1|xargs dirname || echo "NVIDIA_DRIVER_MISSING")
-else
-	NVIDIA_SRC_DIR ?= $(shell find /usr/src/nvidia-* -name "nv-p2p.h"|head -1|xargs dirname || echo "NVIDIA_DRIVER_MISSING")
-endif
-ccflags-y += -I$(NVIDIA_SRC_DIR)
+ccflags-y += -I$(NVIDIA_PATH)/kernel-open/nvidia
 
 # don't warn about missing NVIDIA symbols; they'll be available
 # TODO: create our own Module.symvers,
