@@ -1,8 +1,6 @@
 steps:
   - label: ":linux: :corn: :hammer_and_wrench: Build NVIDIA and litepcie kernel modules"
     plugins:
-      # buildkite does not yet have a way to specify `--depth=1` for `git submodule update`
-      - thedyrt/skip-checkout#v0.1.1: ~
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
@@ -11,10 +9,8 @@ steps:
           workspaces:
             - "/cache/repos:/cache/repos"
     commands: |
-      echo "--- Clone repo (note, this doesn't work for 3rd party forks)"
-      git clone $${BUILDKITE_GIT_CLONE_FLAGS} "$${BUILDKITE_REPO}" .
-      git checkout --force "$${BUILDKITE_COMMIT}"
-      git submodule update --init --recursive --force --depth=1
+      echo "--- clone kernel source"
+      make -C software kernel
 
       # We must do a full kernel build to get `Module.symvers`, which makes the nvidia build happy
       echo "--- Build kernel"
@@ -23,7 +19,10 @@ steps:
       make -C "$${KERNEL_DIR}" -j$$(nproc)
 
       echo "--- Bundle kernel"
-      cp -Lva software/kernel/arch/$$(uname -m)/boot/bzImage bzImage
+      cp -Lv software/kernel/arch/$$(uname -m)/boot/bzImage bzImage
+
+      echo "--- clone nvidia-driver source"
+      make -C software nvidia-driver
 
       echo "--- Build NVIDIA driver"
       NVIDIA_MODLIB=$$(pwd)/nvidia-build
@@ -35,7 +34,7 @@ steps:
       tar -cvzf nvidia-kernel-modules.tar.gz -C "$${NVIDIA_MODLIB}" .
 
       echo "--- Build litepcie kernel modules"
-      make -C software/litepcie-kernel-module -j$$(nproc)
+      make -C software/litepcie-kernel-module
       
       echo "--- Bundle litepci kernel modules"
       LITEPCIE_KOS=$$(cd software/litepcie-kernel-module; ls *.ko)
@@ -61,7 +60,7 @@ steps:
             - "/cache/repos:/cache/repos"
     commands: |
       echo "--- Download CUDA"
-      make -C software/litepcie-user-library download-cuda
+      make -C software nvidia-cuda
 
       echo "--- Build litepcie user library"
       LLP_BUILD=$$(pwd)/build
@@ -69,7 +68,7 @@ steps:
       make -C software/litepcie-user-library -j$$(nproc) prefix=$${LLP_BUILD} install
 
       echo "--- Bundle liblitepcie"
-      tar -czvf liblitepcie.tar.gz -C $${LLP_BUILD}
+      tar -czvf liblitepcie.tar.gz -C $${LLP_BUILD} .
     artifact_paths:
       - "liblitepcie.tar.gz"
     agents:

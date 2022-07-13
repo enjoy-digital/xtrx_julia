@@ -9,22 +9,6 @@ prefix ?= /usr/local
 # If the user wants to use a custom build of cuda, they can override this
 CUDA_PATH ?= $(REPO_DIR)/software/nvidia-cuda
 
-# If they didn't though, allow auto-downloading of the CUDA toolkit from a JLL:
-ifeq ($(CUDA_PATH),$(REPO_DIR)/software/nvidia-cuda)
-CUDA_VERSION=11.7.0
-CUDA_JLL_BUILD=$(CUDA_VERSION)+0
-CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_jll.jl/releases/download/CUDA-v$(CUDA_JLL_BUILD)/CUDA.v$(CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
-CUDA_COMPAT_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_compat_jll.jl/releases/download/CUDA_compat-v$(CUDA_JLL_BUILD)/CUDA_compat.v$(CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
-$(CUDA_PATH):
-	@mkdir -p $@
-	curl -# -f -L "$(CUDA_URL)" | tar -C $@ -zx
-	curl -# -f -L "$(CUDA_COMPAT_URL)" | tar -C $@ -zx
-
-download-cuda: $(CUDA_PATH)
-liblitepcie/liblitepcie.a: | $(CUDA_PATH)
-endif
-
-
 CFLAGS=-O2 -Wall -g -MMD -fPIC
 LDFLAGS=-lm
 CC=$(CROSS_COMPILE)gcc
