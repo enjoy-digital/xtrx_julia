@@ -1,5 +1,6 @@
 steps:
   - label: ":linux: :corn: :hammer_and_wrench: Build NVIDIA and litepcie kernel modules"
+    key: kernel-modules
     plugins:
       - JuliaCI/julia#v1:
           version: '1'
@@ -31,13 +32,14 @@ steps:
       make -C software/nvidia-driver -j$$(nproc) SYSSRC="$${KERNEL_DIR}" MODLIB="$${NVIDIA_MODLIB}" modules_install
 
       echo "--- Bundle NVIDIA kernel modules"
-      tar -cvzf nvidia-kernel-modules.tar.gz -C "$${NVIDIA_MODLIB}" .
+      cp software/nvidia-driver/kernel-open/modules.order "$${NVIDIA_MODLIB}/kernel/drivers/video/"
+      tar -cvzf nvidia-kernel-modules.tar.gz -C "$${NVIDIA_MODLIB}/kernel/drivers/video" .
 
       echo "--- Build litepcie kernel modules"
       make -C software/litepcie-kernel-module
       
       echo "--- Bundle litepci kernel modules"
-      LITEPCIE_KOS=$$(cd software/litepcie-kernel-module; ls *.ko)
+      LITEPCIE_KOS=$$(cd software/litepcie-kernel-module; ls *.ko *.order)
       tar -cvzf litepcie-kernel-modules.tar.gz -C software/litepcie-kernel-module $${LITEPCIE_KOS}
     artifact_paths:
       - "nvidia-kernel-modules.tar.gz"
@@ -50,6 +52,7 @@ steps:
 
 
   - label: ":linux: :hammer_and_wrench: Build litepcie user library"
+    key: liblitepcie
     plugins:
       - JuliaCI/julia#v1:
           version: '1'
@@ -75,3 +78,40 @@ steps:
       sandbox_capable: "true"
       os: "linux"
       arch: "x86_64"
+
+  - label: ":linux: :robot_face: Test loading kernel modules"
+    depends_on:
+      - kernel-modules
+    commands: |
+      echo "--- Download kernel module bundles"
+      buildkite-agent artifact download --step kernel-modules *-kernel-modules.tar.gz .
+
+      echo "--- Extract bundles"
+      MODDIR="/lib/modules/$$(uname -r)"
+      export PATH=$$PATH:/sbin
+      mkdir -p $${MODDIR}
+
+      mkdir /tmp/litepcie /tmp/nvidia
+      tar -C /tmp/litepcie -zxf litepcie-kernel-modules.tar.gz
+      tar -C /tmp/nvidia -zxf nvidia-kernel-modules.tar.gz
+      mv /tmp/litepcie/*.ko "$${MODDIR}"
+      mv /tmp/nvidia/*.ko "$${MODDIR}"
+      cat /tmp/litepcie/modules.order /tmp/nvidia/modules.order > "$${MODDIR}/modules.order"
+      touch "$${MODDIR}/modules.builtin"
+      depmod -v
+
+      echo "+++ Load kernel modules"
+      echo -n "Load liteuart: "
+      modprobe liteuart
+      echo "✔"
+
+      echo -n "Load nvidia: "
+      modprobe nvidia
+      echo "✔"
+
+      echo -n "Load litepcie: "
+      modprobe litepcie
+      echo "✔"
+    agents:
+      os: "linux"
+      queue: "triad"
