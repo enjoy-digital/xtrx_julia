@@ -1,3 +1,5 @@
+# Export `REPO_DIR` so that when the kernel's byzantine makefile system re-includes us,
+# it's already set properly and doesn't get re-set with the wrong path.
 REPO_DIR ?= $(shell dirname $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))))
 export REPO_DIR
 

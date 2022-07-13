@@ -6,3 +6,4 @@ analyzer.csv
 prog/
 build/
 *.nsys-rep
+software/nvidia-cuda
