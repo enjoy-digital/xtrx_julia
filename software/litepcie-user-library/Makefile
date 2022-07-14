@@ -20,7 +20,7 @@ CFLAGS += -I../litepcie-kernel-module
 CFLAGS += -I$(CUDA_PATH)/include
 
 LDFLAGS += $(LIBLITEPCIE)
-LDFLAGS += -L$(CUDA_PATH)/lib -lcuda
+LDFLAGS += -L$(CUDA_PATH)/lib -L$(CUDA_PATH)/lib64 -L$(CUDA_PATH)/lib64/stubs  -lcuda
 LDFLAGS += -L./liblitepcie -llitepcie
 
 $(LIBLITEPCIE): liblitepcie/litepcie_dma.o liblitepcie/litepcie_flash.o liblitepcie/litepcie_helpers.o

@@ -12,10 +12,8 @@ nvidia-driver:
 	git clone --depth=1 -b $(NV_DRIVER_VERSION) $(NV_DRIVER_URL) $@
 
 NV_CUDA_VERSION=11.7.0
-CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_jll.jl/releases/download/CUDA-v$(NV_CUDA_VERSION)+0/CUDA.v$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
-CUDA_COMPAT_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_compat_jll.jl/releases/download/CUDA_compat-v$(NV_CUDA_VERSION)+0/CUDA_compat.v$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
+CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-v$(NV_CUDA_VERSION)+0/CUDA_full.v$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
 nvidia-cuda:
 	@echo "Downloading nvidia-cuda $(NV_CUDA_VERSION)"
 	@mkdir -p $@
-	curl -# -f -L "$(CUDA_URL)" | tar -C $@ -zx
-	curl -# -f -L "$(CUDA_COMPAT_URL)" | tar -C $@ -zx
+	curl -# -f -L "$(CUDA_URL)" | tar -C $@ -zx --strip-components=1 cuda

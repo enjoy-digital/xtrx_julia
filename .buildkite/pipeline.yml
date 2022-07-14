@@ -69,7 +69,7 @@ steps:
       echo "--- Build soapysdr driver"
       mkdir soapy_build
       cd soapy_build
-      cmake ../software/soapysdr
+      cmake -DCUDAToolkit_ROOT=$$(pwd)/../software/nvidia-cuda ../software/soapysdr
       make -j$$(nproc)
 
       echo "--- Bundle liblitepcie"
