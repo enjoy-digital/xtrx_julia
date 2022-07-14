@@ -10,6 +10,10 @@ steps:
           rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/litex_builder-2022-07-14.x86_64.tar.gz"
           rootfs_treehash: "a50c2e8710fa0bbd1564ccfab01443ec86355d9e"
     commands: |
+      echo "--- patch faulty rootfs"
+      rm -f /usr/local/bin/vivado
+      export PATH=$${PATH}:$$(echo /usr/local/vivado/Vivado/*/bin)
+
       echo "--- Build LiteX project"
       python3 fairwaves_xtrx.py --build
 
@@ -31,6 +35,8 @@ steps:
       os: "linux"
       arch: "x86_64"
       queue: "vivado"
+    env:
+
 
   - label: ":linux: :corn: Build NVIDIA and litepcie kernel modules"
     key: kernel-modules
