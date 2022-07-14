@@ -66,6 +66,12 @@ steps:
       mkdir -p $${LLP_BUILD}
       make -C software/litepcie-user-library -j$$(nproc) prefix=$${LLP_BUILD} install
 
+      echo "--- Build soapysdr driver"
+      mkdir soapy_build
+      cd soapy_build
+      cmake ../software/soapysdr
+      make -j$$(nproc)
+
       echo "--- Bundle liblitepcie"
       tar -czvf liblitepcie.tar.gz -C $${LLP_BUILD} .
     artifact_paths:
