@@ -1,5 +1,38 @@
 steps:
-  - label: ":linux: :corn: :hammer_and_wrench: Build NVIDIA and litepcie kernel modules"
+  - label: ":electron: Build FPGA gateware and firmware"
+    key: gateware
+    plugins:
+      - JuliaCI/julia#v1:
+          version: '1'
+          # Set a depot hard size limit of 200GB, since we have artifacts in excess of 100GB here.
+          depot_hard_size_limit: '214748364800'
+      - staticfloat/sandbox#v1:
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/litex_builder-2022-07-14.x86_64.tar.gz"
+          rootfs_treehash: "a50c2e8710fa0bbd1564ccfab01443ec86355d9e"
+    commands: |
+      echo "--- Build LiteX project"
+      python3 fairwaves_xtrx.py --build
+
+      echo "--- Bundle gateware"
+      tar -czf litex-gateware.tar.gz -C build/fairwaves_xtrx_platform/gateware fairwaves_xtrx_platform.bin
+
+      echo "--- Bundle firmware"
+      tar -czf litex-firmware.tar.gz -C firmware firmware.bin
+
+      echo "--- Bundle generated headers"
+      tar -czf litex-headers.tar.gz -C build/fairwaves_xtrx_platform/software/include/generated .
+    artifact_paths:
+      - "litex-gateware.tar.gz"
+      - "litex-firmware.tar.gz"
+      - "litex-headers.tar.gz"
+    # We restrict to running on the `vivado` queue because the litex_builder rootfs is >100GB in size!
+    agents:
+      sandbox_capable: "true"
+      os: "linux"
+      arch: "x86_64"
+      queue: "vivado"
+
+  - label: ":linux: :corn: Build NVIDIA and litepcie kernel modules"
     key: kernel-modules
     plugins:
       - JuliaCI/julia#v1:
@@ -49,7 +82,7 @@ steps:
       arch: "x86_64"
 
 
-  - label: ":linux: :hammer_and_wrench: Build litepcie user library and soapysdr driver"
+  - label: ":linux: Build litepcie user library and soapysdr driver"
     key: liblitepcie
     plugins:
       - JuliaCI/julia#v1:
@@ -60,22 +93,40 @@ steps:
     commands: |
       echo "--- Download CUDA"
       make -C software nvidia-cuda
+      SOFTWARE_DIR=$$(pwd)/software
 
       echo "--- Build litepcie user library"
-      LLP_BUILD=$$(pwd)/build
-      mkdir -p $${LLP_BUILD}
-      make -C software/litepcie-user-library -j$$(nproc) prefix=$${LLP_BUILD} install
-
-      echo "--- Build soapysdr driver"
-      mkdir soapy_build
-      cd soapy_build
-      cmake -DCUDAToolkit_ROOT=$$(pwd)/../software/nvidia-cuda ../software/soapysdr
-      make -j$$(nproc)
+      LLP_PREFIX=$$(pwd)/build/litepcie-user-library
+      mkdir -p $${LLP_PREFIX}
+      make -C software/litepcie-user-library -j$$(nproc) prefix=$${LLP_PREFIX} install
 
       echo "--- Bundle liblitepcie"
-      tar -czvf liblitepcie.tar.gz -C $${LLP_BUILD} .
+      tar -czvf liblitepcie.tar.gz -C $${LLP_PREFIX} .
+
+      echo "--- Build SoapySDR"
+      SS_PREFIX=$$(pwd)/build/soapysdr
+      make -C software soapysdr -j$$(nproc) SOAPY_PREFIX=$${SS_PREFIX}
+
+      echo "--- Bundle SoapySDR"
+      tar -czvf soapysdr.tar.gz -C $${SS_PREFIX} .
+
+      echo "--- Build SoapySDR-XTRX plugin"
+      SSX_BUILD=$${SOFTWARE_DIR}/soapysdr-xtrx/build
+      SSX_PREFIX=$$(pwd)/build/soapysdr-xtrx
+      mkdir -p $${SSX_BUILD}
+      cmake -DCUDAToolkit_ROOT=$${SOFTWARE_DIR}/nvidia-cuda \
+            -DSoapySDR_ROOT=$${SS_PREFIX} \
+            -DCMAKE_INSTALL_PREFIX=$${SSX_PREFIX} \
+            -S $${SOFTWARE_DIR}/soapysdr-xtrx \
+            -B $${SSX_BUILD}
+      make -C $${SSX_BUILD} -j$$(nproc) install
+
+      echo "--- Bundle SoapySDR-XTRX"
+      tar -czvf soapysdr-xtrx.tar.gz -C $${SSX_PREFIX} .
     artifact_paths:
       - "liblitepcie.tar.gz"
+      - "soapysdr.tar.gz"
+      - "soapysdr-xtrx.tar.gz"
     agents:
       sandbox_capable: "true"
       os: "linux"

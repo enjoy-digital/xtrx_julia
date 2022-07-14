@@ -11,3 +11,4 @@ build/
 software/nvidia-cuda
 software/nvidia-driver
 software/kernel
+software/soapysdr

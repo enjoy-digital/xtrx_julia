@@ -1,8 +1,8 @@
 KERNEL_URL := https://github.com/torvalds/linux.git
-KERNEL_VERSION := v5.15
+KERNEL_VERSION := 5.15
 kernel:
-	@echo "Downloading kernel $(KERNEL_VERSION)"
-	git clone --depth=1 -b $(KERNEL_VERSION) $(KERNEL_URL) $@
+	@echo "Downloading kernel v$(KERNEL_VERSION)"
+	git clone --depth=1 -b v$(KERNEL_VERSION) $(KERNEL_URL) $@
 
 # Use our own fork until this PR is merged: https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3
 NV_DRIVER_URL := https://github.com/JuliaComputing/open-gpu-kernel-modules.git
@@ -11,9 +11,18 @@ nvidia-driver:
 	@echo "Downloading nvidia-driver $(NV_DRIVER_VERSION)"
 	git clone --depth=1 -b $(NV_DRIVER_VERSION) $(NV_DRIVER_URL) $@
 
-NV_CUDA_VERSION=11.7.0
+NV_CUDA_VERSION := 11.7.0
 CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-v$(NV_CUDA_VERSION)+0/CUDA_full.v$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
 nvidia-cuda:
-	@echo "Downloading nvidia-cuda $(NV_CUDA_VERSION)"
+	@echo "Downloading nvidia-cuda v$(NV_CUDA_VERSION)"
 	@mkdir -p $@
 	curl -# -f -L "$(CUDA_URL)" | tar -C $@ -zx --strip-components=1 cuda
+
+SOAPYSDR_VERSION := 0.8.1
+SOAPYSDR_PREFIX := ../build/soapysdr
+soapysdr:
+	@echo "Downloading and building SoapySDR v$(SOAPYSDR_VERSION)"
+	git clone --depth=1 -b soapy-sdr-$(SOAPYSDR_VERSION) https://github.com/pothosware/SoapySDR $@
+	mkdir -p $@/build
+	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) -S $@ -B $@/build
+	$(MAKE) -C $@/build install
