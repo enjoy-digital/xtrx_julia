@@ -7,7 +7,7 @@ all: $(PROGS)
 prefix ?= /usr/local
 
 # If the user wants to use a custom build of cuda, they can override this
-CUDA_PATH ?= $(REPO_DIR)/software/nvidia-cuda
+CUDA_PREFIX ?= /usr/local/cuda
 
 CFLAGS=-O2 -Wall -g -MMD -fPIC
 LDFLAGS=-lm
@@ -17,10 +17,10 @@ RANLIB=ranlib
 
 CFLAGS += -I./liblitepcie
 CFLAGS += -I../litepcie-kernel-module
-CFLAGS += -I$(CUDA_PATH)/include
+CFLAGS += -I$(CUDA_PREFIX)/include
 
 LDFLAGS += $(LIBLITEPCIE)
-LDFLAGS += -L$(CUDA_PATH)/lib -L$(CUDA_PATH)/lib64 -L$(CUDA_PATH)/lib64/stubs  -lcuda
+LDFLAGS += -L$(CUDA_PREFIX)/lib -L$(CUDA_PREFIX)/lib64 -L$(CUDA_PREFIX)/lib64/stubs  -lcuda
 LDFLAGS += -L./liblitepcie -llitepcie
 
 $(LIBLITEPCIE): liblitepcie/litepcie_dma.o liblitepcie/litepcie_flash.o liblitepcie/litepcie_helpers.o

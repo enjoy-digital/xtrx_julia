@@ -9,6 +9,9 @@ steps:
       - staticfloat/sandbox#v1:
           rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/litex_builder-2022-07-14.x86_64.tar.gz"
           rootfs_treehash: "a50c2e8710fa0bbd1564ccfab01443ec86355d9e"
+          workspaces:
+            # Include `/cache/repos` so that we can `git diff`
+            - "/cache/repos:/cache/repos"
     commands: |
       echo "--- patch faulty rootfs"
       rm -f /usr/local/bin/vivado
@@ -25,6 +28,9 @@ steps:
 
       echo "--- Bundle generated headers"
       tar -czf litex-headers.tar.gz -C build/fairwaves_xtrx_platform/software/include/generated .
+
+      echo "--- Test generated headers didn't change"
+      git diff --exit-code software/litepcie-kernel-module
     artifact_paths:
       - "litex-gateware.tar.gz"
       - "litex-firmware.tar.gz"
@@ -48,36 +54,31 @@ steps:
           rootfs_treehash: "e8c2bfdb00fb2295e2f3b90c55daaf3602c07f9a"
     commands: |
       echo "--- clone kernel source"
-      make -C software kernel
+      make -C software get-kernel
 
       # We must do a full kernel build to get `Module.symvers`, which makes the nvidia build happy
       echo "--- Build kernel"
-      KERNEL_DIR=$$(pwd)/software/kernel
-      make -C "$${KERNEL_DIR}" defconfig -j$$(nproc)
-      make -C "$${KERNEL_DIR}" -j$$(nproc)
+      make -C software kernel -j$$(nproc)
 
       echo "--- Bundle kernel"
-      cp -Lv software/kernel/arch/$$(uname -m)/boot/bzImage bzImage
+      cp -Lv build/kernel/bzImage bzImage
 
       echo "--- clone nvidia-driver source"
-      make -C software nvidia-driver
+      make -C software get-nvidia-driver
 
       echo "--- Build NVIDIA driver"
-      NVIDIA_MODLIB=$$(pwd)/nvidia-build
-      mkdir -p "$${NVIDIA_MODLIB}"
-      make -C software/nvidia-driver -j$$(nproc) SYSSRC="$${KERNEL_DIR}" MODLIB="$${NVIDIA_MODLIB}"
-      make -C software/nvidia-driver -j$$(nproc) SYSSRC="$${KERNEL_DIR}" MODLIB="$${NVIDIA_MODLIB}" modules_install
+      NVIDIA_DRIVER_MODPATH="$$(pwd)/build/nvidia-driver"
+      make -C software nvidia-driver -j$$(nproc) NVIDIA_DRIVER_MODPATH=$${NVIDIA_DRIVER_MODPATH}
 
       echo "--- Bundle NVIDIA kernel modules"
-      cp software/nvidia-driver/kernel-open/modules.order "$${NVIDIA_MODLIB}/kernel/drivers/video/"
-      tar -cvzf nvidia-kernel-modules.tar.gz -C "$${NVIDIA_MODLIB}/kernel/drivers/video" .
+      tar -cvzf nvidia-kernel-modules.tar.gz -C "$$(echo $${NVIDIA_DRIVER_MODPATH}/lib/modules/*/kernel/drivers/video)" .
 
       echo "--- Build litepcie kernel modules"
-      make -C software/litepcie-kernel-module
+      LITEPCIE_MODPATH="$$(pwd)/build/litepci-kernel-module"
+      make -C software litepcie-kernel-module -j$$(nproc) LITEPCIE_MODPATH="$${LITEPCIE_MODPATH}"
       
       echo "--- Bundle litepci kernel modules"
-      LITEPCIE_KOS=$$(cd software/litepcie-kernel-module; ls *.ko *.order)
-      tar -cvzf litepcie-kernel-modules.tar.gz -C software/litepcie-kernel-module $${LITEPCIE_KOS}
+      tar -cvzf litepcie-kernel-modules.tar.gz -C "$${LITEPCIE_MODPATH}" .
     artifact_paths:
       - "nvidia-kernel-modules.tar.gz"
       - "litepcie-kernel-modules.tar.gz"
@@ -102,12 +103,12 @@ steps:
       SOFTWARE_DIR=$$(pwd)/software
 
       echo "--- Build litepcie user library"
-      LLP_PREFIX=$$(pwd)/build/litepcie-user-library
-      mkdir -p $${LLP_PREFIX}
-      make -C software/litepcie-user-library -j$$(nproc) prefix=$${LLP_PREFIX} install
+      LITEPCIE_PREFIX=$$(pwd)/build/litepcie-user-library
+      mkdir -p $${LITEPCIE_PREFIX}
+      make -C software litepcie-user-library -j$$(nproc) LITEPCIE_PREFIX=$${LITEPCIE_PREFIX}
 
       echo "--- Bundle liblitepcie"
-      tar -czvf liblitepcie.tar.gz -C $${LLP_PREFIX} .
+      tar -czvf liblitepcie.tar.gz -C $${LITEPCIE_PREFIX} .
 
       echo "--- Build SoapySDR"
       SS_PREFIX=$$(pwd)/build/soapysdr
@@ -155,8 +156,10 @@ steps:
       tar -C /tmp/nvidia -zxf nvidia-kernel-modules.tar.gz
       mv /tmp/litepcie/*.ko "$${MODDIR}"
       mv /tmp/nvidia/*.ko "$${MODDIR}"
-      cat /tmp/litepcie/modules.order /tmp/nvidia/modules.order > "$${MODDIR}/modules.order"
+
+      # Depmod fails without these two files
       touch "$${MODDIR}/modules.builtin"
+      touch "$${MODDIR}/modules.order"
       depmod -v
 
       echo "+++ Load kernel modules"
