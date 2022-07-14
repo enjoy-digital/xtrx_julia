@@ -5,10 +5,8 @@ steps:
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
-          rootfs_url: "https://github.com/JuliaComputing/rootfs-images/releases/download/kernel-builder-2022-07-12/kernel_builder.x86_64.tar.gz"
-          rootfs_treehash: "c0660b88baa6e9607ef859b5daa349fc8de8712c"
-          workspaces:
-            - "/cache/repos:/cache/repos"
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-13.x86_64.tar.gz"
+          rootfs_treehash: "e8c2bfdb00fb2295e2f3b90c55daaf3602c07f9a"
     commands: |
       echo "--- clone kernel source"
       make -C software kernel
@@ -51,16 +49,14 @@ steps:
       arch: "x86_64"
 
 
-  - label: ":linux: :hammer_and_wrench: Build litepcie user library"
+  - label: ":linux: :hammer_and_wrench: Build litepcie user library and soapysdr driver"
     key: liblitepcie
     plugins:
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
-          rootfs_url: "https://github.com/JuliaComputing/rootfs-images/releases/download/kernel-builder-2022-07-12/kernel_builder.x86_64.tar.gz"
-          rootfs_treehash: "c0660b88baa6e9607ef859b5daa349fc8de8712c"
-          workspaces:
-            - "/cache/repos:/cache/repos"
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-13.x86_64.tar.gz"
+          rootfs_treehash: "e8c2bfdb00fb2295e2f3b90c55daaf3602c07f9a"
     commands: |
       echo "--- Download CUDA"
       make -C software nvidia-cuda
