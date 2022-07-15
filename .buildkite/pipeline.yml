@@ -53,6 +53,7 @@ steps:
           rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-13.x86_64.tar.gz"
           rootfs_treehash: "e8c2bfdb00fb2295e2f3b90c55daaf3602c07f9a"
     commands: |
+      export USE_LIVE_KERNEL=false
       echo "--- clone kernel source"
       make -C software get-kernel
 

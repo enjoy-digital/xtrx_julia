@@ -23,10 +23,8 @@ This Julia Computing remote contains support for GPU P2P operations.
 [> GPU Setup
 ------------
 
-For P2P operation the open source Nvidia drivers are required, which can be installed with the instructions in the main
-repository:
-
-https://github.com/NVIDIA/open-gpu-kernel-modules
+For P2P operation the [open source Nvidia drivers](https://github.com/NVIDIA/open-gpu-kernel-modules) are required.
+Note that we currently carry [our own patch for resizing the addressable memory space](https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3), and until that is merged, the easiest thing to do is to build our fork of the driver, which can be done via `make -C software nvidia-driver`.
 
 
 [> Getting started
@@ -59,9 +57,7 @@ Build the design and flash it to the board:
 Build the Linux kernel driver and load it:
 
 ```
-cd software/kernel
-make NVIDIA_SRC_DIR=<path-to>/open-gpu-kernel-modules/kernel-open/nvidia
-sudo ./init.sh
+make -C software litepcie-kernel-module
 ```
 
 Note that if a thunderbolt carrier is in use, it may be necessary rescan the pci bus:

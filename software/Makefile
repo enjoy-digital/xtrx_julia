@@ -1,7 +1,7 @@
 REPO_DIR ?= $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST)))))
 
 KERNEL_URL := https://github.com/torvalds/linux.git
-KERNEL_VERSION := 5.15
+KERNEL_VERSION ?= 5.15
 kernel/.git/HEAD:
 	@echo "Downloading kernel v$(KERNEL_VERSION)"
 	git clone --depth=1 -b v$(KERNEL_VERSION) $(KERNEL_URL) kernel
@@ -25,11 +25,12 @@ nvidia-driver/.git/HEAD:
 get-nvidia-driver: nvidia-driver/.git/HEAD
 
 NVIDIA_DRIVER_MODPATH ?= /lib/modules/$(shell uname -r)
-$(NVIDIA_DRIVER_MODPATH)/kernel/drivers/video/nvidia.ko: nvidia-driver/.git/HEAD $(REPO_DIR)/build/kernel/bzImage
-	$(MAKE) -C nvidia-driver SYSSRC="$(REPO_DIR)/software/kernel" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)"
+NVIDIA_DRIVER_KO := $(NVIDIA_DRIVER_MODPATH)/kernel/drivers/video/nvidia.ko
+$(NVIDIA_DRIVER_KO): nvidia-driver/.git/HEAD
+	$(MAKE) -C nvidia-driver SYSSRC="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)"
 	@# Ignore the error here, depmod 
-	-$(MAKE) -C nvidia-driver SYSSRC="$(REPO_DIR)/software/kernel" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)" modules_install
-nvidia-driver: $(NVIDIA_DRIVER_MODPATH)/kernel/drivers/video/nvidia.ko
+	-$(MAKE) -C nvidia-driver SYSSRC="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)" modules_install
+nvidia-driver: $(NVIDIA_DRIVER_KO)
 
 NV_CUDA_VERSION := 11.7.0
 CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-v$(NV_CUDA_VERSION)+0/CUDA_full.v$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
@@ -42,13 +43,26 @@ nvidia-cuda: nvidia-cuda/bin/nvcc
 .PHONY: nvidia-cuda
 
 LITEPCIE_MODPATH ?= /lib/modules/$(shell uname -r)
-$(LITEPCIE_MODPATH)/liteuart.ko: $(REPO_DIR)/build/kernel/bzImage nvidia-driver/.git/HEAD
+LITEPCIE_KO ?= $(LITEPCIE_MODPATH)/liteuart.ko
+$(LITEPCIE_KO): nvidia-driver/.git/HEAD
 	# Explicitly don't parallelize this, makefile is apparently not correctly written
-	make -C litepcie-kernel-module
+	make -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)"
 	mkdir -p $(dir $@)
 	cp -L litepcie-kernel-module/*.ko $(dir $@)
-litepcie-kernel-module: $(LITEPCIE_MODPATH)/liteuart.ko
+litepcie-kernel-module: $(LITEPCIE_KO)
 .PHONY: litepcie-kernel-module
+
+
+# By default we use the live kernel, but if we're for instance cross-compilng (as we do on CI)
+# then we need to download the right kernel and use it when compiling the kernel modules.
+USE_LIVE_KERNEL ?= true
+ifeq ($(USE_LIVE_KERNEL),true)
+KERNEL_PATH ?= /lib/modules/$(shell uname -r)/build
+else
+KERNEL_PATH ?= $(REPO_DIR)/software/kernel
+$(NVIDIA_DRIVER_KO): $(REPO_DIR)/build/kernel/bzImage
+$(LITEPCIE_KO): $(REPO_DIR)/build/kernel/bzImage
+endif
 
 LITEPCIE_PREFIX ?= $(REPO_DIR)/build/litepcie-user-library
 $(LITEPCIE_PREFIX)/lib/liblitepcie.a: nvidia-cuda/bin/nvcc
@@ -79,3 +93,6 @@ soapysdr-xtrx: $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so $(LITEPCIE_PREFIX)/lib/libl
 		  -B soapysdr-xtrx/build
 	make -C soapysdr-xtrx/build -j$$(nproc) install
 #soapysdr-xtrx:
+
+print-%:
+	-echo $*=$($*)
