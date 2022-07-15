@@ -11,20 +11,20 @@ find_path(LITEPCIE_KERNEL_INCLUDE_DIR litepcie.h
           HINTS
             ${CMAKE_CURRENT_SOURCE_DIR}/../..
           PATH_SUFFIXES
-            software/kernel)
+            software/litepcie-kernel-module)
 find_path(LITEPCIE_USER_INCLUDE_DIR liblitepcie.h
           REQUIRED
           HINTS
             ${CMAKE_CURRENT_SOURCE_DIR}/../..
           PATH_SUFFIXES
-            software/user/liblitepcie)
+            software/litepcie-user-library/liblitepcie)
 set(LITEPCIE_INCLUDE_DIR ${LITEPCIE_KERNEL_INCLUDE_DIR} ${LITEPCIE_USER_INCLUDE_DIR})
 find_library(LITEPCIE_LIBRARY litepcie
              REQUIRED
              HINTS
                ${CMAKE_CURRENT_SOURCE_DIR}/../..
              PATH_SUFFIXES
-               software/user/liblitepcie)
+               software/litepcie-user-library/liblitepcie)
 
 include_directories(${LITEPCIE_INCLUDE_DIR})
 
