@@ -21,7 +21,7 @@ steps:
       python3 fairwaves_xtrx.py --build
 
       echo "--- Bundle gateware"
-      tar -czf litex-gateware.tar.gz -C build/fairwaves_xtrx_platform/gateware fairwaves_xtrx_platform.bin
+      tar -czf litex-gateware.tar.gz -C build/fairwaves_xtrx_platform/gateware fairwaves_xtrx_platform.bin fairwaves_xtrx_platform.bit
 
       echo "--- Bundle firmware"
       tar -czf litex-firmware.tar.gz -C firmware firmware.bin
