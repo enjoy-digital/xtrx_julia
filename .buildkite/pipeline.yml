@@ -167,13 +167,14 @@ steps:
       modprobe liteuart
       echo "✔"
 
-      echo -n "Load nvidia: "
-      modprobe nvidia
-      echo "✔"
+      echo SKIPPING NVIDIA AND LITEPCIE FOR NOW
+      #echo -n "Load nvidia: "
+      #modprobe nvidia
+      #echo "✔"
 
-      echo -n "Load litepcie: "
-      modprobe litepcie
-      echo "✔"
+      #echo -n "Load litepcie: "
+      #modprobe litepcie
+      #echo "✔"
     agents:
       os: "linux"
       queue: "triad"
