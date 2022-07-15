@@ -30,7 +30,7 @@ steps:
       tar -czf litex-headers.tar.gz -C build/fairwaves_xtrx_platform/software/include/generated .
 
       echo "--- Test generated headers didn't change"
-      git diff --exit-code software/litepcie-kernel-module
+      git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/litepcie-kernel-module
     artifact_paths:
       - "litex-gateware.tar.gz"
       - "litex-firmware.tar.gz"
