@@ -3,7 +3,6 @@ REPO_DIR ?= $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LI
 KERNEL_URL := https://github.com/torvalds/linux.git
 KERNEL_VERSION ?= 5.15
 kernel/.git/HEAD:
-	@echo "Downloading kernel v$(KERNEL_VERSION)"
 	git clone --depth=1 -b v$(KERNEL_VERSION) $(KERNEL_URL) kernel
 get-kernel: kernel/.git/HEAD
 
@@ -20,7 +19,6 @@ kernel: $(REPO_DIR)/build/kernel/bzImage
 NV_DRIVER_URL := https://github.com/JuliaComputing/open-gpu-kernel-modules.git
 NV_DRIVER_VERSION := sjk/rebar2
 nvidia-driver/.git/HEAD:
-	@echo "Downloading nvidia-driver $(NV_DRIVER_VERSION)"
 	git clone --depth=1 -b $(NV_DRIVER_VERSION) $(NV_DRIVER_URL) nvidia-driver
 get-nvidia-driver: nvidia-driver/.git/HEAD
 
@@ -36,7 +34,6 @@ NV_CUDA_VERSION := 11.7.0
 CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-v$(NV_CUDA_VERSION)+0/CUDA_full.v$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
 CUDA_PREFIX ?= $(REPO_DIR)/software/nvidia-cuda
 nvidia-cuda/bin/nvcc:
-	@echo "Downloading nvidia-cuda v$(NV_CUDA_VERSION)"
 	@mkdir -p nvidia-cuda
 	curl -# -f -L "$(CUDA_URL)" | tar -C nvidia-cuda -zx --strip-components=1 cuda
 nvidia-cuda: nvidia-cuda/bin/nvcc
@@ -72,19 +69,24 @@ litepcie-user-library: $(LITEPCIE_PREFIX)/lib/liblitepcie.a
 
 SOAPYSDR_VERSION := 0.8.1
 SOAPYSDR_MAJMIN := $(basename $(SOAPYSDR_VERSION))
-SOAPYSDR_PREFIX ?= $(REPO_DIR)/build/soapysdr
-$(SOAPYSDR_PREFIX)/lib/libSoapySDR.so:
-	@echo "Downloading and building SoapySDR v$(SOAPYSDR_VERSION)"
+soapysdr/.git/HEAD:
 	git clone --depth=1 -b soapy-sdr-$(SOAPYSDR_VERSION) https://github.com/pothosware/SoapySDR soapysdr
+
+SOAPYSDR_PREFIX ?= $(REPO_DIR)/build/soapysdr
+SOAPYSDR_LIB := $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so
+$(SOAPYSDR_LIB): soapysdr/.git/HEAD
+	rm -rf soapysdr/build
 	mkdir -p soapysdr/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
 		  -S soapysdr \
 		  -B soapysdr/build
 	$(MAKE) -C soapysdr/build install
-soapysdr: $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so
+soapysdr: $(SOAPYSDR_LIB)
 
 SOAPYSDR_XTRX_PREFIX ?= $(REPO_DIR)/build/soapysdr-xtrx
-soapysdr-xtrx: $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so $(LITEPCIE_PREFIX)/lib/liblitepcie.a
+SOAPYSDR_XTRX_LIB := $(SOAPYSDR_XTRX_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libSoapyXTRX.so
+$(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_PREFIX)/lib/liblitepcie.a
+	rm -rf soapysdr-xtrx/build
 	mkdir -p soapysdr-xtrx/build
 	cmake -DCUDAToolkit_ROOT=$(CUDA_PREFIX) \
 		  -DSoapySDR_ROOT=$(SOAPYSDR_PREFIX) \
@@ -92,7 +94,10 @@ soapysdr-xtrx: $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so $(LITEPCIE_PREFIX)/lib/libl
 		  -S soapysdr-xtrx \
 		  -B soapysdr-xtrx/build
 	make -C soapysdr-xtrx/build -j$$(nproc) install
-#soapysdr-xtrx:
+soapysdr-xtrx: $(SOAPYSDR_XTRX_LIB)
+
+print-soapysdr-plugin-path:
+	@echo $(dir $(SOAPYSDR_XTRX_LIB))
 
 print-%:
 	-echo $*=$($*)
