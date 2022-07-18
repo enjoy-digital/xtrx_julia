@@ -7,7 +7,7 @@ end
 
 @show ENV["SOAPY_SDR_PLUGIN_PATH"]
 
-using SoapySDR, Printf, Unitful, Plots
+using SoapySDR, Printf, Unitful
 
 SoapySDR.register_log_handler()
 
@@ -28,6 +28,8 @@ function dma_test()
     stream_rx = SoapySDR.Stream(format, [chan_rx])
     stream_tx = SoapySDR.Stream(format, [chan_tx])
 
+    @info "Streaming format: $format"
+
     # the size of every buffer, in bytes
     mtu = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_tx)
     wr_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_tx) * sizeof(format)
@@ -45,6 +47,7 @@ function dma_test()
     rd_total_sz = rd_sz * rd_nbufs
     @info "number of buffers: $(Int(wr_nbufs)), buffer size (bytes): $(Int(wr_sz))"
 
+    # TODO Set Antennas??? GainElements??
 
     # Setup transmission/recieve parameters
     # XXX: Sometimes this needs to be done twice to not error???
@@ -52,8 +55,8 @@ function dma_test()
     chan_rx.bandwidth = 500u"kHz" # 200u"kHz"
     chan_tx.frequency = 2.498u"GHz"
     chan_rx.frequency = 2.498u"GHz"
-    chan_tx.gain = 52u"dB"
-    chan_rx.gain = -2u"dB"
+    #chan_tx.gain = 20u"dB"
+    #chan_rx.gain = 2u"dB"
     chan_tx.sample_rate = 1u"MHz"
     chan_rx.sample_rate = 1u"MHz"
     
@@ -66,6 +69,13 @@ function dma_test()
     @show chan_tx.sample_rate
     @show chan_rx.sample_rate
 
+    # prepare some data to send:
+    rate = 10
+    samples = mtu*wr_nbufs
+    t = (1:round(Int, samples))./samples
+    @show length(t)
+    data_tx = format.(round.(sin.(2π.*t.*rate).*fullscale/4), 0)
+    data_tx_zeros = zeros(format, length(data_tx))
 
     iq_data = format[]
 
@@ -74,13 +84,6 @@ function dma_test()
 
         written_buffs = 0
         read_buffs = 0
-
-        # prepare some data to send:
-        rate = 1000
-        samples = mtu
-        t = (1:round(Int, samples/rate))./samples
-        data_tx = format.(round.(sin.(2π.*t.*100e3).*fullscale/2).+fullscale/2, 0)
-        data_tx_zeros = zeros(format, length(data_tx))
 
         SoapySDR.activate!(stream_tx)
         SoapySDR.activate!(stream_rx)
@@ -96,7 +99,7 @@ function dma_test()
                 err = 1 # keep going
             end
             @assert err > 0
-            unsafe_copyto!(buffs[1], pointer(data_tx), mtu)
+            unsafe_copyto!(buffs[1], pointer(data_tx, mtu*written_buffs+1), mtu)
             SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
             written_buffs += 1
         end
@@ -129,9 +132,13 @@ function dma_test()
     finalize.([stream_rx, stream_tx])
     finalize(dev)
 
-    return iq_data
+    return iq_data, data_tx
 end
 
-iq_data = dma_test()
+iq_data, data_tx = dma_test()
 
+using Plots
 
+plot(real.(iq_data)[2:2:end])
+plot!(real.(iq_data)[1:2:end])
+plot!(real.(data_tx))

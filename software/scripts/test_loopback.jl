@@ -56,12 +56,13 @@ function dma_test()
     #       but this also works with the FPGA's loopback
 
     # open RX and TX streams
-    stream_rx = SoapySDR.Stream(ComplexF32, [chan_rx])
-    stream_tx = SoapySDR.Stream(ComplexF32, [chan_tx])
+    format = chan_rx.native_stream_format
+    stream_rx = SoapySDR.Stream(format, [chan_rx])
+    stream_tx = SoapySDR.Stream(format, [chan_tx])
 
     # the size of every buffer, in bytes
-    wr_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_tx) * 4
-    rd_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_rx) * 4
+    wr_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_tx) * sizeof(format)
+    rd_sz = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream_rx) * sizeof(format)
     @assert wr_sz == rd_sz
 
     # the number of buffers each stream has
