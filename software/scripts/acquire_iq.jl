@@ -25,8 +25,8 @@ function dma_test()
     # open RX and TX streams
     format = chan_rx.native_stream_format
     fullscale = chan_tx.fullscale
-    stream_rx = SoapySDR.Stream(format, [chan_rx])
-    stream_tx = SoapySDR.Stream(format, [chan_tx])
+    stream_rx = SoapySDR.Stream(format, dev.rx)
+    stream_tx = SoapySDR.Stream(format, dev.tx)
 
     @info "Streaming format: $format"
 
@@ -51,23 +51,27 @@ function dma_test()
 
     # Setup transmission/recieve parameters
     # XXX: Sometimes this needs to be done twice to not error???
-    chan_tx.bandwidth = 3.1u"MHz" #2u"MHz"
-    chan_rx.bandwidth = 500u"kHz" # 200u"kHz"
-    chan_tx.frequency = 2.498u"GHz"
-    chan_rx.frequency = 2.498u"GHz"
-    #chan_tx.gain = 20u"dB"
-    #chan_rx.gain = 2u"dB"
-    chan_tx.sample_rate = 1u"MHz"
-    chan_rx.sample_rate = 1u"MHz"
-    
-    @show chan_tx.bandwidth
-    @show chan_rx.bandwidth
-    @show chan_tx.frequency
-    @show chan_rx.frequency
-    @show chan_tx.gain
-    @show chan_rx.gain
-    @show chan_tx.sample_rate
-    @show chan_rx.sample_rate
+    for cr in dev.rx
+        cr.bandwidth = 500u"kHz" # 200u"kHz"
+        cr.frequency = 2.498u"GHz"
+        #cr.gain = 2u"dB"
+        cr.sample_rate = 1u"MHz"
+        @show cr.bandwidth
+        @show cr.frequency
+        @show cr.sample_rate
+        @show cr.gain
+    end
+
+    for ct in dev.tx
+        ct.bandwidth = 3.1u"MHz" #2u"MHz"
+        ct.frequency = 2.498u"GHz"
+        #ct.gain = 20u"dB"
+        ct.sample_rate = 1u"MHz"
+        @show ct.bandwidth
+        @show ct.frequency
+        @show ct.sample_rate
+        @show ct.gain
+    end
 
     # prepare some data to send:
     rate = 10
@@ -139,6 +143,8 @@ iq_data, data_tx = dma_test()
 
 using Plots
 
-plot(real.(iq_data)[2:2:end])
+plt = plot(real.(iq_data)[2:2:end])
 plot!(real.(iq_data)[1:2:end])
 plot!(real.(data_tx))
+
+savefig("data_$(Int(round(time()))).png")
