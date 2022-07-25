@@ -195,8 +195,15 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
 
     // NOTE: if initialization misses a setting/register, try experimenting in
     //       LimeGUI and loading that register dump here
-    //if (LMS7002M_load_ini(_lms, "configs/xtrx.ini"))
-    //    throw std::runtime_error("failed to load XTRX configuration");
+    if (args.count("ini") != 0) {
+        if (LMS7002M_load_ini(_lms, args.at("ini").c_str())){
+            SoapySDR::log(SOAPY_SDR_ERROR, "SoapyXTRX configuration load failed");
+            throw std::runtime_error("failed to load XTRX configuration");
+        } else {
+            SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX configuration loaded from: %s", args.at("ini").c_str());
+
+        }
+    }
 
     SoapySDR::log(SOAPY_SDR_INFO, "SoapyXTRX initialization complete");
 }
