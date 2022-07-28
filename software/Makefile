@@ -78,6 +78,7 @@ $(SOAPYSDR_LIB): soapysdr/.git/HEAD
 	rm -rf soapysdr/build
 	mkdir -p soapysdr/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
+	      -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
 		  -S soapysdr \
 		  -B soapysdr/build
 	$(MAKE) -C soapysdr/build install
@@ -123,17 +124,18 @@ limesuite/.git/HEAD:
 	git clone --depth=1 -b $(LIMESUITE_VERSION) $(LIMESUITE_URL) limesuite
 get-limesuite: limesuite/.git/HEAD
 
-LIMESUITE_PREFIX ?= $(REPO_DIR)/build/limesuite
-SOAPYLMS7_LIB := $(LIMESUITE_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
+SOAPYLMS7_LIB := $(SOAPYSDR_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
 $(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) limesuite/.git/HEAD
 	rm -rf limesuite/_build
 	mkdir -p limesuite/_build
+	-# We must provide a few helpful hints here; we redirect to our `libusb`, and
 	cmake -DCMAKE_PREFIX_PATH=$(SOAPYSDR_PREFIX) \
 		  -DLIBUSB_1_INCLUDE_DIRS=$(LIBUSB_PREFIX)/include/libusb-$(LIBUSB_MAJMIN) \
 		  -DLIBUSB_1_LIBRARIES=$(LIBUSB_LIB) \
 		  -DLIBUSB_1_FOUND=TRUE \
+		  -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
 		  -DCMAKE_BUILD_TYPE=Debug \
-		  -DCMAKE_INSTALL_PREFIX=$(LIMESUITE_PREFIX) \
+		  -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
 		  -S limesuite \
 		  -B limesuite/_build
 	$(MAKE) -C limesuite/_build VERBOSE=1 install
