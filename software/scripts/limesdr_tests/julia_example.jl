@@ -23,8 +23,7 @@ c_rx.sample_rate = 1u"MHz"
 c_rx.frequency = 912.36u"MHz"
 s_rx = SoapySDR.Stream(ComplexF32, [c_rx])
 
-#big_buff = Vector{ComplexF32}(undef, 1024*10)
-SoapySDR.activate!(s_rx; numElems=1024)
+SoapySDR.activate!(s_rx)
 buff = Vector{ComplexF32}(undef, 1024)
 for idx in 1:10
     r = read!(s_rx, (buff,); timeout=1u"s")
