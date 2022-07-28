@@ -44,14 +44,14 @@ steps:
     env:
 
 
-  - label: ":linux: :corn: Build NVIDIA and litepcie kernel modules"
+  - label: ":linux: :corn: Build kernel modules"
     key: kernel-modules
     plugins:
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
-          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-13.x86_64.tar.gz"
-          rootfs_treehash: "e8c2bfdb00fb2295e2f3b90c55daaf3602c07f9a"
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-28.x86_64.tar.gz"
+          rootfs_treehash: "1f6052d12bccf1fd9988eff97b0b1a201519b2db"
     commands: |
       export USE_LIVE_KERNEL=false
       echo "--- clone kernel source"
@@ -90,14 +90,14 @@ steps:
       arch: "x86_64"
 
 
-  - label: ":linux: Build litepcie user library and soapysdr driver"
+  - label: ":linux: Build userspace utilities"
     key: liblitepcie
     plugins:
       - JuliaCI/julia#v1:
           version: '1'
       - staticfloat/sandbox#v1:
-          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-13.x86_64.tar.gz"
-          rootfs_treehash: "e8c2bfdb00fb2295e2f3b90c55daaf3602c07f9a"
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-28.x86_64.tar.gz"
+          rootfs_treehash: "1f6052d12bccf1fd9988eff97b0b1a201519b2db"
     commands: |
       echo "--- Download CUDA"
       make -C software nvidia-cuda
