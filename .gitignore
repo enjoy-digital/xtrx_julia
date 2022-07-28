@@ -15,3 +15,4 @@ software/kernel
 software/soapysdr
 software/limesuite
 software/SoapySDR.jl
+software/libusb

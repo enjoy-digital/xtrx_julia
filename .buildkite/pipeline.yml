@@ -121,6 +121,12 @@ steps:
       echo "--- Bundle SoapySDR-XTRX"
       tar -czvf soapysdr-xtrx.tar.gz -C build/soapysdr-xtrx .
 
+      echo "--- Build libusb"
+      make -C software libusb -j$$(nproc)
+
+      echo "--- Bundle libusb"
+      tar -czvf libusb.tar.gz -C build/libusb .
+
       echo "--- Build LimeSuite"
       make -C software limesuite -j$$(nproc)
 
@@ -131,6 +137,7 @@ steps:
       - "soapysdr.tar.gz"
       - "soapysdr-xtrx.tar.gz"
       - "limesuite.tar.gz"
+      - "libusb.tar.gz"
     agents:
       sandbox_capable: "true"
       os: "linux"

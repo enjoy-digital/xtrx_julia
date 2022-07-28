@@ -97,6 +97,25 @@ $(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_PREFIX)/lib/liblitepcie.a
 soapysdr-xtrx: $(SOAPYSDR_XTRX_LIB)
 
 
+# Helper to build libusb, so LimeSuite can properly link
+LIBUSB_URL := https://github.com/libusb/libusb
+LIBUSB_VERSION ?= v1.0.26
+LIBUSB_MAJMIN := $(subst v,,$(basename $(LIBUSB_VERSION)))
+LIBUSB_PREFIX ?= $(REPO_DIR)/build/libusb
+LIBUSB_LIB := $(LIBUSB_PREFIX)/lib/libusb-$(LIBUSB_MAJMIN).so
+
+libusb/.git/HEAD:
+	git clone --depth=1 -b $(LIBUSB_VERSION) $(LIBUSB_URL) libusb
+get-libusb: libusb/.git/HEAD
+
+libusb/Makefile: libusb/.git/HEAD
+	cd libusb && ./bootstrap.sh
+	cd libusb && ./configure --prefix=$(LIBUSB_PREFIX)
+
+$(LIBUSB_LIB): libusb/Makefile
+	$(MAKE) -C libusb install
+libusb: $(LIBUSB_LIB)
+
 # Helper to build LimeSuite's SoapyLMS7 driver against our SoapySDR:
 LIMESUITE_URL := https://github.com/myriadrf/LimeSuite
 LIMESUITE_VERSION ?= v20.10.0
@@ -106,15 +125,18 @@ get-limesuite: limesuite/.git/HEAD
 
 LIMESUITE_PREFIX ?= $(REPO_DIR)/build/limesuite
 SOAPYLMS7_LIB := $(LIMESUITE_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
-$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) limesuite/.git/HEAD
+$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) limesuite/.git/HEAD
 	rm -rf limesuite/_build
 	mkdir -p limesuite/_build
 	cmake -DCMAKE_PREFIX_PATH=$(SOAPYSDR_PREFIX) \
-	      -DCMAKE_BUILD_TYPE=Debug \
+		  -DLIBUSB_1_INCLUDE_DIRS=$(LIBUSB_PREFIX)/include/libusb-$(LIBUSB_MAJMIN) \
+		  -DLIBUSB_1_LIBRARIES=$(LIBUSB_LIB) \
+		  -DLIBUSB_1_FOUND=TRUE \
+		  -DCMAKE_BUILD_TYPE=Debug \
 		  -DCMAKE_INSTALL_PREFIX=$(LIMESUITE_PREFIX) \
 		  -S limesuite \
 		  -B limesuite/_build
-	$(MAKE) -C limesuite/_build install
+	$(MAKE) -C limesuite/_build VERBOSE=1 install
 
 limesuite: $(SOAPYLMS7_LIB)
 
