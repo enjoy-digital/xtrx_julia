@@ -140,18 +140,21 @@ steps:
     plugins:
       - JuliaCI/julia#v1:
           version: '1'
-      - staticfloat/sandbox#v1:
-          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-28.aarch64.tar.gz"
-          rootfs_treehash: "5c1367ae3f6daf55ba28ab20c4858aa67d93fb12"
     commands: |
       echo "--- Build limesuite and dependencies"
       make -C software limesuite -j$$(nproc)
 
       echo "--- List LimeSDR devices"
-      ./build/bin/SoapySDRUtil --find=driver=lime
+      ./build/soapysdr/bin/SoapySDRUtil --find=driver=lime
 
       echo "--- Check out SoapySDR.jl#main"
       make -C software SoapySDR.jl
+
+      echo "--- Run C read example"
+      julia --project software/scripts/limesdr_tests/c_rx_example.jl
+
+      echo "--- Run Julia read example"
+      julia --project software/scripts/limesdr_tests/julia_rx_example.jl
     agents:
       os: "linux"
       queue: "triad"
