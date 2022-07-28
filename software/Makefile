@@ -1,9 +1,9 @@
 REPO_DIR ?= $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST)))))
 
 KERNEL_URL := https://github.com/torvalds/linux.git
-KERNEL_VERSION ?= 5.15
+KERNEL_VERSION ?= v5.15
 kernel/.git/HEAD:
-	git clone --depth=1 -b v$(KERNEL_VERSION) $(KERNEL_URL) kernel
+	git clone --depth=1 -b $(KERNEL_VERSION) $(KERNEL_URL) kernel
 get-kernel: kernel/.git/HEAD
 
 # Running `make kernel` builds this file
@@ -30,8 +30,8 @@ $(NVIDIA_DRIVER_KO): nvidia-driver/.git/HEAD
 	-$(MAKE) -C nvidia-driver SYSSRC="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)" modules_install
 nvidia-driver: $(NVIDIA_DRIVER_KO)
 
-NV_CUDA_VERSION := 11.7.0
-CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-v$(NV_CUDA_VERSION)+0/CUDA_full.v$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
+NV_CUDA_VERSION := v11.7.0
+CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-$(NV_CUDA_VERSION)+0/CUDA_full.$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
 CUDA_PREFIX ?= $(REPO_DIR)/software/nvidia-cuda
 nvidia-cuda/bin/nvcc:
 	@mkdir -p nvidia-cuda
@@ -93,8 +93,38 @@ $(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_PREFIX)/lib/liblitepcie.a
 		  -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_XTRX_PREFIX) \
 		  -S soapysdr-xtrx \
 		  -B soapysdr-xtrx/build
-	make -C soapysdr-xtrx/build -j$$(nproc) install
+	$(MAKE) -C soapysdr-xtrx/build install
 soapysdr-xtrx: $(SOAPYSDR_XTRX_LIB)
+
+
+# Helper to build LimeSuite's SoapyLMS7 driver against our SoapySDR:
+LIMESUITE_URL := https://github.com/myriadrf/LimeSuite
+LIMESUITE_VERSION ?= v20.10.0
+limesuite/.git/HEAD:
+	git clone --depth=1 -b $(LIMESUITE_VERSION) $(LIMESUITE_URL) limesuite
+get-limesuite: limesuite/.git/HEAD
+
+LIMESUITE_PREFIX ?= $(REPO_DIR)/build/limesuite
+SOAPYLMS7_LIB := $(LIMESUITE_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
+$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) limesuite/.git/HEAD
+	rm -rf limesuite/_build
+	mkdir -p limesuite/_build
+	cmake -DCMAKE_PREFIX_PATH=$(SOAPYSDR_PREFIX) \
+	      -DCMAKE_BUILD_TYPE=Debug \
+		  -DCMAKE_INSTALL_PREFIX=$(LIMESUITE_PREFIX) \
+		  -S limesuite \
+		  -B limesuite/_build
+	$(MAKE) -C limesuite/_build install
+
+limesuite: $(SOAPYLMS7_LIB)
+
+SOAPYSDR_JL_URL := https://github.com/JuliaTelecom/SoapySDR.jl.git
+SOAPYSDR_JL_VERSION ?= main
+SoapySDR.jl/.git/HEAD:
+	git clone --depth=1 -b $(SOAPYSDR_JL_VERSION) $(SOAPYSDR_JL_URL) SoapySDR.jl
+
+SoapySDR.jl: SoapySDR.jl/.git/HEAD
+	julia --project -e 'import Pkg; Pkg.develop(path="SoapySDR.jl")'
 
 print-soapysdr-plugin-path:
 	@echo $(dir $(SOAPYSDR_XTRX_LIB))
