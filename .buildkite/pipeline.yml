@@ -154,6 +154,7 @@ steps:
       julia --project software/scripts/limesdr_tests/c_rx_example.jl
 
       echo "--- Run Julia read example"
+      julia --project -e 'import Pkg; Pkg.precompile()'
       julia --project software/scripts/limesdr_tests/julia_rx_example.jl
     agents:
       os: "linux"
