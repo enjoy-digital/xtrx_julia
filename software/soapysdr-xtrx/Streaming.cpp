@@ -172,7 +172,7 @@ int SoapyXTRX::getDirectAccessBufferAddrs(SoapySDR::Stream *stream,
             (char *)_rx_stream.buf + handle * _dma_mmap_info.dma_rx_buf_size;
     else if (_dma_target == TargetDevice::CPU && stream == TX_STREAM)
         buffs[0] =
-            (char *)_tx_stream.buf + handle * _dma_mmap_info.dma_rx_buf_size;
+            (char *)_tx_stream.buf + handle * _dma_mmap_info.dma_tx_buf_size;
     // XXX: this is a leaky abstraction, exposing how the LitePCIe kernel driver
     //      manages its DMA buffers. normally this is hidden behind mmap,
     //      but we can't use its virtual addresses on the GPU.
@@ -184,8 +184,10 @@ int SoapyXTRX::getDirectAccessBufferAddrs(SoapySDR::Stream *stream,
     else if (_dma_target == TargetDevice::GPU &&
              (stream == RX_STREAM || stream == TX_STREAM))
         buffs[0] = (char *)_dma_buf +
+                   // Index by (tx, rx) buffer tuples
                    handle * (_dma_mmap_info.dma_tx_buf_size +
                              _dma_mmap_info.dma_rx_buf_size) +
+                   // Index past the tx buffer tuple element, if we want the `rx` buffer
                    (stream == RX_STREAM ? _dma_mmap_info.dma_tx_buf_size : 0);
     else
         throw std::runtime_error(
@@ -216,8 +218,9 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
             throw std::runtime_error(
                 "SoapyXTRX::acquireReadBuffer(): poll failed, " +
                 std::string(strerror(errno)));
-        else if (ret == 0)
+        else if (ret == 0) {
             return SOAPY_SDR_TIMEOUT;
+        }
 
         // get new DMA counters
         litepcie_dma_writer(_fd, 1, &_rx_stream.hw_count,
@@ -286,8 +289,6 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
         buffers_pending = _tx_stream.user_count - _tx_stream.hw_count;
         assert(buffers_pending < _dma_mmap_info.dma_tx_buf_count);
     }
-
-    int buffers_available = _dma_mmap_info.dma_tx_buf_count - buffers_pending;
 
     // get the buffer
     int buf_offset = _tx_stream.user_count % _dma_mmap_info.dma_tx_buf_count;

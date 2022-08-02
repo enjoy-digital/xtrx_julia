@@ -1,5 +1,5 @@
 if !haskey(ENV, "SOAPY_SDR_PLUGIN_PATH") || isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
-    ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr/build")
+    ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr-xtrx/build")
 end
 
 @show ENV["SOAPY_SDR_PLUGIN_PATH"]
@@ -14,7 +14,7 @@ devs = Devices()
 
 @test !isempty(devs)
 
-dev = open(devs[1])
+dev = Device(devs[1])
 
 @info "Checking Sensor Readouts..."
 
@@ -31,7 +31,7 @@ end
 for dir in (dev.rx, dev.tx)
     for i in eachindex(dir)
         txrx = dir[i]
-        @testset "Channel: $txrx" begin
+        @testset "Channel: $i Dir: $(txrx.direction)" begin
             @testset "Antenna Settings" begin
             for antenna in txrx.antennas
                 txrx.antenna = antenna
@@ -78,4 +78,4 @@ for dir in (dev.rx, dev.tx)
 end
 end
 
-close(dev)
+finalize(dev)
