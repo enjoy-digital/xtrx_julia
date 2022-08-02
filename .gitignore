@@ -6,9 +6,13 @@ analyzer.csv
 prog/
 build/
 *.nsys-rep
+JuliaLocalPreferences.toml
 
 # External software that gets vendored in via software/Makefile
 software/nvidia-cuda
 software/nvidia-driver
 software/kernel
 software/soapysdr
+software/limesuite
+software/SoapySDR.jl
+software/libusb
