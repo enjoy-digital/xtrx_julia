@@ -27,7 +27,7 @@ end
 
 @testset "Device and Kernel Checks" begin
     @info "Checking Kernel Version"
-    expect = "5.15.0-39-generic\n"
+    expect = "5.15.0-41-generic\n"
     check = String(read(`uname -r`))
     @test check == expect
 
