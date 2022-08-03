@@ -144,6 +144,28 @@ $(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) limesuite/.git/HEAD
 
 limesuite: $(SOAPYLMS7_LIB)
 
+# Helper to build LimeSuite's SoapyLMS7 driver against our SoapySDR:
+LIMESUITE_XTRX_URL := https://github.com/juliacomputing/LimeSuite
+LIMESUITE_XTRX_VERSION ?= sjk/xtrx1
+limesuite-xtrx/.git/HEAD:
+	git clone --depth=1 -b $(LIMESUITE_XTRX_VERSION) $(LIMESUITE_XTRX_URL) limesuite-xtrx
+get-limesuite: limesuite/.git/HEAD
+
+SOAPYLIMEXTRX_LIB := $(SOAPYSDR_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLimeXTRXSupport.so
+$(SOAPYLIMEXTRX_LIB): $(SOAPYSDR_LIB) limesuite-xtrx/.git/HEAD
+	rm -rf limesuite-xtrx/_build
+	mkdir -p limesuite-xtrx/_build
+	LITEPCIE_ROOT=$(REPO_DIR)/software cmake -DCMAKE_PREFIX_PATH=$(SOAPYSDR_PREFIX) \
+		  -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
+		  -DCMAKE_BUILD_TYPE=Debug \
+		  -DENABLE_XTRX=yes \
+		  -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
+		  -S limesuite-xtrx \
+		  -B limesuite-xtrx/_build
+	$(MAKE) -C limesuite-xtrx/_build VERBOSE=1 install
+
+limesuite-xtrx: $(SOAPYLIMEXTRX_LIB)
+
 SOAPYSDR_JL_URL := https://github.com/JuliaTelecom/SoapySDR.jl.git
 SOAPYSDR_JL_VERSION ?= main
 SoapySDR.jl/.git/HEAD:
