@@ -1,9 +1,10 @@
 #!/usr/bin/expect
 
-spawn litex_term /dev/ttyLXU0 --kernel=firmware.bin
+spawn litex_term /dev/ttyLXU0 --kernel=firmware.bin --safe
 
 # Find the `litex-xtrx> ` prompt; note that because of the character coloring,
 # we drop the ending `>` since there are ASCII codes in-between.
+send "\r"
 send "\r"
 set timeout 1
 expect {

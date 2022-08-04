@@ -287,43 +287,44 @@ static int vctcxo_cycles[16];
 static void vctcxo_test(int n)
 {
 	int i;
-	int prev;
-	int curr;
 	int diff;
-	unsigned char ret;
+	volatile int before, after;
 	vctcxo_control_write(XTRX_VCTCXO_CLK);
 
-	printf("Beginning VCTCXO test (will take 16 sec)...\n");
-
 	for (i=0; i<n; i++) {
-		uint16_t dac_set_val = i*0x111;
-		vctcxo_dac_set(dac_set_val);
+		vctcxo_dac_set(i*0x111);
+
+		// Pulse cycle count into status register, then read it
 		vctcxo_cycles_latch_write(1);
-		curr = vctcxo_cycles_read();
-		vctcxo_cycles[i] = curr - prev; // store it in RAM for low latency
-		prev = curr;
+		before = vctcxo_cycles_read();
+
+		// Wait for 1 second
 		busy_wait(1000);
+
+		// Pulse cycle count into status register, then read it
+		vctcxo_cycles_latch_write(1);
+		after = vctcxo_cycles_read();
+
+		// Calculate how many cycles we observed in the last second
+		vctcxo_cycles[i] = after - before;
 	}
 
 	for (i=0; i<n; i++) {
-		if (i > 0) {
-			diff = vctcxo_cycles[i];
-			// Print out frequency with 6 digits of precision, so we can
-			// see the effect it's having, as the DAC tunes it very precisely.
-			// Of course, since we're counting cycles over 1 second, our `diff`
-			// value is literally just the frequency in Hz, so this double-
-			// printing in cycles and MHz is 
-			printf("VCTCXO freq: %3d.%06dMHz (cycles: %d / dac: 0x%04x)\n",
-				(diff)/1000000,
-				(diff/1000)%1000,
-				diff,
-				i*0x111
-			);
-		}
+		diff = vctcxo_cycles[i];
+		// see the effect it's having, as the DAC tunes it very precisely.
+		// Of course, since we're counting cycles over 1 second, our `diff`
+		// value is literally just the frequency in Hz, so this double-
+		// printing in cycles and MHz is arguably not that interesting...
+		printf("VCTCXO freq: %3d.%5dMHz (cycles: %d / dac: 0x%04x)\n",
+			(diff)/1000000,
+			diff%1000000,
+			diff,
+			i*0x111
+		);
 	}
+
 
 }
-
 
 /*-----------------------------------------------------------------------*/
 /* Digital Interface                                                     */
