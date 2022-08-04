@@ -14,6 +14,5 @@ software/nvidia-driver
 software/kernel
 software/soapysdr
 software/limesuite
-software/limesuite-xtrx
 software/SoapySDR.jl
 software/libusb

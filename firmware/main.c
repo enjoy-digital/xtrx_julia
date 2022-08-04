@@ -152,8 +152,8 @@ static int board_get_revision(void)
 {
 	/* Get board revision from SPI DACs:
 	   - XTRX Rev4 is equipped with a MCP4725.
-	   - XTRX Rev5 is equipped with a LTC26X6.
-	   The LTC26X6 has the particularity of only accepting write commands,
+	   - XTRX Rev5 is equipped with a DAC60501.
+	   The DAC60501 has the particularity of only accepting write commands,
 	   so we detect MCP4725 presence (and thus Rev4 revision) by doing a
 	   I2C read to the MCP4725 I2C address.
 	*/
@@ -245,8 +245,8 @@ static void dac_init(void) {
 	} else {
 		printf("DAC is DAC60501.\n");
 		// The stock XTRX does this read, but we don't need it.
-		//cmd = 0x04;
-		//i2c1_read(DAC60501_I2C_ADDR, cmd, dat, 2, true);
+		cmd = 0x04;
+		i2c1_read(DAC60501_I2C_ADDR, cmd, dat, 2, true);
 
 		// Gain register
 		cmd = 0x04;
@@ -259,6 +259,7 @@ static void dac_init(void) {
 static void vctcxo_dac_set(int value) {
 	unsigned char cmd;
 	unsigned char dat[2];
+	bool ret;
 
 	value = value & 0xfff; /* 12-bit full range clamp */
 
@@ -269,11 +270,15 @@ static void vctcxo_dac_set(int value) {
 		i2c1_write(MCP4725_I2C_ADDR, cmd, dat, 1);
 	/* Rev5 is equipped with a DAC60501 */
 	} else {
-		value = value << 4;
-		dat[0] = value & 0xff;
-		dat[1] = (value & 0xff00) >> 4;
+		// Bottom four bits are ignored on DAC60501
+		value <<= 4;
+		dat[0] = (value & 0xff00) >> 8;
+		dat[1] = value & 0xff;
 		cmd = 0x08;
-		i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
+		ret = i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
+		if (!ret) {
+			printf("DAC write failed\n");
+		}
 	}
 }
 
@@ -283,19 +288,30 @@ static void vctcxo_test(int n)
 	int prev;
 	int curr;
 	int diff;
-	prev = 0;
+	unsigned char dat[2];
+	unsigned char ret;
 	vctcxo_control_write(XTRX_VCTCXO_CLK);
+
 	for (i=0; i<n; i++) {
-		vctcxo_dac_set(i*0x100);
+		uint16_t dac_set_val = i*0x111;
+		vctcxo_dac_set(dac_set_val);
 		vctcxo_cycles_latch_write(1);
 		curr = vctcxo_cycles_read();
+		if (board_revision == 5) {
+			ret = i2c1_read(dac_addr, 0x08, dat, 2, true);
+			if (!ret) {
+				printf("DAC read failed\n");
+			}
+		}
 		if (i > 0) {
 			diff = curr - prev;
-			printf("VCTCXO freq: %3d.%03dMHz (cycles: %d / dac: 0x%04x)\n",
+			uint16_t dac_val = (dat[0] << 8 | dat[1]) >> 4;
+			printf("VCTCXO freq: %3d.%03dMHz (cycles: %d / dac: 0x%04x) readback: 0x%04x\n",
 				(diff)/1000000,
 				(diff/1000)%1000,
 				curr - prev,
-				i*0x100
+				dac_set_val,
+				dac_val
 			);
 		}
 		prev = curr;
