@@ -194,7 +194,6 @@ bool i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned cha
 		return false;
 	}
 	for (i = 0; i < len; ++i) {
-		printf("[i2c1] Transmitting 0x%x -> 0x%x\n", data[i], addr);
 		if(!i2c1_transmit_byte(data[i])) {
 			i2c1_stop();
 			return false;

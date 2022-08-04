@@ -282,41 +282,46 @@ static void vctcxo_dac_set(int value) {
 	}
 }
 
+static int vctcxo_cycles[16];
+
 static void vctcxo_test(int n)
 {
 	int i;
 	int prev;
 	int curr;
 	int diff;
-	unsigned char dat[2];
 	unsigned char ret;
 	vctcxo_control_write(XTRX_VCTCXO_CLK);
+
+	printf("Beginning VCTCXO test (will take 16 sec)...\n");
 
 	for (i=0; i<n; i++) {
 		uint16_t dac_set_val = i*0x111;
 		vctcxo_dac_set(dac_set_val);
 		vctcxo_cycles_latch_write(1);
 		curr = vctcxo_cycles_read();
-		if (board_revision == 5) {
-			ret = i2c1_read(dac_addr, 0x08, dat, 2, true);
-			if (!ret) {
-				printf("DAC read failed\n");
-			}
-		}
-		if (i > 0) {
-			diff = curr - prev;
-			uint16_t dac_val = (dat[0] << 8 | dat[1]) >> 4;
-			printf("VCTCXO freq: %3d.%03dMHz (cycles: %d / dac: 0x%04x) readback: 0x%04x\n",
-				(diff)/1000000,
-				(diff/1000)%1000,
-				curr - prev,
-				dac_set_val,
-				dac_val
-			);
-		}
+		vctcxo_cycles[i] = curr - prev; // store it in RAM for low latency
 		prev = curr;
 		busy_wait(1000);
 	}
+
+	for (i=0; i<n; i++) {
+		if (i > 0) {
+			diff = vctcxo_cycles[i];
+			// Print out frequency with 6 digits of precision, so we can
+			// see the effect it's having, as the DAC tunes it very precisely.
+			// Of course, since we're counting cycles over 1 second, our `diff`
+			// value is literally just the frequency in Hz, so this double-
+			// printing in cycles and MHz is 
+			printf("VCTCXO freq: %3d.%06dMHz (cycles: %d / dac: 0x%04x)\n",
+				(diff)/1000000,
+				(diff/1000)%1000,
+				diff,
+				i*0x111
+			);
+		}
+	}
+
 }
 
 

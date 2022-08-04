@@ -45,4 +45,7 @@ prog: firmware.bin
 	echo "entering litex_term: type 'reboot' to load firmware"
 	litex_term /dev/ttyLXU0 --kernel=firmware.bin --safe
 
+vctcxo_test: firmware.bin
+	expect vctcxo_test.ex
+
 .PHONY: all main.o clean load
