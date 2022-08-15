@@ -31,8 +31,9 @@ clean-nvidia-driver:
 NV_CUDA_VERSION := v11.7.0
 CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-$(NV_CUDA_VERSION)+0/CUDA_full.$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
 CUDA_PREFIX ?= $(REPO_DIR)/software/nvidia-cuda
-nvidia-cuda/bin/nvcc:
+NVCC = $(CUDA_PREFIX)/bin/nvcc
+$(NVCC):
 	@mkdir -p nvidia-cuda
 	curl -# -f -L "$(CUDA_URL)" | tar -C nvidia-cuda -zx --strip-components=1 cuda
-nvidia-cuda: nvidia-cuda/bin/nvcc
+nvidia-cuda: $(NVCC)
 .PHONY: nvidia-cuda

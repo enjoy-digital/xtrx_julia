@@ -19,7 +19,7 @@ litepcie-kernel-module: $(LITEPCIE_KO)
 
 LITEPCIE_PREFIX ?= $(REPO_DIR)/build/litepcie-user-library
 LITEPCIE_LIB = $(LITEPCIE_PREFIX)/lib/liblitepcie.a
-$(LITEPCIE_LIB): nvidia-cuda/bin/nvcc
+$(LITEPCIE_LIB): $(NVCC)
 	$(MAKE) -C litepcie-user-library CUDA_PREFIX=$(CUDA_PREFIX) prefix=$(LITEPCIE_PREFIX) install
 litepcie-user-library: $(LITEPCIE_LIB)
 .PHONY: litepcie-user-library

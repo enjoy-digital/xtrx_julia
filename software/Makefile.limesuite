@@ -28,7 +28,7 @@ limesuite/.git/HEAD:
 get-limesuite: limesuite/.git/HEAD
 
 SOAPYLMS7_LIB = $(SOAPYSDR_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
-$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) limesuite/.git/HEAD
+$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC) limesuite/.git/HEAD
 	rm -rf limesuite/_build
 	mkdir -p limesuite/_build
 	-# We must provide a few helpful hints here; we redirect to our `libusb`, and
@@ -39,6 +39,7 @@ $(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) limesuite/.git/H
 		  -DSoapySDR_ROOT=$(SOAPYSDR_PREFIX) \
 		  -DLITEPCIE_KERNEL_MODULE_DIR=$(dir $(LITEPCIE_HEADER)) \
 		  -DLITEPCIE_INSTALL_PREFIX=$(LITEPCIE_PREFIX) \
+		  -DCUDAToolkit_ROOT=$(CUDA_PREFIX) \
 		  -DENABLE_XTRX=yes \
 		  -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
 		  -DCMAKE_BUILD_TYPE=Debug \
