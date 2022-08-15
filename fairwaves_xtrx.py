@@ -33,6 +33,7 @@ from litepcie.phy.s7pciephy import S7PCIEPHY
 from litescope import LiteScopeAnalyzer
 
 from gateware.gpio import GPIO
+from gateware.aux import AUX
 from gateware.gps import GPS
 from gateware.vctcxo import VCTCXO
 from gateware.rf_switches import RFSwitches
@@ -166,6 +167,9 @@ class BaseSoC(SoCCore):
         # Buck2: +1.75V (used as input to 1.4V LDO for LMS analog 1.4V).
         # Buck3: +1.5V  (used as input to 1.25V LDO for LMS analog 1.25V).
 
+        # Aux -------------------------------------------------------------------------------------
+        self.submodules.aux = AUX(platform.request("aux"))
+
         # GPIO -------------------------------------------------------------------------------------
         self.submodules.gpio = GPIO(platform.request("gpio"))
 
@@ -173,9 +177,9 @@ class BaseSoC(SoCCore):
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
         # VCTCXO ------------------------------------------------------------------------------------
-        vctxo_pads = platform.request("vctcxo")
-        self.submodules.vctcxo = VCTCXO(vctxo_pads)
-        platform.add_period_constraint(vctxo_pads.clk, 1e9/26e6)
+        vctcxo_pads = platform.request("vctcxo")
+        self.submodules.vctcxo = VCTCXO(vctcxo_pads)
+        platform.add_period_constraint(vctcxo_pads.clk, 20)
 
         # RF Switches ------------------------------------------------------------------------------
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))

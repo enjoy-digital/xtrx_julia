@@ -51,7 +51,7 @@ _io = [
     ),
 
     # Power-Down.
-    ("pwrdwn_n", 0, Pins("R19"), IOStandard("LVCMOS25")),
+    ("pwrdwn_n", 0, Pins("R19"), IOStandard("LVCMOS25")), ## Pullup=True in xdc?????
 
     # I2C buses.
     ("i2c", 0,
@@ -67,7 +67,7 @@ _io = [
 
     # GPS.
     ("gps", 0,
-        Subsignal("rst",    Pins("L18"), IOStandard("LVCMOS25")),
+        Subsignal("rst",    Pins("L18"), IOStandard("LVCMOS25")), # enable>>
         Subsignal("pps",    Pins("P3"),  Misc("PULLDOWN=True")),
         Subsignal("rx" ,    Pins("N2"),  Misc("PULLUP=True")),
         Subsignal("tx" ,    Pins("L1"),  Misc("PULLUP=True")),
@@ -81,10 +81,16 @@ _io = [
         IOStandard("LVCMOS25")
     ),
 
-    # GPIO.
-    ("gpio", 0,
+    # GPIO
+    ("gpio", 0, Pins("M3 L3 H2 J2 G3 M2 G2 N3 H1 J1 K2 L2"), IOStandard("LVCMOS33")),
+
+    # AUX.
+    ("aux", 0,
         Subsignal("iovcc_sel",  Pins("V19")),
         Subsignal("en_smsigio", Pins("D17")),
+        Subsignal("led_2",      Pins("N18")),
+        Subsignal("option",     Pins("V14")),
+        Subsignal("gpio13",     Pins("T17")),
         IOStandard("LVCMOS25")
     ),
 
@@ -139,9 +145,16 @@ class Platform(XilinxPlatform):
         XilinxPlatform.__init__(self, "xc7a50tcpg236-2", _io, toolchain="vivado")
 
         self.toolchain.bitstream_commands = [
+            "set_property BITSTREAM.CONFIG.UNUSEDPIN Pulldown [current_design]",
+
             "set_property BITSTREAM.CONFIG.SPI_BUSWIDTH 4 [current_design]",
-            "set_property BITSTREAM.CONFIG.CONFIGRATE 16 [current_design]",
-            "set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]"
+            "set_property BITSTREAM.CONFIG.CONFIGRATE 66 [current_design]",
+            "set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]",
+            "set_property BITSTREAM.CONFIG.SPI_FALL_EDGE YES [current_design]",
+
+            # Xilinx tools ask for this
+            "set_property CFGBVS VCCO [current_design]",
+            "set_property CONFIG_VOLTAGE 3.3 [current_design]",
         ]
         self.toolchain.additional_commands = [
             # Non-Multiboot SPI-Flash bitstream generation.
