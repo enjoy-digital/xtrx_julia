@@ -145,7 +145,7 @@ $(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) limesuite/.git/HEAD
 limesuite: $(SOAPYLMS7_LIB)
 
 SOAPYSDR_JL_URL := https://github.com/JuliaTelecom/SoapySDR.jl.git
-SOAPYSDR_JL_VERSION ?= sf/improvements
+SOAPYSDR_JL_VERSION ?= main
 SoapySDR.jl/.git/HEAD:
 	git clone --depth=1 -b $(SOAPYSDR_JL_VERSION) $(SOAPYSDR_JL_URL) SoapySDR.jl
 
