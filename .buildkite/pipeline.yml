@@ -68,18 +68,16 @@ steps:
       make -C software get-nvidia-driver
 
       echo "--- Build NVIDIA driver"
-      NVIDIA_DRIVER_MODPATH="$$(pwd)/build/nvidia-driver"
-      make -C software nvidia-driver -j$$(nproc) NVIDIA_DRIVER_MODPATH=$${NVIDIA_DRIVER_MODPATH}
+      make -C software nvidia-driver -j$$(nproc)
 
       echo "--- Bundle NVIDIA kernel modules"
-      tar -cvzf nvidia-kernel-modules.tar.gz -C "$$(echo $${NVIDIA_DRIVER_MODPATH}/lib/modules/*/kernel/drivers/video)" .
+      tar -cvzf nvidia-kernel-modules.tar.gz -C "$$(echo $$(pwd)/build/nvidia-driver/lib/modules/*/kernel/drivers/video)" .
 
       echo "--- Build litepcie kernel modules"
-      LITEPCIE_MODPATH="$$(pwd)/build/litepci-kernel-module"
-      make -C software litepcie-kernel-module -j$$(nproc) LITEPCIE_MODPATH="$${LITEPCIE_MODPATH}"
+      make -C software litepcie-kernel-module -j$$(nproc)
       
-      echo "--- Bundle litepci kernel modules"
-      tar -cvzf litepcie-kernel-modules.tar.gz -C "$${LITEPCIE_MODPATH}" .
+      echo "--- Bundle litepcie kernel modules"
+      tar -cvzf litepcie-kernel-modules.tar.gz -C "$$(pwd)/build/litepcie-kernel-module" .
     artifact_paths:
       - "nvidia-kernel-modules.tar.gz"
       - "litepcie-kernel-modules.tar.gz"

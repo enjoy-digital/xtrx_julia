@@ -1,0 +1,25 @@
+ifeq ($(USE_LIVE_KERNEL),true)
+LITEPCIE_MODPATH      ?= /lib/modules/$(shell uname -r)
+else
+LITEPCIE_MODPATH      ?= $(REPO_DIR)/build/litepcie-kernel-module
+
+$(LITEPCIE_KO): $(REPO_DIR)/build/kernel/bzImage
+endif
+
+
+LITEPCIE_KO ?= $(LITEPCIE_MODPATH)/liteuart.ko
+LITEPCIE_HEADER = $(REPO_DIR)/software/litepcie-kernel-module/litepcie.h
+$(LITEPCIE_KO): nvidia-driver/.git/HEAD
+	# Explicitly don't parallelize this, makefile is apparently not correctly written
+	make -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)"
+	mkdir -p $(dir $@)
+	cp -L litepcie-kernel-module/*.ko $(dir $@)
+litepcie-kernel-module: $(LITEPCIE_KO)
+.PHONY: litepcie-kernel-module
+
+LITEPCIE_PREFIX ?= $(REPO_DIR)/build/litepcie-user-library
+LITEPCIE_LIB = $(LITEPCIE_PREFIX)/lib/liblitepcie.a
+$(LITEPCIE_LIB): nvidia-cuda/bin/nvcc
+	$(MAKE) -C litepcie-user-library CUDA_PREFIX=$(CUDA_PREFIX) prefix=$(LITEPCIE_PREFIX) install
+litepcie-user-library: $(LITEPCIE_LIB)
+.PHONY: litepcie-user-library

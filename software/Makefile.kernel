@@ -1,0 +1,33 @@
+ifeq ($(USE_LIVE_KERNEL),true)
+KERNEL_PATH ?= /lib/modules/$(shell uname -r)/build
+KERNEL_VERSION := v$(shell uname -r | cut -d'.' -f 1-2)
+
+# Just a wild guess for the kernel name
+KERNEL_IMAGE := $(wildcard /boot/*linu*-$(shell uname -r))
+kernel:
+
+# If we're not using a live kernel, include instructions for how to build one we can build against.
+else
+KERNEL_PATH ?= $(REPO_DIR)/software/kernel
+
+KERNEL_URL := https://github.com/torvalds/linux.git
+KERNEL_VERSION ?= v5.15
+
+kernel/.git/HEAD:
+	git clone --depth=1 -b $(KERNEL_VERSION) $(KERNEL_URL) kernel
+get-kernel: kernel/.git/HEAD
+
+# Running `make kernel` builds this file
+KERNEL_IMAGE = $(REPO_DIR)/build/kernel/bzImage
+$(KERNEL_IMAGE): kernel/.git/HEAD
+	$(MAKE) -C kernel defconfig
+	$(MAKE) -C kernel
+	mkdir -p $(dir $@)
+	cp -L kernel/arch/$(shell uname -m)/boot/bzImage $@
+kernel: $(KERNEL_IMAGE)
+clean-kernel:
+	-$(MAKE) -C kernel clean
+	-rm -f $(KERNEL_IMAGE)
+.PHONY: kernel
+
+endif # USE_LIVE_KERNEL

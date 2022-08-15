@@ -118,15 +118,12 @@ There is also a modified version of LimeSuite available that makes it possible
 to interactively configure the LMS7002M:
 
 ```
-git clone https://github.com/JuliaComputing/LimeSuite -b tb/xtrx_litepcie
-cd LimeSuite
-mkdir builddir
-cd builddir
-export LITEPCIE_ROOT=/path/to/xtrx_julia/software
-cmake -DENABLE_XTRX=yes -DCMAKE_BUILD_TYPE=Debug ../
-make
-sudo make install
+make -C software limesuite -j$(nproc)
 ```
+
+You can then run it out of the `build/soapysdr/bin` directory.  Note that we
+install to the `soapysdr` directory to simplify the path manipulation needed
+for SoapySDR module autodetection.
 
 [> Development
 --------------
