@@ -4,6 +4,9 @@ REPO_DIR ?= $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LI
 # then we need to download the right kernel and use it when compiling the kernel modules.
 USE_LIVE_KERNEL ?= true
 
+# We're going to install all our outputs here
+PREFIX ?= $(REPO_DIR)/build
+
 # Our makefiles are split up here, for easier management
 include Makefile.kernel
 include Makefile.nvidia

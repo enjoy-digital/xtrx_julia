@@ -2,7 +2,7 @@
 ifeq ($(USE_LIVE_KERNEL),true)
 NVIDIA_DRIVER_MODPATH ?= /lib/modules/$(shell uname -r)
 else
-NVIDIA_DRIVER_MODPATH ?= $(REPO_DIR)/build/nvidia-driver
+NVIDIA_DRIVER_MODPATH ?= $(PREFIX)
 endif
 
 
@@ -15,7 +15,7 @@ nvidia-driver/.git/HEAD:
 get-nvidia-driver: nvidia-driver/.git/HEAD
 
 
-NVIDIA_DRIVER_KO = $(NVIDIA_DRIVER_MODPATH)/kernel/drivers/video/nvidia.ko
+NVIDIA_DRIVER_KO = $(NVIDIA_DRIVER_MODPATH)/lib/modules/$(KERNEL_FULLVERSION)/kernel/drivers/video/nvidia.ko
 $(NVIDIA_DRIVER_KO): $(KERNEL_IMAGE) nvidia-driver/.git/HEAD
 	$(MAKE) -C nvidia-driver SYSSRC="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)"
 	@# Ignore the error here, from depmod.
@@ -25,15 +25,29 @@ nvidia-driver: $(NVIDIA_DRIVER_KO)
 clean-nvidia-driver:
 	-$(MAKE) -C nvidia-driver clean
 	-rm -f $(NVIDIA_DRIVER_KO)
+clean: clean-nvidia-driver
 
 
 
 NV_CUDA_VERSION := v11.7.0
 CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-$(NV_CUDA_VERSION)+0/CUDA_full.$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
 CUDA_PREFIX ?= $(REPO_DIR)/software/nvidia-cuda
-NVCC = $(CUDA_PREFIX)/bin/nvcc
-$(NVCC):
+NVCC = $(PREFIX)/bin/nvcc
+$(CUDA_PREFIX)/bin/nvcc:
 	@mkdir -p nvidia-cuda
 	curl -# -f -L "$(CUDA_URL)" | tar -C nvidia-cuda -zx --strip-components=1 cuda
+
+# Build some symlinks for libraries/utilities
+$(NVCC): $(CUDA_PREFIX)/bin/nvcc
+	mkdir -p $(dir $@)
+	ln -s $(CUDA_PREFIX)/bin/nvcc $@
+
+# If there's no system-wide libcuda.so.1, build a symlink to it in our `build/` directory
+ifeq ($(shell ldconfig -p | grep libcuda.so.1),)
+$(PREFIX)/lib/libcuda.so.1: $(CUDA_PREFIX)/bin/nvcc
+	mkdir -p $(dir $@)
+	ln -s $(CUDA_PREFIX)/lib64/stubs/libcuda.so $@
+$(NVCC): $(PREFIX)/lib/libcuda.so.1
+endif
 nvidia-cuda: $(NVCC)
 .PHONY: nvidia-cuda

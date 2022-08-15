@@ -5,7 +5,7 @@
 LIBUSB_URL := https://github.com/libusb/libusb
 LIBUSB_VERSION ?= v1.0.26
 LIBUSB_MAJMIN := $(subst v,,$(basename $(LIBUSB_VERSION)))
-LIBUSB_PREFIX ?= $(REPO_DIR)/build/libusb
+LIBUSB_PREFIX ?= $(PREFIX)
 LIBUSB_LIB = $(LIBUSB_PREFIX)/lib/libusb-$(LIBUSB_MAJMIN).so
 
 libusb/.git/HEAD:
@@ -51,3 +51,4 @@ $(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC) limesuit
 limesuite: $(SOAPYLMS7_LIB)
 clean-limesuite:
 	rm -rf limesuite/_build $(SOAPYLMS7_LIB)
+clean: clean-limesuite
