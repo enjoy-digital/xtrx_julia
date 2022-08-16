@@ -62,24 +62,25 @@ steps:
       make -C software kernel -j$$(nproc)
 
       echo "--- Bundle kernel"
-      cp -Lv build/kernel/bzImage bzImage
+      cp -Lv build/bzImage bzImage
 
       echo "--- clone nvidia-driver source"
       make -C software get-nvidia-driver
 
       echo "--- Build NVIDIA driver"
-      NVIDIA_DRIVER_MODPATH="$$(pwd)/build/nvidia-driver"
-      make -C software nvidia-driver -j$$(nproc) NVIDIA_DRIVER_MODPATH=$${NVIDIA_DRIVER_MODPATH}
+      make -C software nvidia-driver -j$$(nproc)
 
       echo "--- Bundle NVIDIA kernel modules"
-      tar -cvzf nvidia-kernel-modules.tar.gz -C "$$(echo $${NVIDIA_DRIVER_MODPATH}/lib/modules/*/kernel/drivers/video)" .
+      tar -cvzf nvidia-kernel-modules.tar.gz -C "$$(echo $$(pwd)/build/lib/modules/*/kernel/drivers/video)" .
 
       echo "--- Build litepcie kernel modules"
-      LITEPCIE_MODPATH="$$(pwd)/build/litepci-kernel-module"
-      make -C software litepcie-kernel-module -j$$(nproc) LITEPCIE_MODPATH="$${LITEPCIE_MODPATH}"
+      make -C software litepcie-kernel-module -j$$(nproc)
+
+      echo "--- debugging"
+      find $$(pwd)/build
       
-      echo "--- Bundle litepci kernel modules"
-      tar -cvzf litepcie-kernel-modules.tar.gz -C "$${LITEPCIE_MODPATH}" .
+      echo "--- Bundle litepcie kernel modules"
+      tar -cvzf litepcie-kernel-modules.tar.gz -C "$$(echo $$(pwd)/build/lib/modules/*/extra)" .
     artifact_paths:
       - "nvidia-kernel-modules.tar.gz"
       - "litepcie-kernel-modules.tar.gz"
@@ -104,25 +105,25 @@ steps:
       SOFTWARE_DIR=$$(pwd)/software
 
       echo "--- Build litepcie user library"
-      make -C software litepcie-user-library -j$$(nproc)
+      make -C software litepcie-user-library -j$$(nproc) LITEPCIE_PREFIX=$$(pwd)/build/litepcie-user-library
 
       echo "--- Bundle liblitepcie"
       tar -czvf liblitepcie.tar.gz -C build/litepcie-user-library .
 
       echo "--- Build SoapySDR"
-      make -C software soapysdr -j$$(nproc)
+      make -C software soapysdr -j$$(nproc) SOAPYSDR_PREFIX=$$(pwd)/build/soapysdr
 
       echo "--- Bundle SoapySDR"
       tar -czvf soapysdr.tar.gz -C build/soapysdr .
 
       echo "--- Build SoapySDR-XTRX plugin"
-      make -C software soapysdr-xtrx -j$$(nproc)
+      make -C software soapysdr-xtrx -j$$(nproc) SOAPYSDR_XTRX_PREFIX=$$(pwd)/build/soapysdr-xtrx
 
       echo "--- Bundle SoapySDR-XTRX"
       tar -czvf soapysdr-xtrx.tar.gz -C build/soapysdr-xtrx .
 
       echo "--- Build libusb"
-      make -C software libusb -j$$(nproc)
+      make -C software libusb -j$$(nproc) LIBUSB_PREFIX=$$(pwd)/build/libusb
 
       echo "--- Bundle libusb"
       tar -czvf libusb.tar.gz -C build/libusb .
@@ -145,7 +146,7 @@ steps:
       make -C software limesuite -j$$(nproc)
 
       echo "--- List LimeSDR devices"
-      ./build/soapysdr/bin/SoapySDRUtil --find=driver=lime
+      ./build/bin/SoapySDRUtil --find=driver=lime
 
       echo "--- Check out SoapySDR.jl#main"
       make -C software SoapySDR.jl

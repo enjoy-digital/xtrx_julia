@@ -6,9 +6,9 @@ using Preferences
 REPO_ROOT = dirname(dirname(@__DIR__))
 preferences_toml_path = joinpath(REPO_ROOT, "JuliaLocalPreferences.toml")
 
-libsoapysdr_path = joinpath(REPO_ROOT, "build", "soapysdr", "lib", "libSoapySDR.so")
-libLMS7Support_path = joinpath(REPO_ROOT, "build", "soapysdr", "lib", "SoapySDR", "modules0.8", "libLMS7Support.so")
-libLimeSuite_path = joinpath(REPO_ROOT, "build", "soapysdr", "lib", "libLimeSuite.so.20.10.0")
+libsoapysdr_path = joinpath(REPO_ROOT, "build", "lib", "libSoapySDR.so")
+libLMS7Support_path = joinpath(REPO_ROOT, "build", "lib", "SoapySDR", "modules0.8", "libLMS7Support.so")
+libLimeSuite_path = joinpath(REPO_ROOT, "build", "lib", "libLimeSuite.so.20.10.0")
 if !all(isfile.((libsoapysdr_path, libLMS7Support_path, libLimeSuite_path)))
     error("Must run `make -C software limesuite` first!")
 end
