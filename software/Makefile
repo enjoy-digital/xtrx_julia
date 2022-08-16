@@ -15,5 +15,18 @@ include Makefile.soapysdr
 include Makefile.limesuite
 include Makefile.fairwaves
 
+# Helper target to unload all of our kernel modules, install the new ones, and reload them:
+reload-modules: $(LITEPCIE_KO) $(NVIDIA_DRIVER_KO)
+	-# Unload in-memory kernel modules
+	sudo modprobe -r litepcie
+	sudo modprobe -r liteuart
+	-# We may have just installed new kernel modules on-disk, so let's run `depmod`
+	sudo depmod
+	-# re-load the new kernel modules
+	sudo modprobe litepcie
+	sudo modprobe liteuart
+
+
+# Debug target to print out a makefile variable.  Use as `make print-FOO`
 print-%:
 	@-echo $*=$($*)
