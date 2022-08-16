@@ -1,5 +1,6 @@
 ifeq ($(USE_LIVE_KERNEL),true)
-LITEPCIE_MODPATH      ?= /lib/modules/$(shell uname -r)
+# When using a live kernel, we usually don't apply a modpath
+LITEPCIE_MODPATH      ?=
 else
 LITEPCIE_MODPATH      ?= $(PREFIX)
 endif

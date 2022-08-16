@@ -1,6 +1,7 @@
 # Change behavior based on whether we're building against the live kernel or not
 ifeq ($(USE_LIVE_KERNEL),true)
-NVIDIA_DRIVER_MODPATH ?= /lib/modules/$(shell uname -r)
+# When using a live kernel, we usually don't apply a modpath
+NVIDIA_DRIVER_MODPATH ?=
 else
 NVIDIA_DRIVER_MODPATH ?= $(PREFIX)
 endif
