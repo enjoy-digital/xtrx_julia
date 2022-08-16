@@ -117,6 +117,10 @@ class BaseSoC(SoCCore):
             pads         = platform.request_all("user_led"),
             sys_clk_freq = sys_clk_freq
         )
+        self.submodules.leds2 = LedChaser(
+            pads         = platform.request_all("user_led2"),
+            sys_clk_freq = sys_clk_freq
+        )
 
         # ICAP -------------------------------------------------------------------------------------
         self.submodules.icap = ICAP()

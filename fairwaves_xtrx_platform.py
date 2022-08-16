@@ -18,6 +18,7 @@ _io = [
 
     # Leds.
     ("user_led", 0, Pins("N18"),  IOStandard("LVCMOS25")),
+    ("user_led2", 0, Pins(" G3 M2 G2"),  IOStandard("LVCMOS33")), # GPIO LED
 
     # PCIe.
     ("pcie_x1", 0,
@@ -81,6 +82,8 @@ _io = [
     ("gps", 0,
         Subsignal("rst",    Pins("L18"), IOStandard("LVCMOS25")), # enable>>
         Subsignal("pps",    Pins("P3"),  Misc("PULLDOWN=True")),
+        Subsignal("pps_out",Pins("L3")), # GPIO[1]
+        Subsignal("pps_in", Pins("M3")), # GPIO[0]
         Subsignal("rx" ,    Pins("N2"),  Misc("PULLUP=True")),
         Subsignal("tx" ,    Pins("L1"),  Misc("PULLUP=True")),
         IOStandard("LVCMOS33")
@@ -94,7 +97,7 @@ _io = [
     ),
 
     # GPIO
-    ("gpio", 0, Pins("M3 L3 H2 J2 G3 M2 G2 N3 H1 J1 K2 L2"), IOStandard("LVCMOS33")),
+    ("gpio", 0, Pins("H2 J2 N3 H1 J1 K2 L2"), IOStandard("LVCMOS33")),
 
     # AUX.
     ("aux", 0,
