@@ -13,6 +13,7 @@ include Makefile.nvidia
 include Makefile.litepcie
 include Makefile.soapysdr
 include Makefile.limesuite
+include Makefile.fairwaves
 
 print-%:
 	@-echo $*=$($*)
