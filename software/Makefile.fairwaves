@@ -3,7 +3,6 @@
 FAIRWAVES_PROJECTS := fpga-source xtrx_linux_pcie_drv libxtrx libxtrxll liblms7002m xtrx-docs
 
 define fairwaves_project
-$(warning fairwaves $(1))
 fairwaves/$(1)/.git/HEAD:
 	mkdir -p fairwaves
 	git clone --depth=1 https://github.com/xtrx-sdr/$(1).git fairwaves/$(1)
@@ -11,4 +10,4 @@ get-fairwaves-$(1): fairwaves/$(1)/.git/HEAD
 fairwaves: fairwaves/$(1)/.git/HEAD
 endef
 
-$(eval $(foreach project,$(FAIRWAVES_PROJECTS),$(call fairwaves_project,$(project))))
+$(foreach project,$(FAIRWAVES_PROJECTS),$(eval $(call fairwaves_project,$(project))))
