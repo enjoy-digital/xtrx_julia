@@ -152,7 +152,7 @@ class BaseSoC(SoCCore):
         # I2C Bus0:
         # - Temperature Sensor (TMP108  @ 0x4a).
         # - PMIC-LMS           (LP8758  @ 0x60).
-        # - VCTCXO DAC         (MCP4725 @ 0x62).
+        # - VCTCXO DAC         Rev4: (MCP4725 @ 0x62) Rev5: (DAC60501 @ 0x4b).
         self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
 
         # I2C Bus1:
