@@ -462,11 +462,6 @@ static int xtrx_init(void)
 	dat = 0x88;
 	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
-	printf("PMIC-LMS: Set Buck1 to 3280mV.\n");
-	adr = 0x0c;
-	dat = 0xfb;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
 	// lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_CTRL1, PMIC_CH_DISABLE);
 	printf("PMIC-LMS: Disable Buck0.\n");
 	adr = 0x02;
@@ -485,50 +480,12 @@ static int xtrx_init(void)
 	dat = 0xc8;
 	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
-	printf("PMIC-LMS: Set Buck0 to 1880mV.\n");
-	adr = 0x0a;
-	dat = 0xb5;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-LMS: Set Buck2 to 1480mV.\n");
-	adr = 0x0e;
-	dat = 0xa1;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-LMS: Set Buck3 to 1340mV.\n");
-	adr = 0x10;
-	dat = 0x92;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
 	busy_wait(10);
 
 	// Check that the PMIC is alive
 	if (assert_pmic_alive() != 0) {
 		return -1;
 	}
-
-	printf("PMIC-LMS: Enable Buck0.\n");
-	adr = 0x02;
-	dat = 0x88;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-LMS: Enable Buck2.\n");
-	adr = 0x06;
-	dat = 0x88;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-LMS: Enable Buck3.\n");
-	adr = 0x08;
-	dat = 0x88;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-FPGA: Set Buck1 to 3280mV.\n");
-	adr = 0x0c;
-	dat = 0xfb;
-	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	// Give the bucks some time to settle before bringing up the LMS7002m
-	busy_wait(100);
 
 	/* Get board revision */
 	printf("\n");
@@ -556,9 +513,53 @@ static int xtrx_init(void)
 	printf("LMS7002M Power-Down.\n");
 	lms7002m_control_write(LMS7002M_RESET | LMS7002M_POWER_DOWN);
 	busy_wait(100);
+
 	printf("LMS7002M Reset.\n");
 	lms7002m_control_write(LMS7002M_RESET);
 	busy_wait(10);
+
+	printf("PMIC-FPGA: Set Buck1 to 3280mV.\n");
+	adr = 0x0c;
+	dat = 0xfb;
+	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck0 to 1880mV.\n");
+	adr = 0x0a;
+	dat = 0xb5;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck2 to 1480mV.\n");
+	adr = 0x0e;
+	dat = 0xa1;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck3 to 1340mV.\n");
+	adr = 0x10;
+	dat = 0x92;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck0.\n");
+	adr = 0x02;
+	dat = 0x88;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck2.\n");
+	adr = 0x06;
+	dat = 0x88;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck3.\n");
+	adr = 0x08;
+	dat = 0x88;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck1 to 1800mV.\n");
+	adr = 0x0c;
+	dat = 0xb1;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	busy_wait(100);
+
 	printf("LMS7002M TX/RX Enable.\n");
 	lms7002m_control_write(LMS7002M_TX_ENABLE | LMS7002M_RX_ENABLE);
 
