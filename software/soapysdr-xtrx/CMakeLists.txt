@@ -37,6 +37,12 @@ include(ExternalProject)
 
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
+#ExternalProject_Add(LMS7002M-driver
+#    GIT_REPOSITORY https://github.com/JuliaComputing/LMS7002M-driver
+#    GIT_TAG tb/fclk_dly
+#    GIT_SHALLOW
+#    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
+#)
 ExternalProject_Add(LMS7002M-driver
      SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../LMS7002M-driver
      CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
