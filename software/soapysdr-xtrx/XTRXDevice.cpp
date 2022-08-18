@@ -874,6 +874,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         // XXX: how to disable?
+    } else if (key == "RESET_RX_FIFO") {
+        LMS7002M_reset_lml_fifo(_lms, LMS_RX);
     } else if (key == "FPGA_LOOPBACK_ENABLE") {
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
