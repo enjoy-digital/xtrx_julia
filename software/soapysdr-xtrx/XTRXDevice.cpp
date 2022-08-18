@@ -803,6 +803,27 @@ unsigned SoapyXTRX::readRegister(const unsigned addr) const {
 }
 
 
+
+void SoapyXTRX::writeRegister(const std::string &name, const unsigned addr, const unsigned value) {
+    if (name == "LMS7002M") {
+        LMS7002M_spi_write(_lms, addr, value);
+    } else if (name == "LitePCI") {
+        litepcie_writel(_fd, addr, value);
+    } else
+        throw std::runtime_error("SoapyXTRX::writeRegister(" + name + ") unknown register");
+}
+
+unsigned SoapyXTRX::readRegister(const std::string &name, const unsigned addr) const {
+    if (name == "LMS7002M") {
+        return LMS7002M_spi_read(_lms, addr);
+    } else if (name == "LitePCI") {
+        return litepcie_readl(_fd, addr);
+    } else
+        throw std::runtime_error("SoapyXTRX::readRegister(" + name + ") unknown register");
+}
+
+
+
 /*******************************************************************
  * Settings API
  ******************************************************************/
