@@ -1,15 +1,23 @@
 # configure loopback mode in the the XTRX and LMS7002M RF IC, so transmitted
 # buffers should appear on the RX side.
 
+# Make ourselves VERY verbose
+ENV["SOAPY_SDR_LOG_LEVEL"] = "11"
+
+# Tell GR to not segfault
+ENV["GKSwstype"] = "100"
+
 using SoapySDR, Printf, Unitful
 
 SoapySDR.register_log_handler()
 
-
-function dma_test()
+function dma_test(loopback=false)
     # open the first device
-    devs = Devices()
+    #devs = Devices()
+    devs = Devices(parse(KWArgs, "driver=XTRX"))
     dev = Device(devs[1])
+
+    #SoapySDR.SoapySDRDevice_writeSetting(dev, "TXTSP_TSG_CONST", string(0))
 
     # get the RX and TX channels
     # XX We suspect they are interlaced somehow, so analyize
@@ -46,26 +54,30 @@ function dma_test()
     # Setup transmission/recieve parameters
     # XXX: Sometimes this needs to be done twice to not error???
     for cr in dev.rx
-        cr.bandwidth = 500u"kHz" # 200u"kHz"
+        cr.bandwidth = 1u"MHz" # 200u"kHz"
         cr.frequency = 2.498u"GHz"
         #cr.gain = 2u"dB"
         cr.sample_rate = 2u"MHz"
-        @show cr.bandwidth
-        @show cr.frequency
-        @show cr.sample_rate
-        @show cr.gain
+        #@show cr.bandwidth
+        #@show cr.frequency
+        #@show cr.sample_rate
+        #@show cr.gain
     end
 
+    SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "test20220818_mid_config.ini")
+
     for ct in dev.tx
-        ct.bandwidth = 3.1u"MHz" #2u"MHz"
+        ct.bandwidth = 1u"MHz" #2u"MHz"
         ct.frequency = 2.498u"GHz"
         #ct.gain = 20u"dB"
         ct.sample_rate = 2u"MHz"
-        @show ct.bandwidth
-        @show ct.frequency
-        @show ct.sample_rate
-        @show ct.gain
+        #@show ct.bandwidth
+        #@show ct.frequency
+        #@show ct.sample_rate
+        #@show ct.gain
     end
+
+    SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "test20220818_post_config.ini")
 
     # prepare some data to send:
     rate = 10
@@ -85,6 +97,8 @@ function dma_test()
 
         SoapySDR.activate!(stream_tx)
         SoapySDR.activate!(stream_rx)
+        
+        SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "test20220818_activation.ini")
 
         @info "writing TX"
         # write tx-buffer
@@ -119,6 +133,11 @@ function dma_test()
 
             SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream_rx, handle)
             read_buffs += 1
+            #@show SoapySDR.SoapySDRDevice_readRegister(dev, "LMS7002M", 0x0200)
+            #@show SoapySDR.SoapySDRDevice_readRegister(dev, "LMS7002M", 0x0400)
+            if (read_buffs == 10)
+                SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "test20220818_10thcycle.ini")
+            end
         end
         @show read_buffs, written_buffs
 

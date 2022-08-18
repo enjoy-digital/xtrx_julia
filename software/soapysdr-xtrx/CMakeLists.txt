@@ -38,16 +38,13 @@ include(ExternalProject)
 set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 ExternalProject_Add(LMS7002M-driver
-    GIT_REPOSITORY https://github.com/JuliaComputing/LMS7002M-driver
-    GIT_TAG sjk/xtrx1
-    GIT_SHALLOW
+    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../LMS7002M-driver
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
 )
 
 include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
 
 link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
-
 
 ########################################################################
 ## CUDA discovery
