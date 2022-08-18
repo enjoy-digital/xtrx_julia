@@ -39,7 +39,7 @@ set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
 
 ExternalProject_Add(LMS7002M-driver
     GIT_REPOSITORY https://github.com/JuliaComputing/LMS7002M-driver
-    GIT_TAG tb/fclk_dly
+    GIT_TAG sjk/xtrx1
     GIT_SHALLOW
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
 )
