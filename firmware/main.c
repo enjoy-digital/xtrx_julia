@@ -341,9 +341,106 @@ static void digi_1v8(void)
 	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
 }
 
+// Checks that the PMIC is alive and responding to commands as we expect.
+static int check_pmic_id() {
+	unsigned char address = 0x0, data = 0x0;
+
+	// Ask for register 0x00: Hardware ID
+	address = 0x0;
+	i2c1_read(LP8758_I2C_ADDR, address, &data, 1, true);
+	if (data != 0x01) {
+		return -1;
+	}
+	// Ask for register 0x01: EEPROM ID
+	address = 0x1;
+	i2c1_read(LP8758_I2C_ADDR, address, &data, 1, true);
+	if (data != 0xe0) {
+		return -1;
+	}
+	return 0;
+}
+
+static int assert_pmic_alive() {
+	printf("PMIC: Check ID...");
+	if (check_pmic_id() != 0) {
+		printf("NOT OK! Bailing!\n");
+		return -1;
+	}
+	printf("OK\n");
+	return 0;
+}
+
 /*-----------------------------------------------------------------------*/
 /* Init                                                                  */
 /*-----------------------------------------------------------------------*/
+
+/*
+
+@subroutine lp8758_en(en_lms=0, en_b33=1)
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_CTRL1, PMIC_CH_ENABLE);
+	-> lp8758_get(dev->self, XTRX_I2C_PMIC_LMS, DEV_REV, (uint8_t*)&v);
+	-> lp8758_get(dev->self, XTRX_I2C_PMIC_LMS, OTP_REV, (uint8_t*)&d);
+		-> print out "PMIC_L ver %02x:%02x  en33=1"
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_CTRL1, PMIC_CH_DISABLE);
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_CTRL1, PMIC_CH_DISABLE);
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_CTRL1, PMIC_CH_DISABLE);
+
+
+@subroutine lp8758_en(en_lms=1, en_b33=1)
+	-> _xtrxllr3_pmic_lms_set(dev, XTRX_PWR_ECONOMY * XTRX_PWR_V_DROP);
+		-> _xtrxllr3_gpio_set(dev, V_XTRX_XO + extra_drop)
+			-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_VOUT, get_voltage(vgpio_mv));
+			-> print out "FPGA V_IO set to 3280mV"
+		-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_VOUT, get_voltage(V_LMS_1V8 + extra_drop));
+		-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_VOUT, get_voltage(V_LMS_1V4 + extra_drop));
+		-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_VOUT, get_voltage(V_LMS_1V2 + extra_drop));
+		-> print out "LMS PMIC DCDC out set to VA18=1880mV VA14=1480mV VA12=1340mV"
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_CTRL1, PMIC_CH_ENABLE);
+	-> lp8758_get(dev->self, XTRX_I2C_PMIC_LMS, DEV_REV, (uint8_t*)&v);
+	-> lp8758_get(dev->self, XTRX_I2C_PMIC_LMS, OTP_REV, (uint8_t*)&d);
+		-> print out "PMIC_L ver %02x:%02x  en33=1"
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_CTRL1, PMIC_CH_ENABLE);
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_CTRL1, PMIC_CH_ENABLE);
+	-> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_CTRL1, PMIC_CH_ENABLE);
+	-> _xtrxllr3_io_set(vio_mv=1800)
+		-> lp8758_set(dev, XTRX_I2C_PMIC_FPGA, BUCK1_VOUT, get_voltage(vio_mv));
+		-> print out "FPGA V_IO set to 1800mV"
+
+XTRX init procedure:
+	- xtrx_open()
+		- xtrxll_open() -> xtrxll_base_dev_init()
+			-> lp8758_en(dev, 0, 1)
+			-> wait 10ms
+		- xtrx_fe_init() -> lms7nfe_init()
+			-> wait 10ms
+		- xtrxll_set_param(XTRXLL_PARAM_PWR_CTRL, PWR_CTRL_BUSONLY)
+			-> lp8758_en(dev, 0, 1)
+			-> wait 100ms
+		- xtrxll_set_param(XTRXLL_PARAM_FE_CTRL, XTRXLL_LMS7_GPWR_PIN)
+			-> W17 high
+			-> wait 100ms
+		- xtrxll_set_param(XTRXLL_PARAM_PWR_CTRL, PWR_CTRL_ON)
+			-> lp8758_en(dev, 1, 1)
+			-> wait 10ms
+		- xtrxll_set_param(XTRXLL_PARAM_FE_CTRL, XTRXLL_LMS7_GPWR_PIN | XTRXLL_LMS7_RESET_PIN)
+			-> U19 high 
+			-> W17 high
+			-> wait 10ms
+	
+		# Thought: limesuite should probably handle this?
+		- lms7_enable()
+			-> lms7_reset()
+				-> SPI [0x20] = 0x02
+				-> SPI [0x20] = 0xff
+			-> lms7_ldo_enable()
+			-> lms7_xbuf_enable()
+			-> a bunch of other SPI stuff
+		- xtrxll_set_param(XTRXLL_PARAM_FE_CTRL, XTRXLL_LMS7_GPWR_PIN | XTRXLL_LMS7_RESET_PIN | XTRXLL_LMS7_RXEN_PIN | XTRXLL_LMS7_TXEN_PIN)
+			-> U19 high
+			-> W17 high
+			-> W18 high
+			-> W19 high
+*/
 
 static int xtrx_init(void)
 {
@@ -353,87 +450,42 @@ static int xtrx_init(void)
 	printf("PMICs Initialization...\n");
 	printf("-----------------------\n");
 
-	printf("PMIC-LMS: Check ID ");
-	adr = 0x01;
-	i2c0_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
-	if (dat != 0xe0) {
-		printf("KO, exiting.\n");
-		return 0;
-	} else {
-		printf("OK.\n");
+	// Check that the PMIC is alive
+	if (assert_pmic_alive() != 0) {
+		return -1;
 	}
 
+	// First, do a `lp8758_en(dev, 0, 1)`
+	// lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_CTRL1, PMIC_CH_ENABLE);
 	printf("PMIC-LMS: Enable Buck1.\n");
 	adr = 0x04;
 	dat = 0x88;
 	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
-	printf("PMIC-LMS: Set Buck1 to 3280mV.\n");
-	adr = 0x0c;
-	dat = 0xfb;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
+	// lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_CTRL1, PMIC_CH_DISABLE);
 	printf("PMIC-LMS: Disable Buck0.\n");
 	adr = 0x02;
 	dat = 0xc8;
 	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
+	// lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_CTRL1, PMIC_CH_DISABLE);
 	printf("PMIC-LMS: Disable Buck2.\n");
 	adr = 0x06;
 	dat = 0xc8;
 	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
+	// lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_CTRL1, PMIC_CH_DISABLE);
 	printf("PMIC-LMS: Disable Buck3.\n");
 	adr = 0x08;
 	dat = 0xc8;
 	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
-	printf("PMIC-LMS: Set Buck0 to 1880mV.\n");
-	adr = 0x0a;
-	dat = 0xb5;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+	busy_wait(10);
 
-	printf("PMIC-LMS: Set Buck2 to 1480mV.\n");
-	adr = 0x0e;
-	dat = 0xa1;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-LMS: Set Buck3 to 1340mV.\n");
-	adr = 0x10;
-	dat = 0x92;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	busy_wait(1);
-
-	printf("PMIC-FPGA: Check ID ");
-	adr = 0x1;
-	i2c1_read(LP8758_I2C_ADDR, adr, &dat, 1, true);
-	if (dat != 0xe0) {
-		printf("KO, exiting.\n");
-		return 0;
-	} else {
-		printf("OK.\n");
+	// Check that the PMIC is alive
+	if (assert_pmic_alive() != 0) {
+		return -1;
 	}
-
-	printf("PMIC-LMS: Enable Buck0.\n");
-	adr = 0x02;
-	dat = 0x88;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-LMS: Enable Buck2.\n");
-	adr = 0x06;
-	dat = 0x88;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-LMS: Enable Buck3.\n");
-	adr = 0x08;
-	dat = 0x88;
-	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
-
-	printf("PMIC-FPGA: Set Buck1 to 3280mV.\n");
-	adr = 0x0c;
-	dat = 0xfb;
-	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
 
 	/* Get board revision */
 	printf("\n");
@@ -460,10 +512,54 @@ static int xtrx_init(void)
 	printf("---------------------------\n");
 	printf("LMS7002M Power-Down.\n");
 	lms7002m_control_write(LMS7002M_RESET | LMS7002M_POWER_DOWN);
-	busy_wait(1);
+	busy_wait(100);
+
 	printf("LMS7002M Reset.\n");
 	lms7002m_control_write(LMS7002M_RESET);
-	busy_wait(1);
+	busy_wait(10);
+
+	printf("PMIC-FPGA: Set Buck1 to 3280mV.\n");
+	adr = 0x0c;
+	dat = 0xfb;
+	i2c1_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck0 to 1880mV.\n");
+	adr = 0x0a;
+	dat = 0xb5;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck2 to 1480mV.\n");
+	adr = 0x0e;
+	dat = 0xa1;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck3 to 1340mV.\n");
+	adr = 0x10;
+	dat = 0x92;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck0.\n");
+	adr = 0x02;
+	dat = 0x88;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck2.\n");
+	adr = 0x06;
+	dat = 0x88;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Enable Buck3.\n");
+	adr = 0x08;
+	dat = 0x88;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	printf("PMIC-LMS: Set Buck1 to 1800mV.\n");
+	adr = 0x0c;
+	dat = 0xb1;
+	i2c0_write(LP8758_I2C_ADDR, adr, &dat, 1);
+
+	busy_wait(100);
+
 	printf("LMS7002M TX/RX Enable.\n");
 	lms7002m_control_write(LMS7002M_TX_ENABLE | LMS7002M_RX_ENABLE);
 

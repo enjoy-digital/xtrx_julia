@@ -1,0 +1,152 @@
+# This is an annotated boot powerup log of the XTRX original firmware.
+# The annotations are to link back to the original XTRX firmware source,
+# and is summarized in the large comment in our firmware's `main.c`.
+
+julia> include("software/scripts/xtrx_reg_dump.jl")
+[ Info: Precompiling xtrx_jll [f7ce82bc-bc1e-5125-bd1d-6a84dd39bfb4]
+ccall((:xtrxll_get_loglevel, xtrx_jll.libxtrxll), Int, ()) = 4
+[INFO] Make connection: 'pcie:///dev/xtrx0'
+21:05:40.006807 INFO:   [XTRX] xtrx_open(): dev[0]='pcie:///dev/xtrx0'
+21:05:40.006859 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x000300
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_CTRL1, PMIC_CH_ENABLE)
+lp8758_set(0x03, 0x04, 0x88) -> (status 0)
+
+lp8758_get(0x03, 0x00) -> 0x01 (status 0)
+lp8758_get(0x03, 0x01) -> 0xe0 (status 0)
+lp8758_get(0x00, 0x00) -> 0x00 (status 0)
+lp8758_get(0x00, 0x01) -> 0x00 (status 0)
+lp8758_get(0x00, 0x00) -> 0x00 (status 0)
+lp8758_get(0x00, 0x01) -> 0x00 (status 0)
+lp8758_get(0x00, 0x00) -> 0x00 (status 0)
+lp8758_get(0x00, 0x01) -> 0x00 (status 0)
+lp8758_get(0x00, 0x00) -> 0x00 (status 0)
+lp8758_get(0x00, 0x01) -> 0xe0 (status 0)
+lp8758_get(0x00, 0x00) -> 0x01 (status 0)
+lp8758_get(0x00, 0x01) -> 0xe0 (status 0)
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_CTRL1, PMIC_CH_DISABLE);
+lp8758_set(0x03, 0x02, 0xc8) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_CTRL1, PMIC_CH_DISABLE);
+lp8758_set(0x03, 0x06, 0xc8) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_CTRL1, PMIC_CH_DISABLE);
+lp8758_set(0x03, 0x08, 0xc8) -> (status 0)
+
+21:05:40.024169 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x008300
+21:05:40.024758 INFO:   [CTRL] PCI:/dev/xtrx0: XTRX Rev5 (04000113)
+21:05:40.024772 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA STOP MIMO @0.0
+21:05:40.024775 INFO:   [PCIE] PCI:/dev/xtrx0: Device `pcie:///dev/xtrx0` has been opened successfully
+CPU Features: SSE2+ SSE4.1+ AVX+ FMA+
+
+# xtrxll_set_param(XTRXLL_PARAM_PWR_CTRL, PWR_CTRL_BUSONLY)
+PCI:/dev/xtrx0: set_param 8 0x1
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_CTRL1, PMIC_CH_ENABLE)
+lp8758_set(0x03, 0x04, 0x88) -> (status 0)
+lp8758_get(0x03, 0x00) -> 0x01 (status 0)
+lp8758_get(0x03, 0x01) -> 0xe0 (status 0)
+lp8758_get(0x00, 0x00) -> 0x01 (status 0)
+lp8758_get(0x00, 0x01) -> 0xe0 (status 0)
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_CTRL1, PMIC_CH_DISABLE);
+lp8758_set(0x03, 0x02, 0xc8) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_CTRL1, PMIC_CH_DISABLE);
+lp8758_set(0x03, 0x06, 0xc8) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_CTRL1, PMIC_CH_DISABLE);
+lp8758_set(0x03, 0x08, 0xc8) -> (status 0)
+
+# xtrxll_set_param(XTRXLL_PARAM_FE_CTRL, XTRXLL_LMS7_GPWR_PIN)
+PCI:/dev/xtrx0: set_param 9 0x4
+21:05:40.138375 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x008304
+
+# xtrxll_set_param(XTRXLL_PARAM_PWR_CTRL, PWR_CTRL_ON)
+PCI:/dev/xtrx0: set_param 8 0x2
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_VOUT, 0xfb)
+lp8758_set(0x03, 0x0c, 0xfb) -> (status 0)
+21:05:40.238692 INFO:   [CTRL] PCI:/dev/xtrx0: FPGA V_GPIO set to 3280mV
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_VOUT, get_voltage(V_LMS_1V8 + extra_drop))
+lp8758_set(0x03, 0x0a, 0xb5) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_VOUT, get_voltage(V_LMS_1V4 + extra_drop))
+lp8758_set(0x03, 0x0e, 0xa1) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_VOUT, get_voltage(V_LMS_1V2 + extra_drop))
+lp8758_set(0x03, 0x10, 0x92) -> (status 0)
+
+21:05:40.238732 INFO:   [CTRL] PCI:/dev/xtrx0: LMS PMIC DCDC out set to VA18=1880mV VA14=1480mV VA12=1340mV
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK1_CTRL1, PMIC_CH_ENABLE);
+lp8758_set(0x03, 0x04, 0x88) -> (status 0)
+lp8758_get(0x03, 0x00) -> 0x01 (status 0)
+lp8758_get(0x03, 0x01) -> 0xe0 (status 0)
+lp8758_get(0x00, 0x00) -> 0x01 (status 0)
+lp8758_get(0x00, 0x01) -> 0xe0 (status 0)
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK0_CTRL1, PMIC_CH_ENABLE);
+lp8758_set(0x03, 0x02, 0x88) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK2_CTRL1, PMIC_CH_ENABLE);
+lp8758_set(0x03, 0x06, 0x88) -> (status 0)
+# -> lp8758_set(dev, XTRX_I2C_PMIC_LMS, BUCK3_CTRL1, PMIC_CH_ENABLE);
+lp8758_set(0x03, 0x08, 0x88) -> (status 0)
+
+# -> lp8758_set(dev, XTRX_I2C_PMIC_FPGA, BUCK1_VOUT, get_voltage(vio_mv))
+lp8758_set(0x00, 0x0c, 0xb1) -> (status 0)
+21:05:40.242290 INFO:   [CTRL] PCI:/dev/xtrx0: FPGA V_IO set to 1800mV
+
+# xtrxll_set_param(XTRXLL_PARAM_FE_CTRL, XTRXLL_LMS7_GPWR_PIN | XTRXLL_LMS7_RESET_PIN)
+PCI:/dev/xtrx0: set_param 9 0x6
+21:05:40.252440 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x008306
+21:05:40.263634 INFO:   [LSM7] PCI:/dev/xtrx0: LMS VER:7 REV:1 MASK:1 (3841)
+# xtrxll_set_param(XTRXLL_PARAM_FE_CTRL, XTRXLL_LMS7_GPWR_PIN | XTRXLL_LMS7_RESET_PIN | XTRXLL_LMS7_RXEN_PIN | XTRXLL_LMS7_TXEN_PIN)
+PCI:/dev/xtrx0: set_param 9 0x1e
+21:05:40.263683 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x00831e
+[INFO] Created: `pcie:///dev/xtrx0`
+21:05:41.081503 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA SKIP MIMO @0.0
+21:05:41.081578 INFO:   [LSM7] PCI:/dev/xtrx0: 0x0124[00, 00]
+21:05:41.081828 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA SKIP MIMO @0.0
+21:05:41.081837 INFO:   [LMSF] PCI:/dev/xtrx0: Auto RX band selection: LNAL
+21:05:41.081840 INFO:   [LMSF] PCI:/dev/xtrx0: Set RX band to 2 (L)
+PCI:/dev/xtrx0: set_param 6 0x1
+21:05:41.082146 INFO:   [CTRL] PCI:/dev/xtrx0: RX_ANT: 1 TX_ANT: 0
+21:05:41.082147 INFO:   [LMSF] PCI:/dev/xtrx0: DC START
+21:05:41.082215 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082239 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082249 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082258 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082280 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082303 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082312 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082321 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082330 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082338 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+21:05:41.082362 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[0]=0000
+21:05:41.082386 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[1]=0000
+21:05:41.082409 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[2]=0000
+21:05:41.082433 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[3]=0000
+21:05:41.082489 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[0]=0000
+21:05:41.082513 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[1]=0000
+21:05:41.082536 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[2]=0000
+21:05:41.082560 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[3]=0000
+ccall((:xtrxll_get_loglevel, xtrx_jll.libxtrxll), Int, ()) = 4
+┌ Warning: readStream timeout!
+│   timeout = 0.1
+│   total_nread = -991520
+│   samples_to_read = 100000
+│   flags = "WAIT_TRIGGER,MORE_FRAGMENTS"
+└ @ SoapySDR ~/.julia/packages/SoapySDR/eBvoR/src/highlevel.jl:698
+PCI:/dev/xtrx0: set_param 10 (nil)
+21:05:42.375479 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x00831e
+21:05:42.385781 INFO:   [XTRX] PCI:/dev/xtrx0: Set INT RefClk to 26000000 based on 26060461 measurement
+21:05:42.385800 INFO:   [LMSF] PCI:/dev/xtrx0: Increase RXdiv= 0 TXdiv= 8 => CGEN 8.0 Mhz
+21:05:42.385827 INFO:   [LMSF] PCI:/dev/xtrx0: Increase RXdiv= 0 TXdiv=16 => CGEN 16.0 Mhz
+21:05:42.385829 INFO:   [LMSF] PCI:/dev/xtrx0: Increase RXdiv= 0 TXdiv=32 => CGEN 32.0 Mhz
+21:05:42.385838 INFO:   [LSM7] PCI:/dev/xtrx0: CGEN: VCO/2=1184000000 k/2=37 int=91 frac=80659
+21:05:42.386451 INFO:   [LSM7] PCI:/dev/xtrx0: CGEN: binary result: 159
+21:05:42.386574 INFO:   [LSM7] PCI:/dev/xtrx0: CGEN: Retuned [159:165] -> 162
+PCI:/dev/xtrx0: set_param 9 0x1e
+21:05:42.386675 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x00831e
+PCI:/dev/xtrx0: set_param 2 0x708
+lp8758_set(0x00, 0x0c, 0xb1) -> (status 0)
+21:05:42.386697 INFO:   [CTRL] PCI:/dev/xtrx0: FPGA V_IO set to 1800mV
+21:05:42.386700 INFO:   [LMSF] PCI:/dev/xtrx0: rxrate=0.000MHz txrate=1.000MHz actual_master=32.000MHz rxdecim=1(h_1) txinterp=32(h_1) RX_ADC=8.000MHz TX_DAC=32.000MHz hintr=0 hdecim=0 delay=0 NRXFWD=0 LML1HID=3 LML2HID=1 RX_div=0 TX_div=0 RX_TSP_div=1 TX_TSP_div=16 FclkRX=0.000 (PHS=0) RXx2=0
+1 MHz

@@ -803,6 +803,27 @@ unsigned SoapyXTRX::readRegister(const unsigned addr) const {
 }
 
 
+
+void SoapyXTRX::writeRegister(const std::string &name, const unsigned addr, const unsigned value) {
+    if (name == "LMS7002M") {
+        LMS7002M_spi_write(_lms, addr, value);
+    } else if (name == "LitePCI") {
+        litepcie_writel(_fd, addr, value);
+    } else
+        throw std::runtime_error("SoapyXTRX::writeRegister(" + name + ") unknown register");
+}
+
+unsigned SoapyXTRX::readRegister(const std::string &name, const unsigned addr) const {
+    if (name == "LMS7002M") {
+        return LMS7002M_spi_read(_lms, addr);
+    } else if (name == "LitePCI") {
+        return litepcie_readl(_fd, addr);
+    } else
+        throw std::runtime_error("SoapyXTRX::readRegister(" + name + ") unknown register");
+}
+
+
+
 /*******************************************************************
  * Settings API
  ******************************************************************/
@@ -867,6 +888,15 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         // XXX: how to disable?
+    } else if (key == "LOOPBACK_ENABLE_LFSR") {
+        if (value == "TRUE") {
+            LMS7002M_setup_digital_loopback_lfsr(_lms);
+        } else
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") unknown value");
+        // XXX: how to disable?
+    } else if (key == "RESET_RX_FIFO") {
+        LMS7002M_reset_lml_fifo(_lms, LMS_RX);
     } else if (key == "FPGA_LOOPBACK_ENABLE") {
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
@@ -894,6 +924,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR, control);
+    } else if (key == "DUMP_INI") {
+        LMS7002M_dump_ini(_lms, value.c_str());
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");

@@ -1,12 +1,6 @@
 # configure loopback mode in the the XTRX and LMS7002M RF IC, so transmitted
 # buffers should appear on the RX side.
 
-if !haskey(ENV, "SOAPY_SDR_PLUGIN_PATH") || isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
-    ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr-xtrx/build")
-end
-
-@show ENV["SOAPY_SDR_PLUGIN_PATH"]
-
 using SoapySDR, Printf, Unitful
 
 SoapySDR.register_log_handler()
@@ -55,7 +49,7 @@ function dma_test()
         cr.bandwidth = 500u"kHz" # 200u"kHz"
         cr.frequency = 2.498u"GHz"
         #cr.gain = 2u"dB"
-        cr.sample_rate = 1u"MHz"
+        cr.sample_rate = 2u"MHz"
         @show cr.bandwidth
         @show cr.frequency
         @show cr.sample_rate
@@ -66,7 +60,7 @@ function dma_test()
         ct.bandwidth = 3.1u"MHz" #2u"MHz"
         ct.frequency = 2.498u"GHz"
         #ct.gain = 20u"dB"
-        ct.sample_rate = 1u"MHz"
+        ct.sample_rate = 2u"MHz"
         @show ct.bandwidth
         @show ct.frequency
         @show ct.sample_rate

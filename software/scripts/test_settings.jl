@@ -1,9 +1,3 @@
-if !haskey(ENV, "SOAPY_SDR_PLUGIN_PATH") || isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
-    ENV["SOAPY_SDR_PLUGIN_PATH"] = "/home/sjkelly/xtrx_julia/build/soapysdr/lib/SoapySDR/modules0.8"
-    #ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr-xtrx/build")
-end
-
-@show ENV["SOAPY_SDR_PLUGIN_PATH"]
 
 using SoapySDR
 using Test
@@ -11,7 +5,7 @@ using Unitful
 
 SoapySDR.register_log_handler()
 
-devs = Devices()
+devs = Devices(parse(KWArgs, "driver=XTRX"))
 
 @test !isempty(devs)
 
