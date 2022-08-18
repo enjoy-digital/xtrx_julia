@@ -2,12 +2,6 @@
 # and try receiving that pattern using the LMS7002M RF IC.
 # the pattern is just a counter, so the array should contain increasing numbers.
 
-if !haskey(ENV, "SOAPY_SDR_PLUGIN_PATH") || isempty(ENV["SOAPY_SDR_PLUGIN_PATH"])
-    ENV["SOAPY_SDR_PLUGIN_PATH"] = joinpath(@__DIR__, "../soapysdr-xtrx/build")
-end
-
-@show ENV["SOAPY_SDR_PLUGIN_PATH"]
-
 using SoapySDR
 using Test
 using CUDA
@@ -18,7 +12,7 @@ SoapySDR.register_log_handler()
 function dma_test(use_gpu=false)
 
     # open the first device
-    devs = Devices()
+    devs = Devices(parse(KWArgs, "driver=XTRX"))
     dev_args = devs[1]
     # GPU: set the DMA target
     dev_args["device"] = use_gpu ? "GPU" : "CPU"
