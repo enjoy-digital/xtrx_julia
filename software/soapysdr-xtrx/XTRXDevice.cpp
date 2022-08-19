@@ -25,6 +25,7 @@
 #include <SoapySDR/Logger.hpp>
 #include <LMS7002M/LMS7002M_logger.h>
 #include <fstream>
+#include <sys/mman.h>
 
 #define EXT_REF_CLK 26e6
 
@@ -210,6 +211,21 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
 
 SoapyXTRX::~SoapyXTRX(void) {
     SoapySDR::log(SOAPY_SDR_INFO, "Power down and cleanup");
+    if (_rx_stream.opened) {
+        litepcie_release_dma(_fd, 0, 1);
+
+            munmap(_rx_stream.buf, _dma_mmap_info.dma_rx_buf_size *
+                                    _dma_mmap_info.dma_rx_buf_count);
+        _rx_stream.opened = false;
+    }
+    if (_tx_stream.opened) {
+        // release the DMA engine
+        litepcie_release_dma(_fd, 1, 0);
+
+        munmap(_tx_stream.buf, _dma_mmap_info.dma_tx_buf_size *
+                                   _dma_mmap_info.dma_tx_buf_count);
+        _tx_stream.opened = false;
+    }
     // power down and clean up
     // NOTE: disable if you want to inspect the configuration (e.g. in LimeGUI)
     //       or to validate the settings (e.g. using xtrx_litepcie_test)
