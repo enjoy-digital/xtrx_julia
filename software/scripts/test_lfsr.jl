@@ -85,7 +85,7 @@ function lfsr_test()
 
             # LFSR data check
             for i in 1:2:length(buf)-1
-                @assert buf[i] != ((~buf[i+1]) & 0x0fff)
+                @assert buf[i] == ((~buf[i+1]) & 0x0fff)
             end
             
             #errs = PhysicalCommunications.sequence_detecterrors(MaxLFSR(15), buf)
