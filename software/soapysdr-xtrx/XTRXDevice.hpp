@@ -67,6 +67,9 @@ class SoapyXTRX : public SoapySDR::Device {
                             const size_t numElems, int &flags,
                             const long long timeNs = 0) override;
 
+    std::vector<std::string> getStreamFormats(const int direction, const size_t channel) const;
+
+
     // Antenna API
     std::vector<std::string> listAntennas(const int direction,
                                           const size_t channel) const override;

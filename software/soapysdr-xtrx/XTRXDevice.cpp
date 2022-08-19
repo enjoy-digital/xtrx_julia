@@ -597,6 +597,14 @@ std::vector<double> SoapyXTRX::listSampleRates(const int direction,
     return rates;
 }
 
+std::vector<std::string> SoapyXTRX::getStreamFormats(const int direction, const size_t channel) const
+{
+    std::vector<std::string> formats;
+
+    formats.push_back(SOAPY_SDR_CS16);
+
+    return formats;
+}
 
 /*******************************************************************
  * BW filter API
