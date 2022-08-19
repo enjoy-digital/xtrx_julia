@@ -18,7 +18,7 @@ _io = [
 
     # Leds.
     ("user_led", 0, Pins("N18"),  IOStandard("LVCMOS25")),
-    ("user_led2", 0, Pins(" G3 M2 G2"),  IOStandard("LVCMOS33")), # GPIO LED
+    ("user_led2", 0, Pins("G3 M2 G2"),  IOStandard("LVCMOS33")), # GPIO LED
 
     # PCIe.
     ("pcie_x1", 0,
@@ -63,9 +63,6 @@ _io = [
         IOStandard("LVCMOS25")
     ),
 
-    # Power-Down.
-    ("pwrdwn_n", 0, Pins("R19"), IOStandard("LVCMOS25")), ## Pullup=True in xdc?????
-
     # I2C buses.
     ("i2c", 0,
         Subsignal("scl", Pins("U14"), Misc("PULLUP=True")),
@@ -91,6 +88,7 @@ _io = [
 
     # VCTCXO.
     ("vctcxo", 0,
+        Subsignal("en",      Pins("R19"), Misc("PULLUP=True")),
         Subsignal("sel",    Pins("V17"), Misc("PULLDOWN=True")), # ext_clk
         Subsignal("clk",    Pins("N17"), Misc("PULLDOWN=True")),
         IOStandard("LVCMOS25")
