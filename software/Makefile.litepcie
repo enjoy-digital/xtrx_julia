@@ -12,7 +12,7 @@ $(LITEPCIE_KO): $(KERNEL_IMAGE) nvidia-driver/.git/HEAD
 	$(MAKE) -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(LITEPCIE_MODPATH)" modules_install
 litepcie-kernel-module: $(LITEPCIE_KO)
 clean-litepcie-kernel-module:
-	$(MAKE) -C litepcie-kernel-module clean
+	$(MAKE) -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)" clean
 clean: clean-litepcie-user-library
 .PHONY: litepcie-kernel-module
 
