@@ -6,15 +6,22 @@ LITEPCIE_MODPATH      ?= $(PREFIX)
 endif
 
 
-LITEPCIE_KO ?= $(LITEPCIE_MODPATH)/lib/modules/$(KERNEL_FULLVERSION)/extra/liteuart.ko
+LITEPCIE_KO ?= $(REPO_DIR)/software/litepcie-kernel-module/liteuart.ko
 LITEPCIE_HEADER = $(REPO_DIR)/software/litepcie-kernel-module/litepcie.h
 $(LITEPCIE_KO): $(KERNEL_IMAGE) nvidia-driver/.git/HEAD
-	$(MAKE) -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(LITEPCIE_MODPATH)" modules_install
+	$(MAKE) -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)" modules
 litepcie-kernel-module: $(LITEPCIE_KO)
 clean-litepcie-kernel-module:
 	$(MAKE) -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)" clean
 clean: clean-litepcie-user-library
 .PHONY: litepcie-kernel-module
+
+
+LITEPCIE_INSTALLED_KO ?= $(LITEPCIE_MODPATH)/lib/modules/$(KERNEL_FULLVERSION)/extra/liteuart.ko
+$(LITEPCIE_INSTALLED_KO): $(KERNEL_IMAGE) nvidia-driver/.git/HEAD
+	$(MAKE) -C litepcie-kernel-module KERNEL_PATH="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(LITEPCIE_MODPATH)" modules_install
+litepcie-kernel-module-install: $(LITEPCIE_INSTALLED_KO)
+.PHONY: litepcie-kernel-module-install
 
 LITEPCIE_PREFIX ?= $(PREFIX)
 LITEPCIE_LIB = $(LITEPCIE_PREFIX)/lib/liblitepcie.a

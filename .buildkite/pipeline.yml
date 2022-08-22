@@ -74,7 +74,7 @@ steps:
       tar -cvzf nvidia-kernel-modules.tar.gz -C "$$(echo $$(pwd)/build/lib/modules/*/kernel/drivers/video)" .
 
       echo "--- Build litepcie kernel modules"
-      make -C software litepcie-kernel-module -j$$(nproc)
+      make -C software litepcie-kernel-module-install -j$$(nproc)
 
       echo "--- debugging"
       find $$(pwd)/build
