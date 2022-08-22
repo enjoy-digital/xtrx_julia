@@ -40,7 +40,6 @@ SoapySDR.jl/.git/HEAD:
 	git clone --depth=1 -b $(SOAPYSDR_JL_VERSION) $(SOAPYSDR_JL_URL) SoapySDR.jl
 
 SoapySDR.jl: SoapySDR.jl/.git/HEAD
-	julia --project -e 'import Pkg; Pkg.develop(path="SoapySDR.jl")'
 
 print-soapysdr-plugin-path:
 	@echo $(dir $(SOAPYSDR_XTRX_LIB))
