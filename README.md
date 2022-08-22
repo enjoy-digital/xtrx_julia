@@ -103,6 +103,8 @@ can find the XTRX driver. This can be used to execute the example Julia scripts
 in this repository:
 
 ```
+make -C software SoapySDR.jl
+
 cd software/scripts
 julia --project -e 'using Pkg; Pkg.instantiate()'
 julia --project test_pattern.jl

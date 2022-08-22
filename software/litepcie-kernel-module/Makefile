@@ -25,7 +25,9 @@ all: litepcie.ko liteuart.ko
 litepcie.ko liteuart.ko &: main.c liteuart.c litepcie.h config.h flags.h csr.h soc.h
 	$(MAKE) -C $(KERNEL_PATH) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) M=$(shell pwd) modules
 
-modules_install: litepcie.ko liteuart.ko
+modules: litepcie.ko liteuart.ko
+
+modules_install: modules
 	$(MAKE) -C $(KERNEL_PATH) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) M=$(shell pwd) modules_install
 
 clean:

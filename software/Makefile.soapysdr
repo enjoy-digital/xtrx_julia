@@ -6,7 +6,7 @@ soapysdr/.git/HEAD:
 SOAPYSDR_PREFIX ?= $(PREFIX)
 SOAPYSDR_LIB = $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so
 $(SOAPYSDR_LIB): soapysdr/.git/HEAD
-	rm -rf soapysdr/build
+	$(RM) -r soapysdr/build
 	mkdir -p soapysdr/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
 	      -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
@@ -15,13 +15,13 @@ $(SOAPYSDR_LIB): soapysdr/.git/HEAD
 	$(MAKE) -C soapysdr/build install
 soapysdr: $(SOAPYSDR_LIB)
 clean-soapysdr:
-	$(MAKE) -C soapysdr/build clean
+	-$(MAKE) -C soapysdr/build clean
 clean: clean-soapysdr
 
 SOAPYSDR_XTRX_PREFIX ?= $(PREFIX)
 SOAPYSDR_XTRX_LIB = $(SOAPYSDR_XTRX_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libSoapyXTRX.so
 $(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_LIB) LMS7002M-driver/.git/HEAD
-	rm -rf soapysdr-xtrx/build
+	$(RM) -r soapysdr-xtrx/build
 	mkdir -p soapysdr-xtrx/build
 	cmake -DCUDAToolkit_ROOT=$(CUDA_PREFIX) \
 		  -DSoapySDR_ROOT=$(SOAPYSDR_PREFIX) \
@@ -31,7 +31,7 @@ $(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_LIB) LMS7002M-driver/.git/HEAD
 	$(MAKE) -C soapysdr-xtrx/build install
 soapysdr-xtrx: $(SOAPYSDR_XTRX_LIB)
 clean-soapysdr-xtrx:
-	$(MAKE) -C soapysdr-xtrx/build clean
+	-$(MAKE) -C soapysdr-xtrx/build clean
 clean: clean-soapysdr-xtrx
 
 SOAPYSDR_JL_URL := https://github.com/JuliaTelecom/SoapySDR.jl.git
@@ -40,7 +40,6 @@ SoapySDR.jl/.git/HEAD:
 	git clone --depth=1 -b $(SOAPYSDR_JL_VERSION) $(SOAPYSDR_JL_URL) SoapySDR.jl
 
 SoapySDR.jl: SoapySDR.jl/.git/HEAD
-	julia --project -e 'import Pkg; Pkg.develop(path="SoapySDR.jl")'
 
 print-soapysdr-plugin-path:
 	@echo $(dir $(SOAPYSDR_XTRX_LIB))
