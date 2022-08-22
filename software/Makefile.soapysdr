@@ -15,7 +15,7 @@ $(SOAPYSDR_LIB): soapysdr/.git/HEAD
 	$(MAKE) -C soapysdr/build install
 soapysdr: $(SOAPYSDR_LIB)
 clean-soapysdr:
-	$(MAKE) -C soapysdr/build clean
+	-$(MAKE) -C soapysdr/build clean
 clean: clean-soapysdr
 
 SOAPYSDR_XTRX_PREFIX ?= $(PREFIX)
@@ -31,7 +31,7 @@ $(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_LIB) LMS7002M-driver/.git/HEAD
 	$(MAKE) -C soapysdr-xtrx/build install
 soapysdr-xtrx: $(SOAPYSDR_XTRX_LIB)
 clean-soapysdr-xtrx:
-	$(MAKE) -C soapysdr-xtrx/build clean
+	-$(MAKE) -C soapysdr-xtrx/build clean
 clean: clean-soapysdr-xtrx
 
 SOAPYSDR_JL_URL := https://github.com/JuliaTelecom/SoapySDR.jl.git
