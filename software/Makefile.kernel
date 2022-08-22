@@ -29,7 +29,7 @@ $(KERNEL_IMAGE): kernel/.git/HEAD
 kernel: $(KERNEL_IMAGE)
 clean-kernel:
 	-$(MAKE) -C kernel clean
-	-rm -f $(KERNEL_IMAGE)
+	$(RM) $(KERNEL_IMAGE)
 clean: clean-kernel
 .PHONY: kernel
 

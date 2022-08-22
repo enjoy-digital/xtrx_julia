@@ -25,7 +25,7 @@ $(NVIDIA_DRIVER_KO): $(KERNEL_IMAGE) nvidia-driver/.git/HEAD
 nvidia-driver: $(NVIDIA_DRIVER_KO)
 clean-nvidia-driver:
 	-$(MAKE) -C nvidia-driver clean
-	-rm -f $(NVIDIA_DRIVER_KO)
+	$(RM) $(NVIDIA_DRIVER_KO)
 clean: clean-nvidia-driver
 
 

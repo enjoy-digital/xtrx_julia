@@ -37,7 +37,7 @@ litepcie_dma_minimal_example: litepcie_dma_minimal_example.o $(LIBLITEPCIE)
 	$(CC) -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -f $(PROGS) *.o *.a *.d *~ liblitepcie/*.a liblitepcie/*.o liblitepcie/*.d
+	$(RM) $(PROGS) *.o *.a *.d *~ liblitepcie/*.a liblitepcie/*.o liblitepcie/*.d
 
 %.o: %.c
 	$(CC) -c $(CFLAGS) -o $@ $<
