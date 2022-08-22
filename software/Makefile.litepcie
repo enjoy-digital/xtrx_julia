@@ -30,5 +30,6 @@ $(LITEPCIE_LIB): $(NVCC)
 litepcie-user-library: $(LITEPCIE_LIB)
 clean-litepcie-user-library:
 	$(MAKE) -C litepcie-user-library clean
+	$(RM) $(LITEPCIE_LIB)
 clean: clean-litepcie-user-library
 .PHONY: litepcie-user-library
