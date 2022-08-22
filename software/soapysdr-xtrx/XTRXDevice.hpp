@@ -161,6 +161,7 @@ class SoapyXTRX : public SoapySDR::Device {
     std::string readSensor(const std::string &key) const override;
 
     // Register API
+    std::vector<std::string> listRegisterInterfaces(void) const override;
     void writeRegister(const unsigned addr, const unsigned value) override;
     unsigned readRegister(const unsigned addr) const override;
     void writeRegister(const std::string &name, const unsigned addr, const unsigned value) override;

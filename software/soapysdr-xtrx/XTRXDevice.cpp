@@ -859,6 +859,14 @@ std::string SoapyXTRX::readSensor(const std::string &key) const {
  * Register API
  ******************************************************************/
 
+std::vector<std::string> SoapyXTRX::listRegisterInterfaces(void) const {
+    std::vector<std::string> interfaces;
+    interfaces.push_back("LMS7002M");
+    interfaces.push_back("LitePCI");
+    return interfaces;
+}
+
+
 void SoapyXTRX::writeRegister(const unsigned addr, const unsigned value) {
     litepcie_writel(_fd, addr, value);
 }
@@ -1028,6 +1036,14 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         litepcie_writel(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR, control);
     } else if (key == "DUMP_INI") {
         LMS7002M_dump_ini(_lms, value.c_str());
+    } else if (key == "RXTSP_TONE") {
+        LMS7002M_rxtsp_tsg_tone_div(_lms, LMS_CHAB, std::stoi(value));
+    } else if (key == "TXTSP_TONE") {
+        LMS7002M_txtsp_tsg_tone_div(_lms, LMS_CHAB, std::stoi(value));
+    } else if (key == "TXTSP_ENABLE") {
+        LMS7002M_txtsp_enable(_lms, LMS_CHAB, value == "TRUE");
+    } else if (key == "RXTSP_ENABLE") {
+        LMS7002M_rxtsp_enable(_lms, LMS_CHAB, value == "TRUE");
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
