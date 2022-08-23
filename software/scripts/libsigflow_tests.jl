@@ -208,3 +208,18 @@ end
         @test sum(PSD[(idx-1)*2+2:idx*2+1, idx]) > 5*sum(PSD[:, idx])/size(PSD,1)
     end
 end
+
+@testset "sign_extend" begin
+    sig = vcat(
+        [Complex{Int16}(idx,        4096 - idx) for idx in 1:2047],
+        [Complex{Int16}(4096 - idx, idx       ) for idx in 1:2047]
+    )
+    sign_extend!(sig)
+    for idx in 1:length(sig)
+        @test real(sig[idx]) == -imag(sig[idx])
+    end
+    # Test our two extremal points that do not have duals as above:
+    sig = [Complex{Int16}(0, 2048)]
+    sign_extend!(sig)
+    @test sig[1] == Complex{Int16}(0, -2048)
+end
