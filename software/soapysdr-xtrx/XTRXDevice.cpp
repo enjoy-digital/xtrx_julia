@@ -160,10 +160,22 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         _cachedFreqValues[SOAPY_SDR_TX][i]["BB"] = 0;
         this->setAntenna(SOAPY_SDR_RX, i, "LNAW");
         this->setAntenna(SOAPY_SDR_TX, i, "BAND1");
-        this->setGain(SOAPY_SDR_RX, i, "LNA", 0.0);
-        this->setGain(SOAPY_SDR_RX, i, "TIA", 0.0);
-        this->setGain(SOAPY_SDR_RX, i, "PGA", 0.0);
+
+        // Use the same default gains as LimeSDR
+        // LimeSuiteGUI lists these as:
+        //   RFE page:
+        //     LNA: Gmax (maps to 30dB)
+        //     Loopback: Gmax-40 (not listed here)
+        //     TIA: Gmax-3 (maps to 9dB)
+        //   RBB page:
+        //     PGA Gain: 6dB
+        //   TRF page:
+        //     TXPAD gain control: 0
+        this->setGain(SOAPY_SDR_RX, i, "LNA", 30.0);
+        this->setGain(SOAPY_SDR_RX, i, "TIA", 9.0);
+        this->setGain(SOAPY_SDR_RX, i, "PGA", 6.0);
         this->setGain(SOAPY_SDR_TX, i, "PAD", 0.0);
+
         _cachedFilterBws[SOAPY_SDR_RX][i] = 10e6;
         _cachedFilterBws[SOAPY_SDR_TX][i] = 10e6;
         this->setIQBalance(SOAPY_SDR_RX, i, std::polar(1.0, 0.0));
