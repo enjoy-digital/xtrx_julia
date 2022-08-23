@@ -443,3 +443,14 @@ function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
     end)
     return out
 end
+
+
+function sign_extend!(x::AbstractArray{Complex{Int16}})
+    xi = reinterpret(Int16, x)
+    for idx in 1:length(xi)
+        if xi[idx] >= (1 << 11)
+            xi[idx] -= (1 << 12)
+        end
+    end
+    return x
+end
