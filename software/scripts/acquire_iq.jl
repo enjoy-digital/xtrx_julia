@@ -3,6 +3,9 @@
 
 using SoapySDR, Printf, Unitful
 
+# Don't let GR segfault
+ENV["GKSwstype"]="100"
+
 SoapySDR.register_log_handler()
 
 
@@ -102,6 +105,9 @@ function dma_test()
             written_buffs += 1
         end
 
+        # Take the opportunity to dump our .ini
+        SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "acquire_iq_dump.ini")
+
         @info "reading RX"
         # read/check rx-buffer
         while read_buffs < rd_nbufs
@@ -139,6 +145,6 @@ using Plots
 
 plt = plot(real.(iq_data)[2:2:end])
 plot!(real.(iq_data)[1:2:end])
-plot!(real.(data_tx))
+plot!(real.(data_tx[1:2:end]))
 
 savefig("data_$(Int(round(time()))).png")
