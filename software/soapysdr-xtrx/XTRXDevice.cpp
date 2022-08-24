@@ -291,14 +291,21 @@ void SoapyXTRX::setAntenna(const int direction, const size_t channel,
                            const std::string &name) {
     std::lock_guard<std::mutex> lock(_mutex);
 
+    int rx_rf_switch = 0;
     if (direction == SOAPY_SDR_RX) {
         int path = LMS7002M_RFE_NONE;
-        if (name == "LNAH")
+        if (name == "LNAH") {
             path = LMS7002M_RFE_LNAH;
-        else if (name == "LNAL")
+            rx_rf_switch = 2;
+        }
+        else if (name == "LNAL") {
             path = LMS7002M_RFE_LNAL;
-        else if (name == "LNAW")
+            rx_rf_switch = 1;
+        }
+        else if (name == "LNAW") {
             path = LMS7002M_RFE_LNAW;
+            rx_rf_switch = 0;
+        }
         else if (name == "LB1")
             path = LMS7002M_RFE_LB1;
         else if (name == "LB2")
@@ -307,17 +314,24 @@ void SoapyXTRX::setAntenna(const int direction, const size_t channel,
             throw std::runtime_error("SoapyXTRX::setAntenna(RX, " + name +
                                      ") - unknown antenna name");
         LMS7002M_rfe_set_path(_lms, ch2LMS(channel), path);
+        litepcie_writel(_fd, CSR_RF_SWITCHES_RX_ADDR, rx_rf_switch);
     }
     if (direction == SOAPY_SDR_TX) {
+        int tx_rf_switch = 0;
         int band = 0;
-        if (name == "BAND1")
+        if (name == "BAND1") {
             band = 1;
-        else if (name == "BAND2")
+            tx_rf_switch = 1;
+        }
+        else if (name == "BAND2") {
             band = 2;
+            tx_rf_switch = 0;
+        }
         else
             throw std::runtime_error("SoapyXTRX::setAntenna(TX, " + name +
                                      ") - unknown antenna name");
         LMS7002M_trf_select_band(_lms, ch2LMS(channel), band);
+        litepcie_writel(_fd, CSR_RF_SWITCHES_TX_ADDR, tx_rf_switch);
     }
     _cachedAntValues[direction][channel] = name;
 }
