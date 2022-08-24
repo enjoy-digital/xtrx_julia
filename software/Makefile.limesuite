@@ -22,7 +22,7 @@ libusb: $(LIBUSB_LIB)
 
 # Helper to build LimeSuite's SoapyLMS7 driver against our SoapySDR:
 LIMESUITE_URL := https://github.com/juliacomputing/LimeSuite.git
-LIMESUITE_VERSION ?= sjk/xtrx1
+LIMESUITE_VERSION ?= master
 limesuite/.git/HEAD:
 	git clone --depth=1 -b $(LIMESUITE_VERSION) $(LIMESUITE_URL) limesuite
 get-limesuite: limesuite/.git/HEAD
