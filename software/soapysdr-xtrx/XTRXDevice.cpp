@@ -923,12 +923,22 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         LMS7002M_tbb_enable_loopback(_lms, LMS_CHAB, path, false);
-        LMS7002M_tbb_set_path(_lms, LMS_CHAB, LMS7002M_TBB_BYP);
-
-        LMS7002M_tbb_bypass(_lms, LMS_CHAB);
-
-        // TODO: Should we disable all of the RxTSP?
-        LMS7002M_rxtsp_enable(_lms, LMS_CHAB, 1);
+    } else if (key == "TBB_SET_PATH") {
+        int path = 0;
+        if (value == "TBB_BYP")
+            path = LMS7002M_TBB_BYP;
+        else if (value == "TBB_S5")
+            path = LMS7002M_TBB_S5;
+        else if (value == "TBB_LAD")
+            path = LMS7002M_TBB_LAD;
+        else if (value == "TBB_LBF")
+            path = LMS7002M_TBB_LBF;
+        else if (value == "TBB_HBF")
+            path = LMS7002M_TBB_HBF;
+        else
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") unknown value");
+        LMS7002M_tbb_set_path(_lms, LMS_CHAB, path);
     } else if (key == "RBB_SET_PATH") {
         int path = 0;
         if (value == "BYP")
