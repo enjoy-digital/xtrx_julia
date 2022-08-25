@@ -10,12 +10,14 @@ $(SOAPYSDR_LIB): soapysdr/.git/HEAD
 	mkdir -p soapysdr/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
 	      -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
+		  -DCMAKE_BUILD_TYPE=Debug \
 		  -S soapysdr \
 		  -B soapysdr/build
 	$(MAKE) -C soapysdr/build install
 soapysdr: $(SOAPYSDR_LIB)
 clean-soapysdr:
 	-$(MAKE) -C soapysdr/build clean
+	$(RM) $(SOAPYSDR_LIB)
 clean: clean-soapysdr
 
 SOAPYSDR_XTRX_PREFIX ?= $(PREFIX)
@@ -26,6 +28,7 @@ $(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_LIB) LMS7002M-driver/.git/HEAD
 	cmake -DCUDAToolkit_ROOT=$(CUDA_PREFIX) \
 		  -DSoapySDR_ROOT=$(SOAPYSDR_PREFIX) \
 		  -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_XTRX_PREFIX) \
+		  -DCMAKE_BUILD_TYPE=Debug \
 		  -S soapysdr-xtrx \
 		  -B soapysdr-xtrx/build
 	$(MAKE) -C soapysdr-xtrx/build install

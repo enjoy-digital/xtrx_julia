@@ -160,10 +160,22 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         _cachedFreqValues[SOAPY_SDR_TX][i]["BB"] = 0;
         this->setAntenna(SOAPY_SDR_RX, i, "LNAW");
         this->setAntenna(SOAPY_SDR_TX, i, "BAND1");
-        this->setGain(SOAPY_SDR_RX, i, "LNA", 0.0);
-        this->setGain(SOAPY_SDR_RX, i, "TIA", 0.0);
-        this->setGain(SOAPY_SDR_RX, i, "PGA", 0.0);
+
+        // Use the same default gains as LimeSDR
+        // LimeSuiteGUI lists these as:
+        //   RFE page:
+        //     LNA: Gmax (maps to 30dB)
+        //     Loopback: Gmax-40 (not listed here)
+        //     TIA: Gmax-3 (maps to 9dB)
+        //   RBB page:
+        //     PGA Gain: 6dB
+        //   TRF page:
+        //     TXPAD gain control: 0
+        this->setGain(SOAPY_SDR_RX, i, "LNA", 30.0);
+        this->setGain(SOAPY_SDR_RX, i, "TIA", 9.0);
+        this->setGain(SOAPY_SDR_RX, i, "PGA", 6.0);
         this->setGain(SOAPY_SDR_TX, i, "PAD", 0.0);
+
         _cachedFilterBws[SOAPY_SDR_RX][i] = 10e6;
         _cachedFilterBws[SOAPY_SDR_TX][i] = 10e6;
         this->setIQBalance(SOAPY_SDR_RX, i, std::polar(1.0, 0.0));
@@ -897,6 +909,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         const int ampl = std::stoi(value);
         LMS7002M_txtsp_tsg_const(_lms, LMS_CHAB, ampl, 0);
     } else if (key == "TBB_ENABLE_LOOPBACK") {
+        SoapySDR::log(SOAPY_SDR_INFO, "Setting TBB loopback");
         int path = 0;
         if (value == "LB_DISCONNECTED")
             path = LMS7002M_TBB_LB_DISCONNECTED;
@@ -910,6 +923,12 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         LMS7002M_tbb_enable_loopback(_lms, LMS_CHAB, path, false);
+        LMS7002M_tbb_set_path(_lms, LMS_CHAB, LMS7002M_TBB_BYP);
+
+        LMS7002M_tbb_bypass(_lms, LMS_CHAB);
+
+        // TODO: Should we disable all of the RxTSP?
+        LMS7002M_rxtsp_enable(_lms, LMS_CHAB, 1);
     } else if (key == "RBB_SET_PATH") {
         int path = 0;
         if (value == "BYP")
@@ -930,6 +949,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         LMS7002M_rbb_set_path(_lms, LMS_CHAB, path);
     } else if (key == "LOOPBACK_ENABLE") {
         // the LMS7002M's digital loopback
+        SoapySDR::log(SOAPY_SDR_INFO, "Setting Digital Loopback");
         if (value == "TRUE") {
             LMS7002M_setup_digital_loopback(_lms);
         } else
@@ -937,6 +957,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
                                      value + ") unknown value");
         // XXX: how to disable?
     } else if (key == "LOOPBACK_ENABLE_LFSR") {
+        SoapySDR::log(SOAPY_SDR_INFO, "Setting LFSR Loopback");
         if (value == "TRUE") {
             LMS7002M_setup_digital_loopback_lfsr(_lms);
         } else
@@ -947,6 +968,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         LMS7002M_reset_lml_fifo(_lms, LMS_RX);
     } else if (key == "FPGA_TX_RX_LOOPBACK_ENABLE") {
         // an FPGA loopback, connecting TX to RX
+        SoapySDR::log(SOAPY_SDR_INFO, "Setting FPGA TX-RX Loopback");
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
         if (value == "TRUE") {
@@ -957,6 +979,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR, control);
     } else if (key == "FPGA_DMA_LOOPBACK_ENABLE") {
         // an earlier FPGA loopback, connecting the DMA writer to the DMA reader
+        SoapySDR::log(SOAPY_SDR_INFO, "Setting FPGA DMA Loopback");
         if (value == "TRUE")
              dma_set_loopback(_fd, true);
         else if (value == "FALSE")
@@ -966,6 +989,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
                                      value + ") unknown value");
 
     } else if (key == "FPGA_TX_PATTERN") {
+        SoapySDR::log(SOAPY_SDR_INFO, "Setting FPGA TX pattern");
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
         if (value == "1") {
@@ -975,6 +999,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR, control);
     } else if (key == "FPGA_RX_PATTERN") {
+        SoapySDR::log(SOAPY_SDR_INFO, "Setting FPGA RX pattern");
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET);
         if (value == "1") {
