@@ -908,6 +908,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         LMS7002M_rbb_enable(_lms, LMS_CHAB, value == "TRUE");
     else if (key == "TBB_ENABLE")
         LMS7002M_tbb_enable(_lms, LMS_CHAB, value == "TRUE");
+    else if (key == "TRF_ENABLE_LOOPBACK")
+        LMS7002M_trf_enable_loopback(_lms, LMS_CHAB, value == "TRUE");
     else if (key == "RXTSP_TSG_CONST") {
         const int ampl = std::stoi(value);
         LMS7002M_rxtsp_tsg_const(_lms, LMS_CHAB, ampl, 0);
