@@ -61,6 +61,12 @@ void dma_init_gpu(int fd, void *addr, size_t size) {
     checked_ioctl(fd, LITEPCIE_IOCTL_DMA_INIT, &m);
 }
 
+void dma_set_loopback(int fd, bool loopback_enable) {
+    struct litepcie_ioctl_dma m;
+    m.loopback_enable = loopback_enable ? 1 : 0;
+    checked_ioctl(fd, LITEPCIE_IOCTL_DMA, &m);
+}
+
 SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     : _fd(-1), _lms(NULL), _masterClockRate(1.0e6) {
     LMS7_set_log_handler(&customLogHandler);
@@ -193,6 +199,9 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
 
         dma_init_gpu(_fd, _dma_buf, dma_buffer_total_size);
     }
+
+    // disable the DMA internal reader to writer loopback
+    dma_set_loopback(_fd, false);
 
     // NOTE: if initialization misses a setting/register, try experimenting in
     //       LimeGUI and loading that register dump here
@@ -920,6 +929,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
                                      value + ") unknown value");
         LMS7002M_rbb_set_path(_lms, LMS_CHAB, path);
     } else if (key == "LOOPBACK_ENABLE") {
+        // the LMS7002M's digital loopback
         if (value == "TRUE") {
             LMS7002M_setup_digital_loopback(_lms);
         } else
@@ -935,7 +945,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         // XXX: how to disable?
     } else if (key == "RESET_RX_FIFO") {
         LMS7002M_reset_lml_fifo(_lms, LMS_RX);
-    } else if (key == "FPGA_LOOPBACK_ENABLE") {
+    } else if (key == "FPGA_TX_RX_LOOPBACK_ENABLE") {
+        // an FPGA loopback, connecting TX to RX
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
         if (value == "TRUE") {
@@ -944,6 +955,16 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR, control);
+    } else if (key == "FPGA_DMA_LOOPBACK_ENABLE") {
+        // an earlier FPGA loopback, connecting the DMA writer to the DMA reader
+        if (value == "TRUE")
+             dma_set_loopback(_fd, true);
+        else if (value == "FALSE")
+             dma_set_loopback(_fd, false);
+        else
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") unknown value");
+
     } else if (key == "FPGA_TX_PATTERN") {
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
