@@ -149,9 +149,10 @@ int SoapyXTRX::deactivateStream(SoapySDR::Stream *stream, const int flags,
 
 size_t SoapyXTRX::getStreamMTU(SoapySDR::Stream *stream) const {
     if (stream == RX_STREAM)
-        return _dma_mmap_info.dma_rx_buf_size/4;
+        // each sample is 2 * Complex{Int16}
+        return _dma_mmap_info.dma_rx_buf_size/(2*2*sizeof(int16_t));
     else if (stream == TX_STREAM)
-        return _dma_mmap_info.dma_tx_buf_size/4;
+        return _dma_mmap_info.dma_tx_buf_size/(2*2*sizeof(int16_t));
     else
         throw std::runtime_error("SoapySDR::getStreamMTU(): invalid stream");
 }
