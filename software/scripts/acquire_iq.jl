@@ -55,7 +55,15 @@ function do_txrx(; digital_loopback::Bool = false,
             SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE_LFSR", "TRUE")
         end
         if tbb_loopback
+            # Enable TBB -> RBB loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_ENABLE_LOOPBACK", "LB_MAIN_TBB")
+
+            # Disable RxTSP and TxTSP settings, to cause as little signal disturbance as possible
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "RXTSP_ENABLE", "TRUE")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "TXTSP_ENABLE", "TRUE")
+
+            # Disable RxBB and TxBB lowpass filters
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_BYP")
             SoapySDR.SoapySDRDevice_writeSetting(dev, "RBB_SET_PATH", "LB_BYP")
         end
 
@@ -92,7 +100,7 @@ function do_txrx(; digital_loopback::Bool = false,
         data_tx = zeros(format, num_channels, samples)
 
         # Create some pretty patterns to plot
-        data_tx[1, :] .= format.(round.(sin.(2π.*t.*rate).*(fullscale/2).*DSP.hanning(samples)), div(fullscale,2)-1)
+        data_tx[1, :] .= format.(round.(sin.(2π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)), div(fullscale,2)-1)
 
         # We're going to push values onto this list,
         # then concatenate them into a giant matrix at the end
