@@ -33,9 +33,10 @@ ifeq ($(USE_LOCAL_CUDA),true)
 CUDA_PREFIX ?= /opt/cuda
 else
 NV_CUDA_VERSION := v11.7.0
-CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-$(NV_CUDA_VERSION)+0/CUDA_full.$(NV_CUDA_VERSION).$(shell gcc -dumpmachine).tar.gz
-# FIXME: gcc -dumpmachine may not match what we use with out artifacts,
-#        e.g., x86_64-pc-linux-gnu vs x86_64-linux-gnu
+
+# For now, this is all we're using, we can do an actual platform search in the future
+TRIPLET := "x86_64-linux-gnu"
+CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-$(NV_CUDA_VERSION)+0/CUDA_full.$(NV_CUDA_VERSION).$(TRIPLET).tar.gz
 CUDA_PREFIX ?= $(REPO_DIR)/software/nvidia-cuda
 $(CUDA_PREFIX)/bin/nvcc:
 	@mkdir -p nvidia-cuda
