@@ -58,7 +58,7 @@ clean: clean-limesuite
 
 # Include our copy of LMS7002M-driver
 LMS7002M_DRIVER_URL := https://github.com/JuliaComputing/LMS7002M-driver
-LMS7002M_DRIVER_BRANCH := sjk/xtrx_debug1
+LMS7002M_DRIVER_BRANCH := master
 LMS7002M-driver/.git/HEAD:
 	git clone --depth=1 -b $(LMS7002M_DRIVER_BRANCH) $(LMS7002M_DRIVER_URL) LMS7002M-driver
 get-LMS7002M-driver: LMS7002M-driver/.git/HEAD
