@@ -10,7 +10,10 @@ ENV["GKSwstype"]="100"
 SoapySDR.register_log_handler()
 
 
-function do_txrx(;digital_loopback::Bool = false, lfsr_loopback::Bool = false, dump_inis::Bool = false, tbb_loopback::Bool = false)
+function do_txrx(; digital_loopback::Bool = false,
+                   lfsr_loopback::Bool = false,
+                   dump_inis::Bool = false,
+                   tbb_loopback::Bool = false)
     # open the first device
     Device(first(Devices())) do dev
         # Get some useful parameters
@@ -149,8 +152,10 @@ function do_txrx(;digital_loopback::Bool = false, lfsr_loopback::Bool = false, d
     end
 end
 
-# Plot out received signals
+
 using Plots
+
+# Plot out received signals
 function make_txrx_plots(iq_data, data_tx)
     plt = plot(real.(data_tx[1, :]); label="re(tx[1])")
     plot!(plt, real.(iq_data)[1, :]; label="re(rx[1])")
@@ -163,11 +168,15 @@ function make_txrx_plots(iq_data, data_tx)
     savefig(plt, "data_im.png")
 end
 
-# Read in options from ARGS
-lfsr_loopback = "--lfsr-loopback" in ARGS
-digital_loopback = "--digital-loopback" in ARGS
-tbb_loopback = "--tbb-loopback" in ARGS
-dump_inis = "--dump-inis" in ARGS
 
-iq_data, data_tx = do_txrx(; lfsr_loopback, digital_loopback, tbb_loopback, dump_inis)
-make_txrx_plots(iq_data, data_tx)
+function main(args...)
+    lfsr_loopback = "--lfsr-loopback" in args
+    digital_loopback = "--digital-loopback" in args
+    tbb_loopback = "--tbb-loopback" in args
+    dump_inis = "--dump-inis" in args
+
+    iq_data, data_tx = do_txrx(; lfsr_loopback, digital_loopback, tbb_loopback, dump_inis)
+    make_txrx_plots(iq_data, data_tx)
+end
+
+isinteractive() || main(ARGS...)
