@@ -10,7 +10,7 @@ ENV["GKSwstype"]="100"
 SoapySDR.register_log_handler()
 
 
-function do_txrx(;digital_loopback::Bool = false, lfsr_loopback::Bool = false, dump_inis::Bool = false)
+function do_txrx(;digital_loopback::Bool = false, lfsr_loopback::Bool = false, dump_inis::Bool = false, tbb_loopback::Bool = false)
     # open the first device
     Device(first(Devices())) do dev
         # Get some useful parameters
@@ -19,31 +19,47 @@ function do_txrx(;digital_loopback::Bool = false, lfsr_loopback::Bool = false, d
 
         # Setup transmission/recieve parameters
         for cr in dev.rx
-            cr.bandwidth = 2u"MHz"
+            cr.bandwidth = 20u"MHz"
             cr.frequency = 2.498u"GHz"
-            cr.sample_rate = 2u"MHz"
-            cr.antenna = :LNAW
-            cr[SoapySDR.GainElement(:PGA)] = 6u"dB"
+            cr.sample_rate = 40u"MHz"
+            cr.antenna = :LNAH
+
+            # If we've got a TBB loopback, we need to be quieter
+            if tbb_loopback
+                cr[SoapySDR.GainElement(:LNA)] = 0u"dB"
+                cr[SoapySDR.GainElement(:TIA)] = 0u"dB"
+                cr[SoapySDR.GainElement(:PGA)] = 6u"dB"
+            else
+                cr[SoapySDR.GainElement(:PGA)] = 6u"dB"
+            end
         end
 
         for ct in dev.tx
-            ct.bandwidth = 2u"MHz"
+            ct.bandwidth = 20u"MHz"
             ct.frequency = 2.498u"GHz"
-            ct.antenna = :BAND1
-            ct.sample_rate = 2u"MHz"
+            ct.sample_rate = 40u"MHz"
+            if tbb_loopback
+                ct.gain = 0u"dB"
+            else
+                ct.gain = 30u"dB"
+            end
         end
 
-        SoapySDR.SoapySDRDevice_writeSetting(dev, "RESET_RX_FIFO", "TRUE")
         if digital_loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
         end
         if lfsr_loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE_LFSR", "TRUE")
         end
+        if tbb_loopback
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_ENABLE_LOOPBACK", "LB_MAIN_TBB")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "RBB_SET_PATH", "LB_BYP")
+        end
+
 
         # Dump an initial INI, showing how the registers are configured here
         if dump_inis
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "acquire_iq_mid_configured.ini")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "acquire_iq_configured.ini")
         end
 
         # Construct streams
@@ -73,7 +89,7 @@ function do_txrx(;digital_loopback::Bool = false, lfsr_loopback::Bool = false, d
         data_tx = zeros(format, num_channels, samples)
 
         # Create some pretty patterns to plot
-        data_tx[1, :] .= format.(round.(sin.(2π.*t.*rate).*(fullscale/4).*DSP.hanning(samples)), div(fullscale,2)-1)
+        data_tx[1, :] .= format.(round.(sin.(2π.*t.*rate).*(fullscale/2).*DSP.hanning(samples)), div(fullscale,2)-1)
 
         # We're going to push values onto this list,
         # then concatenate them into a giant matrix at the end
@@ -136,21 +152,22 @@ end
 # Plot out received signals
 using Plots
 function make_txrx_plots(iq_data, data_tx)
-    plt = plot(real.(data_tx[1, :]); label="re(data_tx)")
+    plt = plot(real.(data_tx[1, :]); label="re(tx[1])")
     plot!(plt, real.(iq_data)[1, :]; label="re(rx[1])")
     plot!(plt, real.(iq_data)[2, :]; label="re(rx[2])")
     savefig(plt, "data_re.png")
 
-    plt = plot(imag.(data_tx[1, :]); label="im(data_tx)")
+    plt = plot(imag.(data_tx[1, :]); label="im(tx[1])")
     plot!(plt, imag.(iq_data)[1, :]; label="im(rx[1])")
     plot!(plt, imag.(iq_data)[2, :]; label="im(rx[2])")
     savefig(plt, "data_im.png")
 end
 
 # Read in options from ARGS
-digital_loopback = "--digital-loopback" in ARGS
 lfsr_loopback = "--lfsr-loopback" in ARGS
+digital_loopback = "--digital-loopback" in ARGS
+tbb_loopback = "--tbb-loopback" in ARGS
 dump_inis = "--dump-inis" in ARGS
 
-iq_data, data_tx = do_txrx(; digital_loopback, lfsr_loopback, dump_inis)
+iq_data, data_tx = do_txrx(; lfsr_loopback, digital_loopback, tbb_loopback, dump_inis)
 make_txrx_plots(iq_data, data_tx)
