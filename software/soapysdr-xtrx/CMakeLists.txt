@@ -33,24 +33,19 @@ include_directories(${LITEPCIE_INCLUDE_DIR})
 ## LMS7002M discovery
 ########################################################################
 
-include(ExternalProject)
+message(STATUS "Looking for LMS7002M in ${LMS7002M_ROOT}...")
 
-set(EXTERNAL_INSTALL_LOCATION ${CMAKE_BINARY_DIR}/external)
+find_path(LMS7002M_INCLUDE_DIR LMS7002M/LMS7002M.h
+          HINTS ${LMS7002M_ROOT}
+          PATH_SUFFIXES include
+          REQUIRED)
 
-#ExternalProject_Add(LMS7002M-driver
-#    GIT_REPOSITORY https://github.com/JuliaComputing/LMS7002M-driver
-#    GIT_TAG tb/fclk_dly
-#    GIT_SHALLOW
-#    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
-#)
-ExternalProject_Add(LMS7002M-driver
-     SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../LMS7002M-driver
-     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTERNAL_INSTALL_LOCATION}
-)
+find_library(LMS7002M_LIBRARY LMS7002M
+             HINTS ${LMS7002M_ROOT}
+             PATH_SUFFIXES lib
+             REQUIRED)
 
-include_directories(${EXTERNAL_INSTALL_LOCATION}/include)
-
-link_directories(${EXTERNAL_INSTALL_LOCATION}/lib)
+include_directories(${LMS7002M_INCLUDE_DIR})
 
 
 ########################################################################
@@ -68,9 +63,7 @@ include_directories(${CUDAToolkit_INCLUDE_DIRS})
 
 add_executable(main main.c)
 
-target_link_libraries(main ${LITEPCIE_LIBRARY} CUDA::cuda_driver LMS7002M m)
-
-add_dependencies(main LMS7002M-driver)
+target_link_libraries(main ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} CUDA::cuda_driver m)
 
 
 ########################################################################
@@ -82,7 +75,6 @@ find_package(SoapySDR "0.2.1" REQUIRED)
 SOAPY_SDR_MODULE_UTIL(
     TARGET SoapyXTRX
     SOURCES XTRXDevice.cpp Streaming.cpp
-    LIBRARIES ${LITEPCIE_LIBRARY} CUDA::cuda_driver LMS7002M m
+    LIBRARIES ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} CUDA::cuda_driver m
 )
 
-add_dependencies(SoapyXTRX LMS7002M-driver)
