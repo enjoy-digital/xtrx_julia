@@ -671,10 +671,16 @@ void SoapyXTRX::setBandwidth(const int direction, const size_t channel,
     int ret = 0;
     double &actualBw = _cachedFilterBws[direction][channel];
     if (direction == SOAPY_SDR_RX) {
-        ret = LMS7002M_rbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
+        //ret = LMS7002M_rbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
+        ret = LMS7002M_mcu_calibration_rx(_lms, EXT_REF_CLK, bw);
+        if (ret == 0)
+            actualBw = bw;
     }
     if (direction == SOAPY_SDR_TX) {
-        ret = LMS7002M_tbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
+        //ret = LMS7002M_tbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
+        ret = LMS7002M_mcu_calibration_tx(_lms, EXT_REF_CLK, bw);
+        if (ret == 0)
+            actualBw = bw;
     }
 
     if (ret != 0)
@@ -902,6 +908,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         LMS7002M_rbb_enable(_lms, LMS_CHAB, value == "TRUE");
     else if (key == "TBB_ENABLE")
         LMS7002M_tbb_enable(_lms, LMS_CHAB, value == "TRUE");
+    else if (key == "TRF_ENABLE_LOOPBACK")
+        LMS7002M_trf_enable_loopback(_lms, LMS_CHAB, value == "TRUE");
     else if (key == "RXTSP_TSG_CONST") {
         const int ampl = std::stoi(value);
         LMS7002M_rxtsp_tsg_const(_lms, LMS_CHAB, ampl, 0);

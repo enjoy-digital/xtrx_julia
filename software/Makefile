@@ -25,6 +25,7 @@ PREFIX ?= $(REPO_DIR)/build
 include Makefile.kernel
 include Makefile.nvidia
 include Makefile.litepcie
+include Makefile.lms7002m
 include Makefile.soapysdr
 include Makefile.limesuite
 include Makefile.fairwaves

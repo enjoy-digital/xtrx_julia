@@ -14,7 +14,6 @@ static inline uint32_t litepcie_interface_transact(void *handle, const uint32_t 
     int *fd = (int *)handle;
 
     //load tx data
-    uint16_t addr = (data_in >> 16) & ((1<<15)-1);
     litepcie_writel(*fd, CSR_LMS7002M_SPI_MOSI_ADDR, data_in);
 
     //start transaction

@@ -110,6 +110,12 @@ steps:
       echo "--- Bundle liblitepcie"
       tar -czvf liblitepcie.tar.gz -C build/litepcie-user-library .
 
+      echo "--- Build LMS7002M driver library"
+      make -C software LMS7002M-driver -j$$(nproc) LMS7002M_PREFIX=$$(pwd)/build/LMS7002M-driver
+
+      echo "--- Bundle LMS7002M driver"
+      tar -czvf lms7002m.tar.gz -C build/LMS7002M-driver .
+
       echo "--- Build SoapySDR"
       make -C software soapysdr -j$$(nproc) SOAPYSDR_PREFIX=$$(pwd)/build/soapysdr
 
@@ -129,6 +135,7 @@ steps:
       tar -czvf libusb.tar.gz -C build/libusb .
     artifact_paths:
       - "liblitepcie.tar.gz"
+      - "lms7002m.tar.gz"
       - "soapysdr.tar.gz"
       - "soapysdr-xtrx.tar.gz"
       - "libusb.tar.gz"

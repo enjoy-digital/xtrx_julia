@@ -1,0 +1,21 @@
+LMS7002M_DRIVER_URL := https://github.com/JuliaComputing/LMS7002M-driver
+LMS7002M_DRIVER_BRANCH := master
+LMS7002M-driver/.git/HEAD:
+	git clone --depth=1 -b $(LMS7002M_DRIVER_BRANCH) $(LMS7002M_DRIVER_URL) LMS7002M-driver
+get-LMS7002M-driver: LMS7002M-driver/.git/HEAD
+
+LMS7002M_PREFIX ?= $(PREFIX)
+LMS7002M_LIB = $(LMS7002M_PREFIX)/lib/libLMS7002M.a
+$(LMS7002M_LIB): LMS7002M-driver/.git/HEAD
+	$(RM) -r LMS7002M-driver/build
+	mkdir -p LMS7002M-driver/build
+	cmake -DCMAKE_INSTALL_PREFIX=$(LMS7002M_PREFIX) \
+		  -DCMAKE_BUILD_TYPE=Debug \
+		  -S LMS7002M-driver \
+		  -B LMS7002M-driver/build
+	$(MAKE) -C LMS7002M-driver/build install
+LMS7002M-driver: $(LMS7002M_LIB)
+clean-LMS7002M-driver:
+	-$(MAKE) -C LMS7002M-driver/build clean
+	$(RM) $(LMS7002M_LIB)
+clean: clean-LMS7002M-driver

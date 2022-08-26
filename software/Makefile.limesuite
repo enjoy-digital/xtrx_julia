@@ -1,6 +1,3 @@
-
-
-
 # Helper to build libusb, so LimeSuite can properly link
 LIBUSB_URL := https://github.com/libusb/libusb
 LIBUSB_VERSION ?= v1.0.26
@@ -53,13 +50,3 @@ limesuite: $(SOAPYLMS7_LIB)
 clean-limesuite:
 	rm -rf limesuite/_build $(SOAPYLMS7_LIB)
 clean: clean-limesuite
-
-
-
-# Include our copy of LMS7002M-driver
-LMS7002M_DRIVER_URL := https://github.com/JuliaComputing/LMS7002M-driver
-LMS7002M_DRIVER_BRANCH := sjk/xtrx_debug1
-LMS7002M-driver/.git/HEAD:
-	git clone --depth=1 -b $(LMS7002M_DRIVER_BRANCH) $(LMS7002M_DRIVER_URL) LMS7002M-driver
-get-LMS7002M-driver: LMS7002M-driver/.git/HEAD
-LMS7002M-driver: LMS7002M-driver/.git/HEAD

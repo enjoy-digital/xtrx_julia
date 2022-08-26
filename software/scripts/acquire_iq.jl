@@ -13,7 +13,8 @@ SoapySDR.register_log_handler()
 function do_txrx(; digital_loopback::Bool = false,
                    lfsr_loopback::Bool = false,
                    dump_inis::Bool = false,
-                   tbb_loopback::Bool = false)
+                   tbb_loopback::Bool = false,
+                   trf_loopback::Bool = false)
     # open the first device
     Device(first(Devices())) do dev
         # Get some useful parameters
@@ -25,13 +26,15 @@ function do_txrx(; digital_loopback::Bool = false,
             cr.bandwidth = 20u"MHz"
             cr.frequency = 2.498u"GHz"
             cr.sample_rate = 40u"MHz"
-            cr.antenna = :LNAH
+            cr.antenna = cr == first(dev.rx) ? :LB1 : :LB2
 
             # If we've got a TBB loopback, we need to be quieter
             if tbb_loopback
                 cr[SoapySDR.GainElement(:LNA)] = 0u"dB"
                 cr[SoapySDR.GainElement(:TIA)] = 0u"dB"
                 cr[SoapySDR.GainElement(:PGA)] = 6u"dB"
+            elseif trf_loopback
+                cr[SoapySDR.GainElement(:LB_LNA)] = 10u"dB"
             else
                 cr[SoapySDR.GainElement(:PGA)] = 6u"dB"
             end
@@ -54,17 +57,20 @@ function do_txrx(; digital_loopback::Bool = false,
         if lfsr_loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE_LFSR", "TRUE")
         end
+        if trf_loopback
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "TRF_ENABLE_LOOPBACK", "TRUE")
+        end
         if tbb_loopback
             # Enable TBB -> RBB loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_ENABLE_LOOPBACK", "LB_MAIN_TBB")
 
             # Disable RxTSP and TxTSP settings, to cause as little signal disturbance as possible
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "RXTSP_ENABLE", "TRUE")
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "TXTSP_ENABLE", "TRUE")
+            # SoapySDR.SoapySDRDevice_writeSetting(dev, "RXTSP_ENABLE", "TRUE")
+            # SoapySDR.SoapySDRDevice_writeSetting(dev, "TXTSP_ENABLE", "TRUE")
 
             # Disable RxBB and TxBB lowpass filters
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_BYP")
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "RBB_SET_PATH", "LB_BYP")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_LBF")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "RBB_SET_PATH", "LB_LBF")
         end
 
 
@@ -182,8 +188,9 @@ function main(args...)
     digital_loopback = "--digital-loopback" in args
     tbb_loopback = "--tbb-loopback" in args
     dump_inis = "--dump-inis" in args
+    trf_loopback = "--trf-loopback" in args
 
-    iq_data, data_tx = do_txrx(; lfsr_loopback, digital_loopback, tbb_loopback, dump_inis)
+    iq_data, data_tx = do_txrx(; lfsr_loopback, digital_loopback, tbb_loopback, trf_loopback, dump_inis)
     make_txrx_plots(iq_data, data_tx)
 end
 
