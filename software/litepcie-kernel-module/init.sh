@@ -33,6 +33,6 @@ fi
 sudo insmod ${DIR}/liteuart.ko
 
 for i in `seq 0 16` ; do
-    sudo chmod 666 /dev/litepcie$i > /dev/null 2>&1
+    sudo chmod 666 /dev/litepcie$i > /dev/null 2>&1 || true
 done
 
