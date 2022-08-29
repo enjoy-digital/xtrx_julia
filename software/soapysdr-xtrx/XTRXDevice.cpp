@@ -1068,14 +1068,22 @@ std::vector<SoapySDR::Kwargs> findXTRX(const SoapySDR::Kwargs &args) {
         discovered.push_back(args);
     } else {
         // find all LitePCIe devices
-        // TODO: check whether these are XTRX devices
         for (int i = 0; i < 10; i++) {
             std::string path = "/dev/litepcie" + std::to_string(i);
-            if (access(path.c_str(), F_OK) != 0)
+
+            // check the FPGA identification to see if this is an XTRX
+            int fd = open(path.c_str(), O_RDWR);
+            if (fd < 0)
                 continue;
-            SoapySDR::Kwargs dev(args);
-            dev["path"] = path;
-            discovered.push_back(dev);
+            char fpga_identification[256];
+            for (i = 0; i < 256; i ++)
+                fpga_identification[i] = litepcie_readl(fd, CSR_IDENTIFIER_MEM_BASE + 4 * i);
+            if (strstr(fpga_identification, "LiteX SoC on Fairwaves XTRX") != NULL) {
+                SoapySDR::Kwargs dev(args);
+                dev["path"] = path;
+                discovered.push_back(dev);
+            }
+            close(fd);
         }
     }
 
