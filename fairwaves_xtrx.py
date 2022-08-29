@@ -27,6 +27,7 @@ from litex.soc.cores.gpio import GPIOOut
 from litex.soc.cores.spi_flash import S7SPIFlash
 from litex.soc.cores.bitbang import I2CMaster
 from litex.soc.cores.xadc import XADC
+from litex.soc.cores.dna  import DNA
 
 from litepcie.phy.s7pciephy import S7PCIEPHY
 
@@ -133,6 +134,10 @@ class BaseSoC(SoCCore):
 
         # XADC -------------------------------------------------------------------------------------
         self.submodules.xadc = XADC()
+
+        # DNA --------------------------------------------------------------------------------------
+        self.submodules.dna = DNA()
+        self.dna.add_timing_constraints(platform, sys_clk_freq, self.crg.cd_sys.clk)
 
         # PCIe -------------------------------------------------------------------------------------
         self.submodules.pcie_phy = S7PCIEPHY(platform, platform.request(f"pcie_x2"),

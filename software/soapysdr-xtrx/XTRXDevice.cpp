@@ -1133,6 +1133,7 @@ std::vector<SoapySDR::Kwargs> findXTRX(const SoapySDR::Kwargs &args) {
             if (strstr(fpga_identification, "LiteX SoC on Fairwaves XTRX") != NULL) {
                 SoapySDR::Kwargs dev(args);
                 dev["path"] = path;
+                dev["SN"] = std::to_string((long long)litepcie_readl(fd, CSR_DNA_ID_ADDR) << 32 | litepcie_readl(fd, CSR_DNA_ID_ADDR + 4));
                 discovered.push_back(dev);
             }
             close(fd);
