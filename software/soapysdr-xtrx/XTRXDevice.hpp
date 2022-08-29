@@ -21,12 +21,12 @@
 #include <LMS7002M/LMS7002M.h>
 #include "liblitepcie.h"
 
-
+#define DLL_EXPORT __attribute__ ((visibility ("default")))
 #define BYTES_PER_SAMPLE 2 // TODO validate this 
 
 enum class TargetDevice { CPU, GPU };
 
-class SoapyXTRX : public SoapySDR::Device {
+class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
   public:
     SoapyXTRX(const SoapySDR::Kwargs &args);
     ~SoapyXTRX(void);
