@@ -1,5 +1,8 @@
 # Debugging register poking API.  This is very unportable
-const libSoapyXTRX = joinpath(dirname(SoapySDR.soapysdr_jll.get_libsoapysdr_path()), "SoapySDR", "modules0.8", "libSoapyXTRX.so")
+const SoapyXTRXModules =
+    get(ENV, "SOAPY_SDR_PLUGIN_PATH",
+        joinpath(dirname(SoapySDR.soapysdr_jll.get_libsoapysdr_path()), "SoapySDR", "modules0.8"))
+const libSoapyXTRX = joinpath(SoapyXTRXModules, "libSoapyXTRX.so")
 function write_lms_register(dev::Device, addr::UInt16, value::UInt16)
     ccall((:_ZN9SoapyXTRX13writeRegisterEjj, libSoapyXTRX), Cvoid, (Ptr{Cvoid}, Cuint, Cuint), dev.ptr, addr, value)
     return nothing
