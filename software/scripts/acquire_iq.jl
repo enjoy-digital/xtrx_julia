@@ -63,6 +63,26 @@ function do_txrx(; digital_loopback::Bool = false,
             ct.gain = 30u"dB"
         end
 
+        # check that the clocks are correctly calibrated by having the FPGA
+        # transmit a pattern over the digital loopback and verify the result.
+        # if this fails, you might need different TX/RX delays.
+        SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
+        SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_TX_PATTERN", "1")
+        SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_RX_PATTERN", "1")
+        try
+            e0 = unsafe_string(SoapySDR.SoapySDRDevice_readSetting(dev, "FPGA_RX_PATTERN_ERRORS"))
+            sleep(0.1)
+            e1 = unsafe_string(SoapySDR.SoapySDRDevice_readSetting(dev, "FPGA_RX_PATTERN_ERRORS"))
+            errors = parse(Int, e1) - parse(Int, e0)
+            if errors != 0
+                @error "Could not verify digital loopback, clock delays may need calibration!"
+            end
+        finally
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_TX_PATTERN", "0")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_RX_PATTERN", "0")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "FALSE")
+        end
+
         if digital_loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
         end

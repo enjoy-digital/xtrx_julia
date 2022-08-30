@@ -22,7 +22,7 @@
 #include "liblitepcie.h"
 
 #define DLL_EXPORT __attribute__ ((visibility ("default")))
-#define BYTES_PER_SAMPLE 2 // TODO validate this 
+#define BYTES_PER_SAMPLE 2 // TODO validate this
 
 enum class TargetDevice { CPU, GPU };
 
@@ -193,6 +193,9 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     //    Use LB_DISCONNECTED, LB_DAC_CURRENT, LB_LB_LADDER, or LB_MAIN_TBB for
     //    the path.
     //
+    //  - TBB_SET_PATH(path) set the TX baseband input path.
+    //    Use TBB_BYP, TBB_S5, TBB_LAD, TBB_LBF, TBB_HBF for bypassing or filter path.
+    //
     //  - RBB_SET_PATH(path) set the RX baseband input path.
     //    Use BYP, LBF, HBF for bypassing or filter path.
     //    Use LB_BYP, LB_LBF, LB_HBF for loopback versions.
@@ -200,8 +203,17 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     //  - LOOPBACK_ENABLE(TRUE/FALSE)
     //    Enable the LMS7002M's digital loopback
     //
-    //  - FPGA_LOOPBACK_ENABLE(TRUE/FALSE)
+    //  - LOOPBACK_ENABLE_LFSR(TRUE/FALSE)
+    //    Enable the LMS7002M's LFSR loopback
+    //
+    //  - RESET_RX_FIFO(TRUE/FALSE)
+    //    Reset all logic registers and FIFO state.
+    //
+    //  - FPGA_TX_RX_LOOPBACK_ENABLE(TRUE/FALSE)
     //    Enable a TX/RX loopback within the FPGA (before the LMS7002M PHY).
+    //
+    //  - FPGA_DMA_LOOPBACK_ENABLE(TRUE/FALSE)
+    //    Enable the DMA loopback within the FPGA (connecting DMA reader to writer)
     //
     //  - FPGA_TX_PATTERN(pattern) - set the pattern for the TX pattern generator.
     //    pattern 0: disable pattern generator
@@ -215,7 +227,26 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     //    This can be useful to validate the LMS7002M PHY and determine delays
     //    without involving the DMA. With the LMS7002M's loopback enabled, that
     //    means TX generator -> PHY -> LMS7002M -> PHY -> RX checker.
-    //    TODO: expose CSR_LMS7002M_RX_PATTERN_ERRORS.
+    //
+    //  - FPGX_RX_PATTERN_ERRORS() - return the errors detected by the pattern
+    //    generator. This can be used to calibrate the RX/TX delays.
+    //
+    //  - FPGA_TX_DELAY(delay) - get or set the TX clock delay between the FPGA and RF IC.
+    //
+    //  - FPGA_RX_DELAY(delay) - get or set the RX clock delay between the FPGA and RF IC.
+    //
+    //  - DUMP_INI(path) - dump the LMS7002M's registers to an INI file.
+    //
+    //  - RXTSP_TONE(div) - enable a test tone signal for the RX TSP chain with
+    //    a given clock divider. Reset this by re-enabling RXTSP_ENABLE.
+    //
+    //  - TXTSP_TONE(div) - enable a test tone signal for the TX TSP chain with
+    //    a given clock divider. Reset this by re-enabling TXTSP_ENABLE.
+    //
+    //  - RXTSP_ENABLE(TRUE/FALSE) - initialize the RX TSP chain
+    //
+    //  - TXTSP_ENABLE(TRUE/FALSE) - initialize the TX TSP chain
+    std::string readSetting(const std::string &key) const;
     void writeSetting(const std::string &key,
                       const std::string &value) override;
 
