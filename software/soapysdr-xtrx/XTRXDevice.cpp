@@ -98,6 +98,7 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     );
 
     // reset other FPGA peripherals
+    writeSetting("FPGA_DMA_LOOPBACK_ENABLE", "FALSE");
     writeSetting("FPGA_TX_PATTERN", "0");
     writeSetting("FPGA_RX_PATTERN", "0");
     writeSetting("FPGA_RX_DELAY", "16");
@@ -209,9 +210,6 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
 
         dma_init_gpu(_fd, _dma_buf, dma_buffer_total_size);
     }
-
-    // disable the DMA internal reader to writer loopback
-    dma_set_loopback(_fd, false);
 
     // NOTE: if initialization misses a setting/register, try experimenting in
     //       LimeGUI and loading that register dump here
