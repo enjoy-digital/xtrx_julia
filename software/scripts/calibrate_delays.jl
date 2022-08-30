@@ -41,9 +41,9 @@ function main()
                 e1 = unsafe_string(SoapySDR.SoapySDRDevice_readSetting(dev, "FPGA_RX_PATTERN_ERRORS"))
                 errors = parse(Int, e1) - parse(Int, e0)
                 if errors != 0
-                    print(" - ")
+                    print(" ✗ ")
                 else
-                    print(" X ")
+                    print(" ✓ ")
                 end
             end
             println()
