@@ -996,7 +996,6 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
                                      value + ") unknown value");
         LMS7002M_rbb_set_path(_lms, LMS_CHAB, path);
     } else if (key == "LOOPBACK_ENABLE") {
-        // the LMS7002M's digital loopback
         SoapySDR::log(SOAPY_SDR_INFO, "Setting Digital Loopback");
         if (value == "TRUE") {
             LMS7002M_setup_digital_loopback(_lms);
@@ -1017,7 +1016,6 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
     } else if (key == "RESET_RX_FIFO") {
         LMS7002M_reset_lml_fifo(_lms, LMS_RX);
     } else if (key == "FPGA_TX_RX_LOOPBACK_ENABLE") {
-        // an FPGA loopback, connecting TX to RX
         SoapySDR::log(SOAPY_SDR_INFO, "Setting FPGA TX-RX Loopback");
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
         control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
@@ -1028,7 +1026,6 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR, control);
     } else if (key == "FPGA_DMA_LOOPBACK_ENABLE") {
-        // an earlier FPGA loopback, connecting the DMA writer to the DMA reader
         SoapySDR::log(SOAPY_SDR_INFO, "Setting FPGA DMA Loopback");
         if (value == "TRUE")
              dma_set_loopback(_fd, true);
@@ -1064,10 +1061,10 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         LMS7002M_rxtsp_tsg_tone_div(_lms, LMS_CHAB, std::stoi(value));
     } else if (key == "TXTSP_TONE") {
         LMS7002M_txtsp_tsg_tone_div(_lms, LMS_CHAB, std::stoi(value));
-    } else if (key == "TXTSP_ENABLE") {
-        LMS7002M_txtsp_enable(_lms, LMS_CHAB, value == "TRUE");
     } else if (key == "RXTSP_ENABLE") {
         LMS7002M_rxtsp_enable(_lms, LMS_CHAB, value == "TRUE");
+    } else if (key == "TXTSP_ENABLE") {
+        LMS7002M_txtsp_enable(_lms, LMS_CHAB, value == "TRUE");
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
