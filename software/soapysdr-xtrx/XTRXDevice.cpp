@@ -969,6 +969,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             path = LMS7002M_RBB_LB_LBF;
         else if (value == "LB_HBF")
             path = LMS7002M_RBB_LB_HBF;
+        else if (value == "PDET")
+            path = LMS7002M_RBB_PDET;
         else
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");

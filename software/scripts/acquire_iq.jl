@@ -17,7 +17,7 @@ function do_txrx(; digital_loopback::Bool = false,
                    dump_inis::Bool = false,
                    tbb_loopback::Bool = false,
                    trf_loopback::Bool = false,
-                   register_sets::Vector{Pair{UInt16,UInt16}} = Pair{UInt16,UInt16}[],
+                   register_sets::Vector{<:Pair} = Pair[],
                    name::String = "acquire_iq")
     # open the first device
     Device(first(Devices())) do dev
@@ -25,48 +25,42 @@ function do_txrx(; digital_loopback::Bool = false,
         format = dev.rx[1].native_stream_format
         fullscale = dev.tx[1].fullscale
 
+        frequency = 1575.00u"MHz"
+        sample_rate = 6u"MHz"
+
         # Setup transmission/recieve parameters
         for (c_idx, cr) in enumerate(dev.rx)
-            cr.bandwidth = 5u"MHz"
-            cr.frequency = 2.498u"GHz"
-            cr.sample_rate = 5u"MHz"
+            cr.bandwidth = sample_rate
+            cr.frequency = frequency
+            cr.sample_rate = sample_rate
 
             # Default everything to absolute quiet
             cr[SoapySDR.GainElement(:LNA)] = 0u"dB"
             cr[SoapySDR.GainElement(:TIA)] = 0u"dB"
-            cr[SoapySDR.GainElement(:PGA)] = -12u"dB"
+            cr[SoapySDR.GainElement(:PGA)] = -20u"dB"
 
             if trf_loopback
                 # If we've got a TRF loopback, let's be a little louder
-                cr[SoapySDR.GainElement(:TIA)] = 9u"dB"
-                cr[SoapySDR.GainElement(:PGA)] = 6u"dB"
-
-                # Despite the `0dB` here, this is actually the loudest it gets
-                # Default value is -40dB.
-                cr[SoapySDR.GainElement(:LB_LNA)] = 0u"dB"
+                cr[SoapySDR.GainElement(:TIA)] = 12u"dB"
+                cr[SoapySDR.GainElement(:PGA)] = 19u"dB"
+                cr[SoapySDR.GainElement(:LB_LNA)] = 40u"dB"
             end
 
-            # Normally, we'll be receiving from LNAH (since we're at 2.5GHz)
+            # Normally, we'll be receiving from LNAL (since we're at 1.5GHz)
             # but if we're doing a TRF loopback, we need to pull from the
             # appropriate loopback path
             if !trf_loopback
-                cr.antenna = :LNAH
+                cr.antenna = :LNAL
             else
                 cr.antenna = Symbol("LB$(c_idx)")
             end
         end
 
         for ct in dev.tx
-            ct.bandwidth = 5u"MHz"
-            ct.frequency = 2.498u"GHz"
-            ct.sample_rate = 5u"MHz"
-            if tbb_loopback
-                ct.gain = 0u"dB"
-            elseif trf_loopback
-                ct.gain = 10u"dB"
-            else
-                ct.gain = 30u"dB"
-            end
+            ct.bandwidth = sample_rate
+            ct.frequency = frequency
+            ct.sample_rate = sample_rate
+            ct.gain = 30u"dB"
         end
 
         if digital_loopback
@@ -81,11 +75,9 @@ function do_txrx(; digital_loopback::Bool = false,
         if tbb_loopback
             # Enable TBB -> RBB loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_ENABLE_LOOPBACK", "LB_MAIN_TBB")
-            #SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_ENABLE_LOOPBACK", "LB_DAC_CURRENT")
 
             # Disable RxBB and TxBB lowpass filters
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_HBF")
-            #SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_BYP")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_LBF")
             SoapySDR.SoapySDRDevice_writeSetting(dev, "RBB_SET_PATH", "LB_BYP")
 
             # Disable RxTSP and TxTSP settings, to cause as little signal disturbance as possible
@@ -95,20 +87,26 @@ function do_txrx(; digital_loopback::Bool = false,
         if trf_loopback
             # Enable TRF -> RFE loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "TRF_ENABLE_LOOPBACK", "TRUE")
+
+            # Disable RxTSP and TxTSP settings, to cause as little signal disturbance as possible
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "RXTSP_ENABLE", "TRUE")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "TXTSP_ENABLE", "TRUE")
         end
 
         if !isempty(register_sets)
             @info("Applying $(length(register_sets)) register sets")
             for (addr, val) in register_sets
-                write_lms_register(dev, addr, val)
-                @show read_lms_register(dev, addr)
+                if val !== nothing
+                    write_lms_register(dev, addr, val)
+                end
+                @info(string("0x", string(addr; base=16)), value=read_lms_register(dev, addr))
             end
         end
 
 
         # Dump an initial INI, showing how the registers are configured here
         if dump_inis
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(name)_configured.ini")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(name).ini")
         end
 
         # Construct streams
@@ -170,11 +168,6 @@ function do_txrx(; digital_loopback::Bool = false,
                 unsafe_copyto!(buffs[1], pointer(data_tx, num_channels*mtu*written_buffs+1), num_channels*mtu)
                 SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
                 written_buffs += 1
-            end
-
-            # Take the opportunity to dump our .ini
-            if dump_inis
-                SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "acquire_iq_mid_transmission.ini")
             end
 
             # read/check rx-buffer
@@ -254,7 +247,7 @@ function full_loopback_suite(;kwargs...)
 end
 
 
-function main(args...)
+function main(args::String...)
     lfsr_loopback = "--lfsr-loopback" in args
     digital_loopback = "--digital-loopback" in args
     tbb_loopback = "--tbb-loopback" in args
@@ -263,14 +256,19 @@ function main(args...)
     full_suite = "--full" in args
 
     # You can set this here, but Elliot has changed XTRXDevice.cpp to do this automatically.
-    register_sets = Pair{UInt16,UInt16}[
+    register_sets = Pair[
         #0x00ad => 0x03f3,
+
+        # Force CG_IAMP_TBB to be smaller, to prevent over saturating
+        # Note that `0x45xx` is still large enough to saturate, but setting the IAMP
+        # lower causes a bunch of noise to leak in for reasons I still don't fully understand.
+        0x0108 => 0x458c,
     ]
 
     if full_suite
         full_loopback_suite(; dump_inis, register_sets)
     else
-        iq_data, data_tx = do_txrx(; lfsr_loopback, digital_loopback, tbb_loopback, trf_loopback, dump_inis, regsets)
+        iq_data, data_tx = do_txrx(; lfsr_loopback, digital_loopback, tbb_loopback, trf_loopback, dump_inis, register_sets)
         make_txrx_plots(iq_data, data_tx)
     end
 end
