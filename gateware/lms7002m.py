@@ -103,22 +103,25 @@ class TXPatternGenerator(Module, AutoCSR):
         # ----------
 
         # Counter.
-        count = Signal(12)
+        count0 = Signal(12)
+        count1 = Signal(12)
         self.sync.rfic += [
             # Reset Count when disabled.
             If(~enable,
-                count.eq(0)
+                count0.eq(0),
+                count1.eq(0),
             # Increment Count when enabled.
             ).Else(
-                count.eq(count + 1)
+                count0.eq(count0 + 1),
+                count1.eq(count1 + 2),
             )
         ]
 
         # Data-Path.
         # ----------
         self.sync.rfic += [
-            self.source.data[ 0:16].eq(count),
-            self.source.data[16:32].eq(count),
+            self.source.data[ 0:16].eq(count0),
+            self.source.data[16:32].eq(count1),
         ]
 
 
@@ -150,7 +153,7 @@ class RXPatternChecker(Module, AutoCSR):
         self.sync.rfic += count0.eq(self.sink.data[0:])
         self.sync.rfic += count1.eq(self.sink.data[16:])
         self.comb += If(self.sink.data[ 0:12] != (count0 + 1), count_error.eq(1))
-        self.comb += If(self.sink.data[16:28] != (count1 + 1), count_error.eq(1))
+        self.comb += If(self.sink.data[16:28] != (count1 + 2), count_error.eq(1))
 
         # Errors.
         # -------
