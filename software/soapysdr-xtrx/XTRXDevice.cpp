@@ -121,6 +121,9 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
                    LMS7002M_regs(_lms)->reg_0x002f_rev,
                    LMS7002M_regs(_lms)->reg_0x002f_ver);
 
+    // set clock to Internal Reference Clock
+    this->setClockSource("internal");
+
     // configure data port directions and data clock rates
     LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
     LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, 1);
@@ -748,6 +751,41 @@ void SoapyXTRX::setMasterClockRate(const double rate) {
 
 double SoapyXTRX::getMasterClockRate(void) const { return _masterClockRate; }
 
+/*!
+ * Get the list of available clock sources.
+ * \return a list of clock source names
+ */
+std::vector<std::string> SoapyXTRX::listClockSources(void) const {
+    std::vector<std::string> sources;
+    sources.push_back("internal");
+    sources.push_back("external");
+    return sources;
+}
+
+/*!
+ * Set the clock source on the device
+ * \param source the name of a clock source
+ */
+void SoapyXTRX::setClockSource(const std::string &source) {
+    int control = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR);
+    control &= ~(1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
+
+    if (source == "external") {
+        control |= 1 << CSR_VCTCXO_CONTROL_SEL_OFFSET;
+    } else if (source != "internal") {
+        throw std::runtime_error("setClockSource(" + source + ") invalid");
+    }
+    litepcie_writel(_fd, CSR_VCTCXO_CONTROL_ADDR, control);
+}
+
+/*!
+ * Get the clock source of the device
+ * \return the name of a clock source
+ */
+std::string SoapyXTRX::getClockSource(void) const {
+    int source = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR) & (1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
+    return source ? "external" : "internal";
+}
 
 /*******************************************************************
  * Clocking API

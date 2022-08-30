@@ -154,6 +154,9 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     double getTSPRate(const int direction) const;
     void setMasterClockRate(const double rate) override;
     double getMasterClockRate(void) const override;
+    std::vector<std::string> listClockSources(void) const override;
+    void setClockSource(const std::string &source) override;
+    std::string getClockSource(void) const override;
 
     // Sensor API
     std::vector<std::string> listSensors(void) const override;
