@@ -27,8 +27,6 @@
 #include <fstream>
 #include <sys/mman.h>
 
-#define EXT_REF_CLK 26e6
-
 void customLogHandler(const LMS7_log_level_t level, const char *message) {
     switch (level) {
     case LMS7_FATAL:    SoapySDR::log(SOAPY_SDR_FATAL, message);    break;
@@ -68,7 +66,7 @@ void dma_set_loopback(int fd, bool loopback_enable) {
 }
 
 SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
-    : _fd(-1), _lms(NULL), _masterClockRate(1.0e6) {
+    : _fd(-1), _lms(NULL), _masterClockRate(1.0e6), _refClockRate(26e6) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
     SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
@@ -544,7 +542,7 @@ void SoapyXTRX::setFrequency(const int direction, const size_t channel,
 
     if (name == "RF") {
         double actualFreq = 0.0;
-        int ret = LMS7002M_set_lo_freq(_lms, dir2LMS(direction), EXT_REF_CLK,
+        int ret = LMS7002M_set_lo_freq(_lms, dir2LMS(direction), _refClockRate,
                                        frequency, &actualFreq);
         if (ret != 0)
             throw std::runtime_error("SoapyXTRX::setFrequency(" +
@@ -674,13 +672,13 @@ void SoapyXTRX::setBandwidth(const int direction, const size_t channel,
     double &actualBw = _cachedFilterBws[direction][channel];
     if (direction == SOAPY_SDR_RX) {
         //ret = LMS7002M_rbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
-        ret = LMS7002M_mcu_calibration_rx(_lms, EXT_REF_CLK, bw);
+        ret = LMS7002M_mcu_calibration_rx(_lms, _refClockRate, bw);
         if (ret == 0)
             actualBw = bw;
     }
     if (direction == SOAPY_SDR_TX) {
         //ret = LMS7002M_tbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
-        ret = LMS7002M_mcu_calibration_tx(_lms, EXT_REF_CLK, bw);
+        ret = LMS7002M_mcu_calibration_tx(_lms, _refClockRate, bw);
         if (ret == 0)
             actualBw = bw;
     }
@@ -739,7 +737,7 @@ void SoapyXTRX::setMasterClockRate(const double rate) {
     std::lock_guard<std::mutex> lock(_mutex);
 
     int ret =
-        LMS7002M_set_data_clock(_lms, EXT_REF_CLK, rate, &_masterClockRate);
+        LMS7002M_set_data_clock(_lms, _refClockRate, rate, &_masterClockRate);
     if (ret != 0) {
         SoapySDR::logf(SOAPY_SDR_ERROR, "LMS7002M_set_data_clock(%f MHz) -> %d",
                        rate / 1e6, ret);
@@ -750,6 +748,33 @@ void SoapyXTRX::setMasterClockRate(const double rate) {
 }
 
 double SoapyXTRX::getMasterClockRate(void) const { return _masterClockRate; }
+
+/*!
+ * Set the reference clock rate of the device.
+ * \param rate the clock rate in Hz
+ */
+void SoapyXTRX::setReferenceClockRate(const double rate) {
+    _refClockRate = rate;
+}
+
+/*!
+ * Get the reference clock rate of the device.
+ * \return the clock rate in Hz
+ */
+double SoapyXTRX::getReferenceClockRate(void) const { return _refClockRate; }
+
+/*!
+ * Get the range of available reference clock rates.
+ * \return a list of clock rate ranges in Hz
+ */
+SoapySDR::RangeList SoapyXTRX::getReferenceClockRates(void) const {
+    SoapySDR::RangeList ranges;
+    // Really whatever you want to try...
+    ranges.push_back(SoapySDR::Range(25e6, 27e6));
+    return ranges;
+}
+
+
 
 /*!
  * Get the list of available clock sources.

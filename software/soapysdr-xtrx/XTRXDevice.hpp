@@ -154,6 +154,9 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     double getTSPRate(const int direction) const;
     void setMasterClockRate(const double rate) override;
     double getMasterClockRate(void) const override;
+    void setReferenceClockRate(const double rate) override;
+    double getReferenceClockRate(void) const override;
+    SoapySDR::RangeList getReferenceClockRates(void) const override;
     std::vector<std::string> listClockSources(void) const override;
     void setClockSource(const std::string &source) override;
     std::string getClockSource(void) const override;
@@ -336,6 +339,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     int _fd;
     LMS7002M_t *_lms;
     double _masterClockRate;
+    double _refClockRate;
 
     // calibration data
     std::vector<std::map<std::string, std::string>> _calData;
