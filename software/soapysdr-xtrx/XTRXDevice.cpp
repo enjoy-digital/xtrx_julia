@@ -98,12 +98,10 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     );
 
     // reset other FPGA peripherals
-    litepcie_writel(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR,
-        0 * (1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET)
-    );
-    litepcie_writel(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR,
-        0 * (1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET)
-    );
+    writeSetting("FPGA_TX_PATTERN", "0");
+    writeSetting("FPGA_RX_PATTERN", "0");
+    writeSetting("FPGA_RX_DELAY", "16");
+    writeSetting("FPGA_TX_DELAY", "16");
 
     // setup LMS7002M
     _lms = LMS7002M_create(litepcie_interface_transact, &_fd);
