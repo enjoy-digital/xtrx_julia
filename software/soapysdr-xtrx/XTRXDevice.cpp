@@ -75,11 +75,14 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     setvbuf(stdout, NULL, _IOLBF, 0);
 
     // open LitePCIe descriptor
-    //  TODO: configurable device number?
-    _fd = open("/dev/litepcie0", O_RDWR);
+    if (args.count("path") == 0) {
+        // if path is not present, then findXTRX had zero devices enumerated
+        throw std::runtime_error("No LitePCIe devices found!");
+    }
+    std::string path = args.at("path");
+    _fd = open(path.c_str(), O_RDWR);
     if (_fd < 0)
-        throw std::runtime_error(
-            "SoapyXTRX(): failed to open /dev/litepcie0");
+        throw std::runtime_error("SoapyXTRX(): failed to open " + path);
 
     // reset the LMS7002M
     litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR,
@@ -1059,9 +1062,35 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
  **********************************************************************/
 
 std::vector<SoapySDR::Kwargs> findXTRX(const SoapySDR::Kwargs &args) {
-    // always discovery "args" -- the sdr is the board itself
     std::vector<SoapySDR::Kwargs> discovered;
-    discovered.push_back(args);
+
+    // TODO: select by serial number, or something unique to each device
+    //       (like the FPGA's DNA; but that currently reads-out incorrectly)
+
+    if (args.count("path") != 0) {
+        // respect user choice
+        discovered.push_back(args);
+    } else {
+        // find all LitePCIe devices
+        for (int i = 0; i < 10; i++) {
+            std::string path = "/dev/litepcie" + std::to_string(i);
+
+            // check the FPGA identification to see if this is an XTRX
+            int fd = open(path.c_str(), O_RDWR);
+            if (fd < 0)
+                continue;
+            char fpga_identification[256];
+            for (i = 0; i < 256; i ++)
+                fpga_identification[i] = litepcie_readl(fd, CSR_IDENTIFIER_MEM_BASE + 4 * i);
+            if (strstr(fpga_identification, "LiteX SoC on Fairwaves XTRX") != NULL) {
+                SoapySDR::Kwargs dev(args);
+                dev["path"] = path;
+                discovered.push_back(dev);
+            }
+            close(fd);
+        }
+    }
+
     return discovered;
 }
 
