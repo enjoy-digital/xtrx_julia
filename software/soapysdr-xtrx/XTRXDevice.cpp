@@ -868,11 +868,11 @@ std::vector<std::string> SoapyXTRX::listRegisterInterfaces(void) const {
 
 
 void SoapyXTRX::writeRegister(const unsigned addr, const unsigned value) {
-    litepcie_writel(_fd, addr, value);
+    LMS7002M_spi_write(_lms, addr, value);
 }
 
 unsigned SoapyXTRX::readRegister(const unsigned addr) const {
-    return litepcie_readl(_fd, addr);
+    return LMS7002M_spi_read(_lms, addr);
 }
 
 
@@ -969,6 +969,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             path = LMS7002M_RBB_LB_LBF;
         else if (value == "LB_HBF")
             path = LMS7002M_RBB_LB_HBF;
+        else if (value == "PDET")
+            path = LMS7002M_RBB_PDET;
         else
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
@@ -990,6 +992,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         // XXX: how to disable?
+    } else if (key == "TRF_ENABLE_LOOPBACK") {
+        LMS7002M_trf_enable_loopback(_lms, LMS_CHAB, value == "TRUE");
     } else if (key == "RESET_RX_FIFO") {
         LMS7002M_reset_lml_fifo(_lms, LMS_RX);
     } else if (key == "FPGA_TX_RX_LOOPBACK_ENABLE") {

@@ -3,7 +3,7 @@
 using SoapySDR, Printf, DSP, FFTW, Statistics
 
 # Helper for turning a matrix into a tuple of views, for use with the SoapySDR API.
-split_matrix(m::Matrix{ComplexF32}) = tuple(collect(view(m, :, idx) for idx in 1:size(m,2))...)
+split_matrix(m::AbstractArray{T,2}) where {T} = tuple(collect(view(m, :, idx) for idx in 1:size(m,2))...)
 
 _default_verbosity = false
 function set_libsigflow_verbose(verbose::Bool)
@@ -17,14 +17,15 @@ Returns a `Channel` that allows multiple buffers to be
 """
 function generate_stream(gen_buff!::Function, buff_size::Integer, num_channels::Integer;
                          wrapper::Function = (f) -> f(),
-                         buffers_in_flight::Integer = 1)
-    c = Channel{Matrix{ComplexF32}}(buffers_in_flight)
+                         buffers_in_flight::Integer = 1,
+                         T = ComplexF32)
+    c = Channel{Matrix{T}}(buffers_in_flight)
 
     Base.errormonitor(Threads.@spawn begin
         buff_idx = 1
         try
             wrapper() do
-                buff = Matrix{ComplexF32}(undef, buff_size, num_channels)
+                buff = Matrix{T}(undef, buff_size, num_channels)
 
                 # Keep on generating buffers until `gen_buff!()` returns `false`.
                 while gen_buff!(buff)
