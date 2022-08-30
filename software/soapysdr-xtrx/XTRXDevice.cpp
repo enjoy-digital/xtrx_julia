@@ -1008,18 +1008,22 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         SoapySDR::log(SOAPY_SDR_DEBUG, "Setting Digital Loopback");
         if (value == "TRUE") {
             LMS7002M_setup_digital_loopback(_lms);
+        } else if (value == "FALSE") {
+            LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
+            LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, 1);
         } else
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
-        // XXX: how to disable?
     } else if (key == "LOOPBACK_ENABLE_LFSR") {
         SoapySDR::log(SOAPY_SDR_DEBUG, "Setting LFSR Loopback");
         if (value == "TRUE") {
             LMS7002M_setup_digital_loopback_lfsr(_lms);
+        } else if (value == "FALSE") {
+            LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
+            LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, 1);
         } else
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
-        // XXX: how to disable?
     } else if (key == "TRF_ENABLE_LOOPBACK") {
         LMS7002M_trf_enable_loopback(_lms, LMS_CHAB, value == "TRUE");
     } else if (key == "RESET_RX_FIFO") {
