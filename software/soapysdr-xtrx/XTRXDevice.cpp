@@ -917,6 +917,19 @@ std::string SoapyXTRX::readSetting(const std::string &key) const
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR);
         control &= 1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET;
         return control ? "1" : "0";
+    } else if (key == "FPGA_RX_PATTERN_ERRORS") {
+        uint32_t errors = litepcie_readl(_fd, CSR_LMS7002M_RX_PATTERN_ERRORS_ADDR);
+        return std::to_string(errors);
+    } else if (key == "FPGA_TX_DELAY") {
+        uint32_t reg = litepcie_readl(_fd, CSR_LMS7002M_DELAY_ADDR);
+        uint32_t mask = ((uint32_t)(1 << CSR_LMS7002M_DELAY_TX_DELAY_SIZE)-1);
+        uint32_t delay = (reg >> CSR_LMS7002M_DELAY_TX_DELAY_OFFSET) & mask;
+        return std::to_string(delay);
+    } else if (key == "FPGA_RX_DELAY") {
+        uint32_t reg = litepcie_readl(_fd, CSR_LMS7002M_DELAY_ADDR);
+        uint32_t mask = ((uint32_t)(1 << CSR_LMS7002M_DELAY_RX_DELAY_SIZE)-1);
+        uint32_t delay = (reg >> CSR_LMS7002M_DELAY_RX_DELAY_OFFSET) & mask;
+        return std::to_string(delay);
     } else
         throw std::runtime_error("SoapyXTRX::readSetting(" + key + ") unknown key");
 }
@@ -1055,6 +1068,24 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR, control);
+    } else if (key == "FPGA_TX_DELAY") {
+        int delay = std::stoi(value);
+        if (delay < 0 || delay > 31)
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") invalid value");
+        uint32_t reg = litepcie_readl(_fd, CSR_LMS7002M_DELAY_ADDR);
+        uint32_t mask = ((uint32_t)(1 << CSR_LMS7002M_DELAY_TX_DELAY_SIZE)-1) << CSR_LMS7002M_DELAY_TX_DELAY_OFFSET;
+        litepcie_writel(_fd, CSR_LMS7002M_DELAY_ADDR,
+                        (reg & ~mask) | (delay << CSR_LMS7002M_DELAY_TX_DELAY_OFFSET));
+    } else if (key == "FPGA_RX_DELAY") {
+        int delay = std::stoi(value);
+        if (delay < 0 || delay > 31)
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") invalid value");
+        uint32_t reg = litepcie_readl(_fd, CSR_LMS7002M_DELAY_ADDR);
+        uint32_t mask = ((uint32_t)(1 << CSR_LMS7002M_DELAY_RX_DELAY_SIZE)-1) << CSR_LMS7002M_DELAY_RX_DELAY_OFFSET;
+        litepcie_writel(_fd, CSR_LMS7002M_DELAY_ADDR,
+                        (reg & ~mask) | (delay << CSR_LMS7002M_DELAY_RX_DELAY_OFFSET));
     } else if (key == "DUMP_INI") {
         LMS7002M_dump_ini(_lms, value.c_str());
     } else if (key == "RXTSP_TONE") {

@@ -227,7 +227,13 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     //    This can be useful to validate the LMS7002M PHY and determine delays
     //    without involving the DMA. With the LMS7002M's loopback enabled, that
     //    means TX generator -> PHY -> LMS7002M -> PHY -> RX checker.
-    //    TODO: expose CSR_LMS7002M_RX_PATTERN_ERRORS.
+    //
+    //  - FPGX_RX_PATTERN_ERRORS() - return the errors detected by the pattern
+    //    generator. This can be used to calibrate the RX/TX delays.
+    //
+    //  - FPGA_TX_DELAY(delay) - get or set the TX clock delay between the FPGA and RF IC.
+    //
+    //  - FPGA_RX_DELAY(delay) - get or set the RX clock delay between the FPGA and RF IC.
     //
     //  - DUMP_INI(path) - dump the LMS7002M's registers to an INI file.
     //
