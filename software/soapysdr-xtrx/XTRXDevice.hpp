@@ -216,6 +216,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     //    without involving the DMA. With the LMS7002M's loopback enabled, that
     //    means TX generator -> PHY -> LMS7002M -> PHY -> RX checker.
     //    TODO: expose CSR_LMS7002M_RX_PATTERN_ERRORS.
+    std::string readSetting(const std::string &key) const;
     void writeSetting(const std::string &key,
                       const std::string &value) override;
 

@@ -901,6 +901,26 @@ unsigned SoapyXTRX::readRegister(const std::string &name, const unsigned addr) c
  * Settings API
  ******************************************************************/
 
+std::string SoapyXTRX::readSetting(const std::string &key) const
+{
+    SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX::readSetting(%s)", key.c_str());
+
+    if (key == "FPGA_TX_RX_LOOPBACK_ENABLE") {
+        uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
+        control &= 1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET;
+        return control ? "TRUE" : "FALSE";
+    } else if (key == "FPGA_TX_PATTERN") {
+        uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
+        control &= 1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET;
+        return control ? "1" : "0";
+    } else if (key == "FPGA_RX_PATTERN") {
+        uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR);
+        control &= 1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET;
+        return control ? "1" : "0";
+    } else
+        throw std::runtime_error("SoapyXTRX::readSetting(" + key + ") unknown key");
+}
+
 void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
     SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX::writeSetting(%s, %s)",
                    key.c_str(), value.c_str());
