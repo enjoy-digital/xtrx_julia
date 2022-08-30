@@ -1172,34 +1172,63 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
  * Find available devices
  **********************************************************************/
 
+std::string getXTRXIdentification(int fd) {
+    char fpga_identification[256];
+    for (int i = 0; i < 256; i ++)
+        fpga_identification[i] = litepcie_readl(fd, CSR_IDENTIFIER_MEM_BASE + 4 * i);
+    return std::string(&fpga_identification[0]);
+}
+
+std::string getXTRXSerial(int fd) {
+    char serial[32];
+    snprintf(serial, 32, "%08x%08x",
+                litepcie_readl(fd, CSR_DNA_ID_ADDR + 4 * 0),
+                litepcie_readl(fd, CSR_DNA_ID_ADDR + 4 * 1));
+    return std::string(&serial[0]);
+}
+
 std::vector<SoapySDR::Kwargs> findXTRX(const SoapySDR::Kwargs &args) {
     std::vector<SoapySDR::Kwargs> discovered;
-
-    // TODO: select by serial number, or something unique to each device
-    //       (like the FPGA's DNA; but that currently reads-out incorrectly)
-
     if (args.count("path") != 0) {
         // respect user choice
-        discovered.push_back(args);
+        int fd = open(args.at("path").c_str(), O_RDWR);
+        if (fd < 0)
+            throw std::runtime_error("Invalid device path specified (should be an accessible device node)");
+
+        // gather device info
+        SoapySDR::Kwargs dev(args);
+        dev["serial"] = getXTRXSerial(fd);
+        dev["identification"] = getXTRXIdentification(fd);
+        close(fd);
+
+        discovered.push_back(dev);
     } else {
         // find all LitePCIe devices
         for (int i = 0; i < 10; i++) {
             std::string path = "/dev/litepcie" + std::to_string(i);
-
-            // check the FPGA identification to see if this is an XTRX
             int fd = open(path.c_str(), O_RDWR);
             if (fd < 0)
                 continue;
-            char fpga_identification[256];
-            for (i = 0; i < 256; i ++)
-                fpga_identification[i] = litepcie_readl(fd, CSR_IDENTIFIER_MEM_BASE + 4 * i);
-            if (strstr(fpga_identification, "LiteX SoC on Fairwaves XTRX") != NULL) {
+
+            // check the FPGA identification to see if this is an XTRX
+            std::string fpga_identification = getXTRXIdentification(fd);
+            if (strstr(fpga_identification.c_str(), "LiteX SoC on Fairwaves XTRX") != NULL) {
+                // gather device info
                 SoapySDR::Kwargs dev(args);
                 dev["path"] = path;
-                dev["SN"] = std::to_string((long long)litepcie_readl(fd, CSR_DNA_ID_ADDR) << 32 | litepcie_readl(fd, CSR_DNA_ID_ADDR + 4));
+                dev["serial"] = getXTRXSerial(fd);
+                dev["identification"] = &fpga_identification[0];
+                close(fd);
+
+                // filter by serial if specified
+                if (args.count("serial") != 0) {
+                    // filter on serial number
+                    if (args.at("serial") != dev["serial"])
+                        continue;
+                }
+
                 discovered.push_back(dev);
             }
-            close(fd);
         }
     }
 
