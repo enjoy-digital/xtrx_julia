@@ -27,8 +27,6 @@
 #include <fstream>
 #include <sys/mman.h>
 
-#define EXT_REF_CLK 26e6
-
 void customLogHandler(const LMS7_log_level_t level, const char *message) {
     switch (level) {
     case LMS7_FATAL:    SoapySDR::log(SOAPY_SDR_FATAL, message);    break;
@@ -68,7 +66,7 @@ void dma_set_loopback(int fd, bool loopback_enable) {
 }
 
 SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
-    : _fd(-1), _lms(NULL), _masterClockRate(1.0e6) {
+    : _fd(-1), _lms(NULL), _masterClockRate(1.0e6), _refClockRate(26e6) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
     SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
@@ -120,6 +118,9 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     SoapySDR::logf(SOAPY_SDR_INFO, "LMS7002M info: revision %d, version %d",
                    LMS7002M_regs(_lms)->reg_0x002f_rev,
                    LMS7002M_regs(_lms)->reg_0x002f_ver);
+
+    // set clock to Internal Reference Clock
+    this->setClockSource("internal");
 
     // configure data port directions and data clock rates
     LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
@@ -542,7 +543,7 @@ void SoapyXTRX::setFrequency(const int direction, const size_t channel,
 
     if (name == "RF") {
         double actualFreq = 0.0;
-        int ret = LMS7002M_set_lo_freq(_lms, dir2LMS(direction), EXT_REF_CLK,
+        int ret = LMS7002M_set_lo_freq(_lms, dir2LMS(direction), _refClockRate,
                                        frequency, &actualFreq);
         if (ret != 0)
             throw std::runtime_error("SoapyXTRX::setFrequency(" +
@@ -671,13 +672,13 @@ void SoapyXTRX::setBandwidth(const int direction, const size_t channel,
     double &actualBw = _cachedFilterBws[direction][channel];
     if (direction == SOAPY_SDR_RX) {
         //ret = LMS7002M_rbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
-        ret = LMS7002M_mcu_calibration_rx(_lms, EXT_REF_CLK, bw);
+        ret = LMS7002M_mcu_calibration_rx(_lms, _refClockRate, bw);
         if (ret == 0)
             actualBw = bw;
     }
     if (direction == SOAPY_SDR_TX) {
         //ret = LMS7002M_tbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
-        ret = LMS7002M_mcu_calibration_tx(_lms, EXT_REF_CLK, bw);
+        ret = LMS7002M_mcu_calibration_tx(_lms, _refClockRate, bw);
         if (ret == 0)
             actualBw = bw;
     }
@@ -736,7 +737,7 @@ void SoapyXTRX::setMasterClockRate(const double rate) {
     std::lock_guard<std::mutex> lock(_mutex);
 
     int ret =
-        LMS7002M_set_data_clock(_lms, EXT_REF_CLK, rate, &_masterClockRate);
+        LMS7002M_set_data_clock(_lms, _refClockRate, rate, &_masterClockRate);
     if (ret != 0) {
         SoapySDR::logf(SOAPY_SDR_ERROR, "LMS7002M_set_data_clock(%f MHz) -> %d",
                        rate / 1e6, ret);
@@ -748,6 +749,68 @@ void SoapyXTRX::setMasterClockRate(const double rate) {
 
 double SoapyXTRX::getMasterClockRate(void) const { return _masterClockRate; }
 
+/*!
+ * Set the reference clock rate of the device.
+ * \param rate the clock rate in Hz
+ */
+void SoapyXTRX::setReferenceClockRate(const double rate) {
+    _refClockRate = rate;
+}
+
+/*!
+ * Get the reference clock rate of the device.
+ * \return the clock rate in Hz
+ */
+double SoapyXTRX::getReferenceClockRate(void) const { return _refClockRate; }
+
+/*!
+ * Get the range of available reference clock rates.
+ * \return a list of clock rate ranges in Hz
+ */
+SoapySDR::RangeList SoapyXTRX::getReferenceClockRates(void) const {
+    SoapySDR::RangeList ranges;
+    // Really whatever you want to try...
+    ranges.push_back(SoapySDR::Range(25e6, 27e6));
+    return ranges;
+}
+
+
+
+/*!
+ * Get the list of available clock sources.
+ * \return a list of clock source names
+ */
+std::vector<std::string> SoapyXTRX::listClockSources(void) const {
+    std::vector<std::string> sources;
+    sources.push_back("internal");
+    sources.push_back("external");
+    return sources;
+}
+
+/*!
+ * Set the clock source on the device
+ * \param source the name of a clock source
+ */
+void SoapyXTRX::setClockSource(const std::string &source) {
+    int control = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR);
+    control &= ~(1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
+
+    if (source == "external") {
+        control |= 1 << CSR_VCTCXO_CONTROL_SEL_OFFSET;
+    } else if (source != "internal") {
+        throw std::runtime_error("setClockSource(" + source + ") invalid");
+    }
+    litepcie_writel(_fd, CSR_VCTCXO_CONTROL_ADDR, control);
+}
+
+/*!
+ * Get the clock source of the device
+ * \return the name of a clock source
+ */
+std::string SoapyXTRX::getClockSource(void) const {
+    int source = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR) & (1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
+    return source ? "external" : "internal";
+}
 
 /*******************************************************************
  * Clocking API
@@ -1109,33 +1172,63 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
  * Find available devices
  **********************************************************************/
 
+std::string getXTRXIdentification(int fd) {
+    char fpga_identification[256];
+    for (int i = 0; i < 256; i ++)
+        fpga_identification[i] = litepcie_readl(fd, CSR_IDENTIFIER_MEM_BASE + 4 * i);
+    return std::string(&fpga_identification[0]);
+}
+
+std::string getXTRXSerial(int fd) {
+    char serial[32];
+    snprintf(serial, 32, "%08x%08x",
+                litepcie_readl(fd, CSR_DNA_ID_ADDR + 4 * 0),
+                litepcie_readl(fd, CSR_DNA_ID_ADDR + 4 * 1));
+    return std::string(&serial[0]);
+}
+
 std::vector<SoapySDR::Kwargs> findXTRX(const SoapySDR::Kwargs &args) {
     std::vector<SoapySDR::Kwargs> discovered;
-
-    // TODO: select by serial number, or something unique to each device
-    //       (like the FPGA's DNA; but that currently reads-out incorrectly)
-
     if (args.count("path") != 0) {
         // respect user choice
-        discovered.push_back(args);
+        int fd = open(args.at("path").c_str(), O_RDWR);
+        if (fd < 0)
+            throw std::runtime_error("Invalid device path specified (should be an accessible device node)");
+
+        // gather device info
+        SoapySDR::Kwargs dev(args);
+        dev["serial"] = getXTRXSerial(fd);
+        dev["identification"] = getXTRXIdentification(fd);
+        close(fd);
+
+        discovered.push_back(dev);
     } else {
         // find all LitePCIe devices
         for (int i = 0; i < 10; i++) {
             std::string path = "/dev/litepcie" + std::to_string(i);
-
-            // check the FPGA identification to see if this is an XTRX
             int fd = open(path.c_str(), O_RDWR);
             if (fd < 0)
                 continue;
-            char fpga_identification[256];
-            for (i = 0; i < 256; i ++)
-                fpga_identification[i] = litepcie_readl(fd, CSR_IDENTIFIER_MEM_BASE + 4 * i);
-            if (strstr(fpga_identification, "LiteX SoC on Fairwaves XTRX") != NULL) {
+
+            // check the FPGA identification to see if this is an XTRX
+            std::string fpga_identification = getXTRXIdentification(fd);
+            if (strstr(fpga_identification.c_str(), "LiteX SoC on Fairwaves XTRX") != NULL) {
+                // gather device info
                 SoapySDR::Kwargs dev(args);
                 dev["path"] = path;
+                dev["serial"] = getXTRXSerial(fd);
+                dev["identification"] = &fpga_identification[0];
+                close(fd);
+
+                // filter by serial if specified
+                if (args.count("serial") != 0) {
+                    // filter on serial number
+                    if (args.at("serial") != dev["serial"])
+                        continue;
+                }
+
                 discovered.push_back(dev);
             }
-            close(fd);
         }
     }
 
