@@ -35,8 +35,8 @@ Note that we currently carry [our own patch for resizing the addressable memory 
 LiteX can be installed by following the installation instructions from the LiteX
 Wiki: https://github.com/enjoy-digital/litex/wiki/Installation
 
-There are currently known issues with the latest master branches of LiteX, so
-be sure to use the 2022.04 version (by specifying `--tag 2022.04` to `litex_setup.py`).
+Be sure to use the latest master branch of the LiteX sources, as none of the
+currently-available tags include some of the changes we require.
 
 ### [> Installing the RISC-V toolchain for the Soft-CPU:
 
