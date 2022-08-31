@@ -13,9 +13,15 @@ steps:
             # Include `/cache/repos` so that we can `git diff`
             - "/cache/repos:/cache/repos"
     commands: |
-      echo "--- patch faulty rootfs"
+      echo "--- Patch faulty rootfs"
       rm -f /usr/local/bin/vivado
       export PATH=$${PATH}:$$(echo /usr/local/vivado/Vivado/*/bin)
+
+      echo "--- Update LiteX"
+      pushd /usr/local/litex
+      curl -Lso litex_setup.py https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
+      python3 litex_setup.py --update --install
+      popd
 
       echo "--- Build LiteX project"
       python3 fairwaves_xtrx.py --build
@@ -78,7 +84,7 @@ steps:
 
       echo "--- debugging"
       find $$(pwd)/build
-      
+
       echo "--- Bundle litepcie kernel modules"
       tar -cvzf litepcie-kernel-modules.tar.gz -C "$$(echo $$(pwd)/build/lib/modules/*/extra)" .
     artifact_paths:
