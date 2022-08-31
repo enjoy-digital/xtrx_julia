@@ -396,32 +396,31 @@ static int litepcie_dma_writer_start(struct litepcie_device *s, int chan_num)
 
 	dmachan = &s->chan[chan_num].dma;
 
-	/* fill dma writer descriptors */
+	/* Fill DMA Writer descriptors. */
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_ENABLE_OFFSET, 0);
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_FLUSH_OFFSET, 1);
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_LOOP_PROG_N_OFFSET, 0);
 	for (i = 0; i < DMA_BUFFER_COUNT; i++) {
+		/* Fill buffer size + parameters. */
 		litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_VALUE_OFFSET,
 #ifndef DMA_BUFFER_ALIGNED
-				DMA_LAST_DISABLE |
+			DMA_LAST_DISABLE |
 #endif
-					(!(i%DMA_BUFFER_PER_IRQ == 0)) * DMA_IRQ_DISABLE | /* generate an msi */
-					DMA_BUFFER_SIZE);                                  /* every n buffers */
-#if (DMA_ADDR_WIDTH == 64)
-		litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_VALUE_OFFSET + 4, (dmachan->writer_handle[i] >> 32) & 0xffffffff);
-		litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_VALUE_OFFSET + 8, (dmachan->writer_handle[i] >>  0) & 0xffffffff);
-#else
-		litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_VALUE_OFFSET + 4, dmachan->writer_handle[i]);
-#endif
-		litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_WE_OFFSET, 1);
+			(!(i%DMA_BUFFER_PER_IRQ == 0)) * DMA_IRQ_DISABLE | /* generate an msi */
+			DMA_BUFFER_SIZE);                                  /* every n buffers */
+		/* Fill 32-bit Address LSB. */
+		litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_VALUE_OFFSET + 4, (dmachan->writer_handle[i] >>  0) & 0xffffffff);
+		/* Write descriptor (and fill 32-bit Address MSB for 64-bit mode). */
+		litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_WE_OFFSET,        (dmachan->writer_handle[i] >> 32) & 0xffffffff);
 	}
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_LOOP_PROG_N_OFFSET, 1);
 
-	/* clear counters */
+	/* Clear counters. */
 	dmachan->writer_hw_count = 0;
 	dmachan->writer_hw_count_last = 0;
+	dmachan->writer_sw_count = 0;
 
-	/* start dma writer */
+	/* Start DMA Writer. */
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_ENABLE_OFFSET, 1);
 
 	return 0;
@@ -438,14 +437,14 @@ static int litepcie_dma_writer_stop(struct litepcie_device *s, int chan_num)
 
 	dmachan = &s->chan[chan_num].dma;
 
-	/* flush and stop dma writer */
+	/* Flush and stop DMA Writer. */
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_LOOP_PROG_N_OFFSET, 0);
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_FLUSH_OFFSET, 1);
 	udelay(1000);
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_ENABLE_OFFSET, 0);
 	litepcie_writel(s, dmachan->base + PCIE_DMA_WRITER_TABLE_FLUSH_OFFSET, 1);
 
-	/* clear counters */
+	/* Clear counters. */
 	dmachan->writer_hw_count = 0;
 	dmachan->writer_hw_count_last = 0;
 	dmachan->writer_sw_count = 0;
@@ -465,30 +464,29 @@ static int litepcie_dma_reader_start(struct litepcie_device *s, int chan_num)
 
 	dmachan = &s->chan[chan_num].dma;
 
-	/* fill dma reader descriptors */
+	/* Fill DMA Reader descriptors. */
 	litepcie_writel(s, dmachan->base + PCIE_DMA_READER_ENABLE_OFFSET, 0);
 	litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_FLUSH_OFFSET, 1);
 	litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_LOOP_PROG_N_OFFSET, 0);
 	for (i = 0; i < DMA_BUFFER_COUNT; i++) {
+		/* Fill buffer size + parameters. */
 		litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_VALUE_OFFSET,
 #ifndef DMA_BUFFER_ALIGNED
-				DMA_LAST_DISABLE |
+			DMA_LAST_DISABLE |
 #endif
-					(!(i%DMA_BUFFER_PER_IRQ == 0)) * DMA_IRQ_DISABLE | /* generate an msi */
-					DMA_BUFFER_SIZE);                                  /* every n buffers */
-#if (DMA_ADDR_WIDTH == 64)
-		litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_VALUE_OFFSET + 4, (dmachan->reader_handle[i] >> 32) & 0xffffffff);
-		litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_VALUE_OFFSET + 8, (dmachan->reader_handle[i] >>  0) & 0xffffffff);
-#else
-		litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_VALUE_OFFSET + 4, dmachan->reader_handle[i]);
-#endif
-		litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_WE_OFFSET, 1);
+			(!(i%DMA_BUFFER_PER_IRQ == 0)) * DMA_IRQ_DISABLE | /* generate an msi */
+			DMA_BUFFER_SIZE);                                  /* every n buffers */
+		/* Fill 32-bit Address LSB. */
+		litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_VALUE_OFFSET + 4, (dmachan->reader_handle[i] >>  0) & 0xffffffff);
+		/* Write descriptor (and fill 32-bit Address MSB for 64-bit mode). */
+		litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_WE_OFFSET, (dmachan->reader_handle[i] >> 32) & 0xffffffff);
 	}
 	litepcie_writel(s, dmachan->base + PCIE_DMA_READER_TABLE_LOOP_PROG_N_OFFSET, 1);
 
 	/* clear counters */
 	dmachan->reader_hw_count = 0;
 	dmachan->reader_hw_count_last = 0;
+	dmachan->reader_sw_count = 0;
 
 	/* start dma reader */
 	litepcie_writel(s, dmachan->base + PCIE_DMA_READER_ENABLE_OFFSET, 1);
@@ -1290,14 +1288,14 @@ static int litepcie_pci_probe(struct pci_dev *dev, const struct pci_device_id *i
 
 	ret = -EIO;
 
-	/* check device version */
+	/* Check device version */
 	pci_read_config_byte(dev, PCI_REVISION_ID, &rev_id);
 	if (rev_id != 0) {
 		dev_err(&dev->dev, "Unsupported device version %d\n", rev_id);
 		goto fail1;
 	}
 
-	/* check bar0 config */
+	/* Check bar0 config */
 	if (!(pci_resource_flags(dev, 0) & IORESOURCE_MEM)) {
 		dev_err(&dev->dev, "Invalid BAR0 configuration\n");
 		goto fail1;
@@ -1314,7 +1312,13 @@ static int litepcie_pci_probe(struct pci_dev *dev, const struct pci_device_id *i
 		goto fail1;
 	}
 
-	/* show identifier */
+	/* Reset LitePCIe core */
+#ifdef CSR_CTRL_RESET_ADDR
+	litepcie_writel(litepcie_dev, CSR_CTRL_RESET_ADDR, 1);
+	msleep(10);
+#endif
+
+	/* Show identifier */
 	for (i = 0; i < 256; i++)
 		fpga_identifier[i] = litepcie_readl(litepcie_dev, CSR_IDENTIFIER_MEM_BASE + i*4);
 	dev_info(&dev->dev, "Version %s\n", fpga_identifier);
@@ -1443,7 +1447,7 @@ static int litepcie_pci_probe(struct pci_dev *dev, const struct pci_device_id *i
 		(resource_size_t) litepcie_dev->bar0_addr +
 		CSR_UART_XOVER_RXTX_ADDR - CSR_BASE;
 	tty_res->flags = IORESOURCE_REG;
-	litepcie_dev->uart = platform_device_register_simple("liteuart", -1, tty_res, 1);
+	litepcie_dev->uart = platform_device_register_simple("liteuart", litepcie_minor_idx, tty_res, 1);
 	if (IS_ERR(litepcie_dev->uart)) {
 		ret = PTR_ERR(litepcie_dev->uart);
 		goto fail3;
