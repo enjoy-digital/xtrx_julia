@@ -41,13 +41,18 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     size_t getNumChannels(const int) const { return 2; }
     bool getFullDuplex(const int, const size_t) const { return true; }
 
-    std::string getNativeStreamFormat(const int direction, const size_t channel, double &fullScale) const {fullScale = 4096; return SOAPY_SDR_CS16; }
+    std::string getNativeStreamFormat(const int /*direction*/,
+                                      const size_t /*channel*/,
+                                      double &fullScale) const {
+        fullScale = 4096;
+        return SOAPY_SDR_CS16;
+    }
 
     // Stream API
     SoapySDR::Stream *setupStream(const int direction,
                                   const std::string &format,
                                   const std::vector<size_t> &channels,
-                                  const SoapySDR::Kwargs &);
+                                  const SoapySDR::Kwargs &args);
     void closeStream(SoapySDR::Stream *stream) override;
     int activateStream(SoapySDR::Stream *stream, const int flags,
                        const long long timeNs, const size_t numElems) override;
@@ -93,7 +98,9 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
                      const std::complex<double> &offset) override;
     std::complex<double> getDCOffset(const int direction,
                                      const size_t channel) const override;
-    bool hasIQBalance(const int direction, const size_t channel) const {return true;};
+    bool hasIQBalance(const int /*direction*/, const size_t /*channel*/) const {
+        return true;
+    }
     void setIQBalance(const int direction, const size_t channel,
                       const std::complex<double> &balance) override;
     std::complex<double> getIQBalance(const int direction,

@@ -366,8 +366,8 @@ std::string SoapyXTRX::getAntenna(const int direction,
  * Frontend corrections API
  ******************************************************************/
 
-bool SoapyXTRX::hasDCOffsetMode(const int direction, const size_t channel) const {
-
+bool SoapyXTRX::hasDCOffsetMode(const int direction,
+                                const size_t /*channel*/) const {
     if (direction == SOAPY_SDR_RX) {
         return true;
     } else {
@@ -397,7 +397,8 @@ bool SoapyXTRX::getDCOffsetMode(const int direction,
     }
 }
 
-bool SoapyXTRX::hasDCOffset(const int direction, const size_t channel) const {
+bool SoapyXTRX::hasDCOffset(const int direction,
+                            const size_t /*channel*/) const {
 
     if (direction == SOAPY_SDR_TX) {
         return true;
@@ -532,7 +533,7 @@ SoapySDR::Range SoapyXTRX::getGainRange(const int direction,
 
 void SoapyXTRX::setFrequency(const int direction, const size_t channel,
                              const std::string &name, const double frequency,
-                             const SoapySDR::Kwargs &) {
+                             const SoapySDR::Kwargs &/*args*/) {
     std::unique_lock<std::mutex> lock(_mutex);
 
     SoapySDR::logf(SOAPY_SDR_DEBUG,
@@ -568,8 +569,8 @@ double SoapyXTRX::getFrequency(const int direction, const size_t channel,
     return _cachedFreqValues.at(direction).at(channel).at(name);
 }
 
-std::vector<std::string> SoapyXTRX::listFrequencies(const int direction,
-                                                    const size_t) const {
+std::vector<std::string> SoapyXTRX::listFrequencies(const int /*direction*/,
+                                                    const size_t /*channel*/) const {
     std::vector<std::string> opts;
     opts.push_back("RF");
     opts.push_back("BB");
@@ -577,7 +578,7 @@ std::vector<std::string> SoapyXTRX::listFrequencies(const int direction,
 }
 
 SoapySDR::RangeList
-SoapyXTRX::getFrequencyRange(const int direction, const size_t channel,
+SoapyXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
                              const std::string &name) const {
     SoapySDR::RangeList ranges;
     if (name == "RF") {
@@ -647,12 +648,11 @@ std::vector<double> SoapyXTRX::listSampleRates(const int direction,
     return rates;
 }
 
-std::vector<std::string> SoapyXTRX::getStreamFormats(const int direction, const size_t channel) const
+std::vector<std::string> SoapyXTRX::getStreamFormats(const int /*direction*/,
+                                                     const size_t /*channel*/) const
 {
     std::vector<std::string> formats;
-
     formats.push_back(SOAPY_SDR_CS16);
-
     return formats;
 }
 
