@@ -368,6 +368,8 @@ class LMS7002M(Module, AutoCSR):
         self.comb += rx_cdc.source.connect(self.source)
 
         # RX Frame.
+        rx_frame0 = Signal()
+        rx_frame1 = Signal()
         iqsel1_delayed = Signal()
         self.specials += Instance("IDELAYE2",
             p_IDELAY_TYPE      = "VAR_LOAD",
@@ -389,10 +391,10 @@ class LMS7002M(Module, AutoCSR):
             i_S  = 0,
             i_R  = 0,
             i_D  = iqsel1_delayed,
-            o_Q1 = rx_frame[0],
-            o_Q2 = rx_frame[1],
+            o_Q1 = rx_frame0,
+            o_Q2 = rx_frame1,
         )
-        self.comb += rx_aligned.eq((rx_frame == 0b00) | (rx_frame == 0b11))
+        self.comb += rx_aligned.eq(rx_frame0 == rx_frame1)
         self.specials += MultiReg(rx_aligned, self.status.fields.rx_frame_aligned)
 
         # RX Data.
@@ -423,13 +425,21 @@ class LMS7002M(Module, AutoCSR):
                 o_Q1 = rx_data0[n],
                 o_Q2 = rx_data1[n],
             )
-        rx_data1_d = Signal(16)
+
+        # RX Data/Frame alignment.
+        rx_frame1_d = Signal()
+        rx_data1_d  = Signal(16)
         self.sync.rfic += [
+            rx_frame1_d.eq(rx_frame1),
             rx_data1_d.eq(rx_data1),
             If(rx_aligned,
+                rx_frame[0].eq(rx_frame0),
+                rx_frame[1].eq(rx_frame1),
                 rx_data[:16].eq(rx_data0),
                 rx_data[16:].eq(rx_data1),
             ).Else(
+                rx_frame[0].eq(rx_frame1_d),
+                rx_frame[1].eq(rx_frame0),
                 rx_data[:16].eq(rx_data1_d),
                 rx_data[16:].eq(rx_data0),
             )
@@ -444,6 +454,7 @@ class LMS7002M(Module, AutoCSR):
             # ...Else...
             ).Else(
                 rx_conv.sink.valid.eq(1),
+                rx_conv.sink.last.eq(rx_frame != 0),
                 # Do a TX-RX Loopback with 12-bit masking when enabled (to match LMS7002M behaviour)...
                 If(self.control.fields.tx_rx_loopback_enable,
                     rx_conv.sink.data.eq(tx_data & 0x0fff0fff)
