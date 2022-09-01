@@ -1181,7 +1181,7 @@ std::string getXTRXIdentification(int fd) {
 
 std::string getXTRXSerial(int fd) {
     char serial[32];
-    snprintf(serial, 32, "%08x%08x",
+    snprintf(serial, 32, "%x%08x",
                 litepcie_readl(fd, CSR_DNA_ID_ADDR + 4 * 0),
                 litepcie_readl(fd, CSR_DNA_ID_ADDR + 4 * 1));
     return std::string(&serial[0]);
