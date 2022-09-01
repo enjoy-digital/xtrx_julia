@@ -324,7 +324,7 @@ void readbuf(int8_t *src, void *dst, uint32_t len, std::string format, size_t of
     {
 
         int16_t *samples_cs16 = (int16_t *)dst + offset * BYTES_PER_SAMPLE;
-        for (uint32_t i = 0; i < len; ++i)
+        for (uint32_t i = offset; i < len; i+=2)
         {
             samples_cs16[i * BYTES_PER_SAMPLE] = (int16_t)(src[i * BYTES_PER_SAMPLE] << 8);
             samples_cs16[i * BYTES_PER_SAMPLE + 1] = (int16_t)(src[i * BYTES_PER_SAMPLE + 1] << 8);
@@ -341,7 +341,7 @@ void writebuf(const void *src, int8_t *dst, uint32_t len, std::string format, si
     if (format == SOAPY_SDR_CS16)
     {
         int16_t *samples_cs16 = (int16_t *)src + offset * BYTES_PER_SAMPLE;
-        for (uint32_t i = 0; i < len; ++i)
+        for (uint32_t i = offset; i < len; i+=2)
         {
             dst[i * BYTES_PER_SAMPLE] = (int8_t)(samples_cs16[i * BYTES_PER_SAMPLE] >> 8);
             dst[i * BYTES_PER_SAMPLE + 1] = (int8_t)(samples_cs16[i * BYTES_PER_SAMPLE + 1] >> 8);
@@ -380,7 +380,10 @@ int SoapyXTRX::readStream(
             samp_avail = n;
         }
 
-        readbuf(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[0], n, _rx_stream.format, 0);
+        // Read out channel A
+        readbuf(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[0], n/2, _rx_stream.format, 0);
+        // Read out channel B
+        readbuf(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[1], n/2, _rx_stream.format, 0);
 
         _rx_stream.remainderOffset += n;
         _rx_stream.remainderSamps -= n;
@@ -455,7 +458,11 @@ int SoapyXTRX::writeStream(
             samp_avail = n;
         }
 
-        writebuf(buffs[0], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n, _tx_stream.format, 0);
+        // Write out channel A
+        writebuf(buffs[0], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, 0);
+        // Write out channel B
+        writebuf(buffs[1], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, 1);
+
         _tx_stream.remainderSamps -= n;
         _tx_stream.remainderOffset += n;
 
