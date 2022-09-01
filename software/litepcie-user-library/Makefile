@@ -1,6 +1,6 @@
 REPO_DIR ?= $(shell dirname $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))))
 
-PROGS=litepcie_util litepcie_test litepcie_dma_minimal_example
+PROGS=litepcie_util litepcie_test
 LIBLITEPCIE := liblitepcie/liblitepcie.a
 all: $(PROGS)
 
