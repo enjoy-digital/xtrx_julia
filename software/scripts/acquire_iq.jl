@@ -140,24 +140,22 @@ function do_txrx(; digital_loopback::Bool = false,
         # Let's drop a few of the first buffers to skip startup effects
         drop_nbufs = 0
         if !lfsr_loopback
-            drop_nbufs = rd_nbufs
+            drop_nbufs = 4
         end
 
-        # Read 2x as many buffers as we write
-        if !lfsr_loopback
-            rd_nbufs *= 2
-        else
-            # If we're dealing with the LFSR loopback, don't get too many buffers
-            # as it takes a long time to plot randomness, and don't bother to write anything
+        # If we're dealing with the LFSR loopback, don't get too many buffers
+        # as it takes a long time to plot randomness, and don't bother to write anything
+        if lfsr_loopback
             wr_nbufs = 0
             rd_nbufs = 4
         end
 
         # prepare some data to send:
         rate = 10
+        num_repeats = 4
         num_channels = Int(length(dev.tx))
         mtu = Int(stream_tx.mtu)
-        samples = mtu*wr_nbufs
+        samples = div(mtu*wr_nbufs, num_repeats)
         t = (1:samples)./samples
         data_tx = zeros(format, num_channels, samples)
 
@@ -185,7 +183,7 @@ function do_txrx(; digital_loopback::Bool = false,
                     err = 1 # keep going
                 end
                 @assert err > 0
-                unsafe_copyto!(buffs[1], pointer(data_tx, num_channels*mtu*written_buffs+1), num_channels*mtu)
+                unsafe_copyto!(buffs[1], pointer(data_tx, mod1(num_channels*mtu*written_buffs+1, prod(size(data_tx)))), num_channels*mtu)
                 SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
                 written_buffs += 1
             end
