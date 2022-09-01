@@ -194,6 +194,10 @@ class LMS7002M(Module, AutoCSR):
                 ("``0b0``", "LMS7002M RX Disabled."),
                 ("``0b1``", "LMS7002M RX Enabled.")
             ], reset=1),
+            CSRField("tx_inhibit", size=1, offset=10, values=[
+                ("``0b0``", "TX Data from DMA."),
+                ("``0b1``", "TX Data inhibited (zeroes).")
+            ], reset=0),
             CSRField("tx_rx_loopback_enable", size=1, offset=16, values=[
                 ("``0b0``", "TX-RX FPGA Loopback Disable."),
                 ("``0b1``", "TX-RX FPGA Loopback Enable.")
@@ -305,6 +309,10 @@ class LMS7002M(Module, AutoCSR):
                 tx_frame[0].eq(tx_conv.source.last),
                 tx_frame[1].eq(tx_conv.source.last),
                 tx_data.eq(tx_conv.source.data),
+                # When TX is inhibited, transmit zeroes.
+                If(self.control.fields.tx_inhibit,
+                    tx_data.eq(0)
+                )
             )
         ]
 
