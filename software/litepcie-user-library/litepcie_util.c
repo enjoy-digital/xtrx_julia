@@ -553,6 +553,159 @@ void uart_test(void)
 }
 #endif
 
+/* GPS */
+/*-----*/
+
+void gps_test(void)
+{
+    int fd;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Enabling GPS...\n");
+    litepcie_writel(fd, CSR_GPS_CONTROL_ADDR,
+        1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET)
+    );
+
+    printf("Dump GPS UART...\n");
+    while (1) {
+        if (litepcie_readl(fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0)
+            printf("%c", litepcie_readl(fd, CSR_GPS_UART_RXTX_ADDR));
+        usleep(10);
+    }
+
+    close(fd);
+}
+
+/* LMS7002M */
+/*----------*/
+
+#define SPI_CS_HIGH (0 << 0)
+#define SPI_CS_LOW  (1 << 0)
+#define SPI_START   (1 << 0)
+#define SPI_DONE    (1 << 0)
+#define SPI_LENGTH  (1 << 8)
+
+static void lms7002m_spi_write(int fd, int addr, int value) {
+    int cmd;
+    int dat;
+    cmd = (1 << 15) | (addr & 0x7fff);
+    dat = value & 0xffff;
+    litepcie_writel(fd, CSR_LMS7002M_SPI_MOSI_ADDR, cmd << 16 | dat);
+    litepcie_writel(fd, CSR_LMS7002M_SPI_CONTROL_ADDR, 32*SPI_LENGTH | SPI_START);
+    while ((litepcie_readl(fd, CSR_LMS7002M_SPI_STATUS_ADDR) & SPI_DONE) == 0);
+}
+
+static int lms7002m_spi_read(int fd, int addr) {
+    int cmd;
+    int dat;
+    cmd = (0 << 15) | (addr & 0x7fff);
+    litepcie_writel(fd, CSR_LMS7002M_SPI_MOSI_ADDR, cmd << 16);
+    litepcie_writel(fd, CSR_LMS7002M_SPI_CONTROL_ADDR, 32*SPI_LENGTH | SPI_START);
+    while ((litepcie_readl(fd, CSR_LMS7002M_SPI_STATUS_ADDR) & SPI_DONE) == 0);
+    dat = litepcie_readl(fd, CSR_LMS7002M_SPI_MISO_ADDR) & 0xffff;
+    return dat;
+}
+
+void lms7002m_reset(void)
+{
+    int fd;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Enabling LMS7002M...\n");
+    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR,
+        0 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)      |
+        0 * (1 << CSR_LMS7002M_CONTROL_POWER_DOWN_OFFSET) |
+        0 * (1 << CSR_LMS7002M_CONTROL_TX_ENABLE_OFFSET)  |
+        0 * (1 << CSR_LMS7002M_CONTROL_RX_ENABLE_OFFSET)
+    );
+
+    printf("Reset LMS7002M...\n");
+    lms7002m_spi_write(fd, 0x20, 0x0000);
+    printf("0x20: 0x%04x\n", lms7002m_spi_read(fd, 0x20));
+    lms7002m_spi_write(fd, 0x20, 0xffff);
+    printf("0x20: 0x%04x\n", lms7002m_spi_read(fd, 0x20));
+
+    close(fd);
+}
+
+
+void lms7002m_dump(void)
+{
+    int fd;
+    int i;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Enabling LMS7002M...\n");
+    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR,
+        0 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)      |
+        0 * (1 << CSR_LMS7002M_CONTROL_POWER_DOWN_OFFSET) |
+        0 * (1 << CSR_LMS7002M_CONTROL_TX_ENABLE_OFFSET)  |
+        0 * (1 << CSR_LMS7002M_CONTROL_RX_ENABLE_OFFSET)
+    );
+
+    printf("Dump LMS7002M Registers...\n");
+    for (i=0; i<64; i++) {
+        printf("reg 0x%04x: 0x%04x\n", i, lms7002m_spi_read(fd, i));
+    }
+
+    close(fd);
+}
+
+void lms7002m_set_tx_pattern(uint8_t enable)
+{
+    int fd;
+    uint32_t control;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Setting LMS7002M FPGA TX pattern to %d\n", enable);
+    control  = litepcie_readl(fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR);
+    control &= ~(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
+    control |= enable *(1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET);
+    litepcie_writel(fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR, control);
+
+    close(fd);
+}
+
+void lms7002m_set_tx_rx_loopback(uint8_t enable)
+{
+    int fd;
+    uint32_t control;
+
+    fd = open(litepcie_device, O_RDWR);
+    if (fd < 0) {
+        fprintf(stderr, "Could not init driver\n");
+        exit(1);
+    }
+
+    printf("Setting LMS7002M FPGA TX-RX internal loopback to %d\n", enable);
+    control  = litepcie_readl(fd, CSR_LMS7002M_CONTROL_ADDR);
+    control &= ~(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
+    control |= enable *(1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
+    litepcie_writel(fd, CSR_LMS7002M_CONTROL_ADDR, control);
+
+    close(fd);
+}
+
 /* Help */
 /*------*/
 
@@ -578,6 +731,12 @@ static void help(void)
 #ifdef CSR_UART_XOVER_RXTX_ADDR
            "uart_test                         Test CPU Crossover UART\n"
 #endif
+           "gps_test                          Test GPS\n"
+           "\n"
+           "lms_reset                         Reset LMS7002M\n"
+           "lms_dump                          Dump LMS7002M registers\n"
+           "lms_set_tx_pattern                Set LMS7002M TX pattern\n"
+           "lms_set_tx_rx_loopback            Set LMS7002M TX-RX loopback (in FPGA)\n"
            "\n"
 #ifdef CSR_FLASH_BASE
            "flash_write filename [offset]     Write file contents to SPI Flash.\n"
@@ -649,16 +808,20 @@ int main(int argc, char **argv)
 
     cmd = argv[optind++];
 
-    /* Info cmds. */
     if (!strcmp(cmd, "info"))
         info();
     /* Scratch cmds. */
     else if (!strcmp(cmd, "scratch_test"))
         scratch_test();
+    /* UART cmds. */
 #ifdef CSR_UART_XOVER_RXTX_ADDR
     else if (!strcmp(cmd, "uart_test"))
         uart_test();
 #endif
+    /* GPS cmds. */
+    else if (!strcmp(cmd, "gps_test"))
+        gps_test();
+    /* SPI Flash cmds. */
 #if CSR_FLASH_BASE
     else if (!strcmp(cmd, "flash_write")) {
         const char *filename;
@@ -692,6 +855,24 @@ int main(int argc, char **argv)
             litepcie_device_external_loopback,
             litepcie_data_width,
             litepcie_auto_rx_delay);
+    /* LMS7002M cmds. */
+    else if (!strcmp(cmd, "lms_reset"))
+        lms7002m_reset();
+    else if (!strcmp(cmd, "lms_dump"))
+        lms7002m_dump();
+    else if (!strcmp(cmd, "lms_set_tx_pattern")) {
+        uint8_t enable = 0;
+        if (optind + 1 > argc)
+            goto show_help;
+        enable = strtoul(argv[optind++], NULL, 0);
+        lms7002m_set_tx_pattern(enable);
+    } else if (!strcmp(cmd, "lms_set_tx_rx_loopback")) {
+        uint8_t enable = 0;
+        if (optind + 1 > argc)
+            goto show_help;
+        enable = strtoul(argv[optind++], NULL, 0);
+        lms7002m_set_tx_rx_loopback(enable);
+    }
 
     /* Show help otherwise. */
     else
