@@ -19,8 +19,14 @@ steps:
 
       echo "--- Update LiteX"
       pushd /usr/local/litex
+      # first update to latest master
       curl -Lso litex_setup.py https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
-      python3 litex_setup.py --update --install
+      python3 litex_setup.py --update
+      # then go back to a known state
+      while IFS="," read -r repo sha; do
+          git -C $$repo reset --hard $$sha || true
+      done < $$BUILDKITE_BUILD_CHECKOUT_PATH/LitexManifest
+      python3 ./litex/litex_setup.py --install
       popd
 
       echo "--- Build LiteX project"
