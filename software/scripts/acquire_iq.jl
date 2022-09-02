@@ -103,7 +103,7 @@ function do_txrx(mode::Symbol;
             if mode != :trf_loopback
                 cr.antenna = :LNAL
             else
-                cr.antenna = Symbol("LB$(c_idx)")
+                cr.antenna = :LB1
             end
         end
 
@@ -202,6 +202,10 @@ function do_txrx(mode::Symbol;
         data_tx[1, :] .= format.(
             round.(sin.(2π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
             round.(cos.(2π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
+        )
+        data_tx[2, :] .= format.(
+            round.(sin.(8π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
+            round.(cos.(8π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
         )
 
         # We're going to push values onto this list,
