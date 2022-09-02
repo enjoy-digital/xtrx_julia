@@ -85,7 +85,7 @@ SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
 
         _tx_stream.opened = true;
 
-        _rx_stream.format = format;
+        _tx_stream.format = format;
 
         return TX_STREAM;
     } else {
@@ -356,7 +356,7 @@ void readbuf(int8_t *src, void *dst, uint32_t len, std::string format, size_t of
     }
     else
     {
-        SoapySDR_log(SOAPY_SDR_ERROR, "read format not support");
+        SoapySDR_logf(SOAPY_SDR_ERROR, "Unsupported read format: %s", format.c_str());
     }
 }
 
@@ -373,7 +373,7 @@ void writebuf(const void *src, int8_t *dst, uint32_t len, std::string format, si
     }
     else
     {
-        SoapySDR_log(SOAPY_SDR_ERROR, "write format not support");
+        SoapySDR_logf(SOAPY_SDR_ERROR, "Unsupported write format: %s", format.c_str());
     }
 }
 
