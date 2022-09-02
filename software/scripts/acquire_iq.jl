@@ -51,8 +51,14 @@ end
 function do_txrx(mode::Symbol;
                  register_sets::Vector{<:Pair} = Pair[],
                  dump_inis::Bool = false)
-    # open the first device
-    Device(first(Devices())) do dev
+    # If we're running on pathfinder, pick a specific device
+    device_kwargs = Dict{Symbol,Any}()
+    if chomp(String(read(`hostname`))) == "pathfinder"
+        device_kwargs[:driver] = "XTRX"
+        device_kwargs[:serial] = "121c444ea8c85c"
+    end
+
+    Device(first(Devices(;device_kwargs...))) do dev
         # Get some useful parameters
         format = dev.rx[1].native_stream_format
         fullscale = dev.tx[1].fullscale
