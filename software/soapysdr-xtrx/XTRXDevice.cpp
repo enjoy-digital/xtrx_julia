@@ -40,6 +40,9 @@ void customLogHandler(const LMS7_log_level_t level, const char *message) {
     }
 }
 
+// Forward declaration for usage in constructor.
+std::string getXTRXSerial(int fd);
+
 
 /***********************************************************************
  * Constructor
@@ -82,6 +85,7 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     if (_fd < 0)
         throw std::runtime_error("SoapyXTRX(): failed to open " + path);
 
+    SoapySDR::logf(SOAPY_SDR_INFO, "Opened devnode %s, serial %s", path.c_str(), getXTRXSerial(_fd).c_str());
     // reset the LMS7002M
     litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR,
         1 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)
