@@ -71,6 +71,7 @@ class BaseSoC(SoCCore):
         "icap"        : 1,
         "flash"       : 2,
         "xadc"        : 3,
+        "dna"         : 4,
 
         # PCIe.
         "pcie_phy"    : 10,
