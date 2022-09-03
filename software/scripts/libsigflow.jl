@@ -236,6 +236,12 @@ function stream_data(paths::Vector{<:AbstractString}, in::Channel{Matrix{T}}) wh
     end)
 end
 
+"""
+    stream_data(paths::Vector{<:AbstractString}, T::DataType; chunk_size)
+
+Read in a set of files as a coherent chunk of channels.  Use `chunk_size`
+to set the initial stream buffer chunk size (defaults to a 4K page on disk)
+"""
 function stream_data(paths::Vector{<:AbstractString}, T::DataType;
                      chunk_size::Int = div(4096, sizeof(T)))
     fds = [open(path, read=true) for path in paths]
