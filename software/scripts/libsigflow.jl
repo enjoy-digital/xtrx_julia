@@ -141,13 +141,13 @@ function soapy_write!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 0.1u"s",
 end
 
 """
-    stream_data(s_rx::SoapySDR.Stream, num_samples::Integer)
+    stream_data(s_rx::SoapySDR.Stream, end_condition::Union{Integer,Event})
 
 Returns a `Channel` which will yield buffers of data to be processed of size `s_rx.mtu`.
 Starts an asynchronous task that does the reading from the stream, until the requested
-number of samples are read.
+number of samples are read, or the given `Event` is notified.
 """
-function stream_data(s_rx::SoapySDR.Stream{T}, num_samples::Integer;
+function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base.Event};
                      leadin_buffers::Integer = 16,
                      kwargs...) where {T}
     # Wrapper to activate/deactivate `s_rx`
@@ -164,11 +164,18 @@ function stream_data(s_rx::SoapySDR.Stream{T}, num_samples::Integer;
         end
     end
 
-    # Read streams until we exhaust the number of buffs
+    # Read streams until we read the number of samples, or the given event
+    # is triggered
     buff_idx = 0
     return generate_stream(s_rx.mtu, s_rx.nchannels; wrapper, T, kwargs...) do buff
-        if buff_idx*s_rx.mtu >= num_samples
-            return false
+        if isa(end_condition, Integer)
+            if buff_idx*s_rx.mtu >= end_condition
+                return false
+            end
+        else
+            if end_condition.set
+                return false
+            end
         end
 
         soapy_read!(s_rx, buff)
