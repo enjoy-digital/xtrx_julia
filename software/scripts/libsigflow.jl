@@ -38,47 +38,56 @@ function generate_stream(gen_buff!::Function, buff_size::Integer, num_channels::
     end)
     return c
 end
-function generate_stream(f::Function, s::SoapySDR.Stream; kwargs...)
-    return generate_stream(f, s.mtu, s.nchannels; kwargs...)
+function generate_stream(f::Function, s::SoapySDR.Stream{T}; kwargs...) where {T}
+    return generate_stream(f, s.mtu, s.nchannels; T, kwargs...)
 end
 
 # Because the XTRX does not support the Soapy Streaming API yet,
 # we polyfill it here:
-function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s") where {T}
+function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity) where {T}
     if s.d.driver == Symbol("XTRX over LitePCIe")
         buffs = Ptr{T}[C_NULL]
-        t_us = round(Int, uconvert(u"μs", timeout).val)
-        err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(s.d, s, buffs, t_us)
+        GC.@preserve buffs begin
+            t_us = round(Int, uconvert(u"μs", timeout).val)
+            err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(s.d, s, buffs, t_us)
 
-        try
-            if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                if _verbose
-                    @warn("RX TIMEOUT", s.d, timeout)
+            try
+                if err == SoapySDR.SOAPY_SDR_TIMEOUT
+                    if verbose
+                        @warn("RX TIMEOUT", s.d, timeout)
+                    end
+                    # Not sure what else to do here.
+                    return
+                elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
+                    if verbose
+                        @warn("RX OVERFLOW", s.d)
+                    end
+                    # This isn't really an error, just continue on until we
+                    # care about dropping samples.
+                elseif err <= 0
+                    @error("SoapySDRDevice_acquireReadBuffer() failed", err)
+                    error("SoapySDRDevice_acquireReadBuffer() failed")
+                elseif err != s.mtu
+                    if verbose
+                        @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
+                    end
                 end
-                # Not sure what else to do here.
-                return
-            elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
-                if _verbose
-                    @warn("RX OVERFLOW", s.d)
+
+                # Copy the SoapySDR-provided buffer out into our own
+                pbuff = unsafe_wrap(Matrix{T}, buffs[1], (s.nchannels, Int(s.mtu)))
+                copyto!(
+                    buff,
+                    permutedims(pbuff),
+                )
+
+                # Sign-extend `buffs[1]` if we're dealing with Complex{Int16}
+                # but which is actually Complex{Int12} inside.
+                if T == Complex{Int16}
+                    sign_extend!(buff)
                 end
-                # This isn't really an error, just continue on until we
-                # care about dropping samples.
-            elseif err <= 0
-                @error("SoapySDRDevice_acquireReadBuffer() failed", err)
-                error("SoapySDRDevice_acquireReadBuffer() failed")
-            elseif err != stream.mtu
-                if _verbose
-                    @warn("Got a non-MTU buffer size?!", err, Int(stream.mtu))
-                end
+            finally
+                SoapySDR.SoapySDRDevice_releaseReadBuffer(s.d, s, handle)
             end
-
-            # Copy the SoapySDR-provided buffer out into our own
-            copyto!(
-                buff,
-                unsafe_wrap(Matrix{format}, buffs[1], (stream.nchannels, Int(stream.mtu))),
-            )
-        finally
-            SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
         end
     else
         # The high-level streaming API makes this a tad bit easier
@@ -86,43 +95,48 @@ function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s") wh
     end
 end
 
-function soapy_write!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 0.1u"s") where {T}
+function soapy_write!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 0.1u"s", verbose::Bool = _default_verbosity) where {T}
     if s.d.driver == Symbol("XTRX over LitePCIe")
         # Write out a TX buffer
         buffs = Ptr{T}[C_NULL]
-        t_us = round(Int, uconvert(u"μs", timeout).val)
-        err, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(dev, stream, buffs, t_us)
+        GC.@preserve buffs begin
+            t_us = round(Int, uconvert(u"μs", timeout).val)
+            err, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(s.d, s, buffs, t_us)
 
-        try
-            if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                if _verbose
-                    @warn("TX TIMEOUT")
+            try
+                if err == SoapySDR.SOAPY_SDR_TIMEOUT
+                    if verbose
+                        @warn("TX TIMEOUT")
+                    end
+                    # Not sure what else to do here.
+                    return
+                elseif err == SoapySDR.SOAPY_SDR_UNDERFLOW
+                    if verbose
+                        @warn("TX UNDERFLOW")
+                    end
+                    # This isn't really an error, just continue on until we
+                    # care about dropping samples.
+                elseif err <= 0
+                    @error("SoapySDRDevice_acquireWriteBuffer() failed", err)
+                    error("SoapySDRDevice_acquireWriteBuffer() failed")
+                elseif err != s.mtu
+                    if verbose
+                        @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
+                    end
                 end
-                # Not sure what else to do here.
-                return
-            elseif err == SoapySDR.SOAPY_SDR_UNDERFLOW
-                if _verbose
-                    @warn("TX UNDERFLOW")
-                end
-                # This isn't really an error, just continue on until we
-                # care about dropping samples.
-            elseif err <= 0
-                @error("SoapySDRDevice_acquireWriteBuffer() failed", err)
-                error("SoapySDRDevice_acquireWriteBuffer() failed")
-            elseif err != stream.mtu
-                if _verbose
-                    @warn("Got a non-MTU buffer size?!", err, Int(stream.mtu))
-                end
+
+                # Copy into the provided buffer, converting from
+                # SoapySDR/libsigflow memory ordering (separate buffers for each channel)
+                # to XTRX memory ordering (interleaved samples)
+                pbuff = permutedims(buff)
+                unsafe_copyto!(buffs[1], pointer(pbuff, 1), s.nchannels*s.mtu)
+            finally
+                SoapySDR.SoapySDRDevice_releaseWriteBuffer(s.d, s, handle, 1)
             end
-
-            # Copy into the provided buffer
-            unsafe_copyto!(buffs[1], pointer(buff, 1), stream.nchannels*stream.mtu)
-        finally
-            SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream, handle, 1)
         end
     else
         # SoapySDR high-level streaming API.  So convenient.  So pure.
-        write(s_tx, split_matrix(data); timeout)
+        write(s_tx, split_matrix(buff); timeout)
     end
 end
 
@@ -485,6 +499,24 @@ function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_facto
         close(out)
     end)
     return out
+end
+
+"""
+    collect_buffers(in::Channel)
+
+Consume a channel, storing the buffers, then `cat()`'ing them
+into a giant array.  Automatically caps the number of buffers
+that can be slapped together at 4000, due to the inefficient
+implementation of `cat()` in Julia v1.8 and earlier.
+"""
+function collect_buffers(in::Channel{Matrix{T}}; max_buffers::Int = 4000) where {T}
+    buffs = Matrix{T}[]
+    consume_channel(in) do buff
+        if size(buffs, 1) < max_buffers
+            push!(buffs, buff)
+        end
+    end
+    return cat(buffs...; dims=1)
 end
 
 function collect_psd(in::Channel{Matrix{T}}, freq_size::Integer, buff_size::Integer; accumulation = :max) where {T}

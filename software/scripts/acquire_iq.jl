@@ -9,6 +9,10 @@ using SoapySDR, Printf, Unitful, DSP
 include("./libsigflow.jl")
 include("./xtrx_debugging.jl")
 
+if Threads.nthreads() < 2
+    error("This script must be run with multiple threads!")
+end
+
 # foreign threads can segfault us when they call back into the logger
 #SoapySDR.register_log_handler()
 
@@ -50,7 +54,8 @@ end
 
 function do_txrx(mode::Symbol;
                  register_sets::Vector{<:Pair} = Pair[],
-                 dump_inis::Bool = false)
+                 dump_inis::Bool = false,
+                 skip_sanity_check::Bool = false)
     # If we're running on pathfinder, pick a specific device
     device_kwargs = Dict{Symbol,Any}()
     if chomp(String(read(`hostname`))) == "pathfinder"
@@ -124,7 +129,9 @@ function do_txrx(mode::Symbol;
         end
 
         # Do a quick FPGA loopback sanity check for these clocking values
-        fpga_loopback_sanity_check(dev)
+        if !skip_sanity_check
+            fpga_loopback_sanity_check(dev)
+        end
 
         if mode == :digital_loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
@@ -137,10 +144,6 @@ function do_txrx(mode::Symbol;
             # Use low bandwidth filters, and tell the RBB to use the loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_LBF")
             SoapySDR.SoapySDRDevice_writeSetting(dev, "RBB_SET_PATH", "LB_LBF")
-
-            # Disable RxTSP and TxTSP settings, to cause as little signal disturbance as possible
-            #SoapySDR.SoapySDRDevice_writeSetting(dev, "RXTSP_ENABLE", "TRUE")
-            #SoapySDR.SoapySDRDevice_writeSetting(dev, "TXTSP_ENABLE", "TRUE")
         elseif mode == :trf_loopback
             # Enable TRF -> RFE loopback
             SoapySDR.SoapySDRDevice_writeSetting(dev, "TRF_ENABLE_LOOPBACK", "TRUE")
@@ -148,10 +151,6 @@ function do_txrx(mode::Symbol;
             # Use low bandwidth filters
             SoapySDR.SoapySDRDevice_writeSetting(dev, "TBB_SET_PATH", "TBB_LBF")
             SoapySDR.SoapySDRDevice_writeSetting(dev, "RBB_SET_PATH", "LBF")
-
-            # Disable RxTSP and TxTSP settings, to cause as little signal disturbance as possible
-            #SoapySDR.SoapySDRDevice_writeSetting(dev, "RXTSP_ENABLE", "TRUE")
-            #SoapySDR.SoapySDRDevice_writeSetting(dev, "TXTSP_ENABLE", "TRUE")
         end
 
         if !isempty(register_sets)
@@ -164,7 +163,6 @@ function do_txrx(mode::Symbol;
             end
         end
 
-
         # Dump an initial INI, showing how the registers are configured here
         if dump_inis
             SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode).ini")
@@ -174,19 +172,13 @@ function do_txrx(mode::Symbol;
         stream_rx = SoapySDR.Stream(format, dev.rx)
         stream_tx = SoapySDR.Stream(format, dev.tx)
 
-        # the number of buffers each stream has
-        wr_nbufs = Int(SoapySDR.SoapySDRDevice_getNumDirectAccessBuffers(dev, stream_tx))
-        rd_nbufs = Int(SoapySDR.SoapySDRDevice_getNumDirectAccessBuffers(dev, stream_rx))
-
-        # Let's drop a few of the first buffers to skip startup effects
-        drop_nbufs = 0
-        if mode != :lfsr_loopback
-            drop_nbufs = 4
-        else
+        # We're going to write and read this many buffers:
+        if mode == :lfsr_loopback
             # If we're dealing with the LFSR loopback, don't get too many buffers
-            # as it takes a long time to plot randomness, and don't bother to write anything
-            wr_nbufs = 0
-            rd_nbufs = 4
+            # as it takes a long time to plot randomness
+            num_buffers = 4
+        else
+            num_buffers = 256
         end
 
         # prepare some data to send:
@@ -194,71 +186,41 @@ function do_txrx(mode::Symbol;
         num_repeats = 4
         num_channels = Int(length(dev.tx))
         mtu = Int(stream_tx.mtu)
-        samples = div(mtu*wr_nbufs, num_repeats)
+        samples = div(mtu*num_buffers, num_repeats)
         t = (1:samples)./samples
-        data_tx = zeros(format, num_channels, samples)
+        data_tx = zeros(format, samples, num_channels)
 
         # Create some pretty patterns to plot
-        data_tx[1, :] .= format.(
+        data_tx[:, 1] .= format.(
             round.(sin.(2π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
             round.(cos.(2π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
         )
-        data_tx[2, :] .= format.(
+        data_tx[:, 2] .= format.(
             round.(sin.(8π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
             round.(cos.(8π.*t.*rate).*(fullscale/2).*0.95.*DSP.hanning(samples)),
         )
 
-        # We're going to push values onto this list,
-        # then concatenate them into a giant matrix at the end
-        iq_data = Matrix{format}[]
-
-        SoapySDR.activate!(stream_tx) do; SoapySDR.activate!(stream_rx) do;
-            written_buffs = 0
-            read_buffs = 0
-
-            # write tx-buffer
-            while written_buffs < wr_nbufs
-                buffs = Ptr{format}[C_NULL]
-                err, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(dev, stream_tx, buffs, 0)
-                if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                    break
-                elseif err == SoapySDR.SOAPY_SDR_UNDERFLOW
-                    err = 1 # keep going
-                end
-                @assert err > 0
-                unsafe_copyto!(buffs[1], pointer(data_tx, mod1(num_channels*mtu*written_buffs+1, prod(size(data_tx)))), num_channels*mtu)
-                SoapySDR.SoapySDRDevice_releaseWriteBuffer(dev, stream_tx, handle, 1)
-                written_buffs += 1
+        # Simple flowgraph for TX: just transmit the same buffer over and over again
+        tx_go = Base.Event()
+        num_buffs_transmitted = 0
+        c_tx = generate_stream(samples, stream_tx.nchannels; T=format) do buff
+            if num_buffs_transmitted >= num_repeats
+                return false
             end
+            copyto!(buff, data_tx)
+            num_buffs_transmitted += 1
+            return true
+        end
+        c_tx = rechunk(c_tx, stream_tx.mtu)
+        t_tx = stream_data(stream_tx, tripwire(c_tx, tx_go))
 
-            # read/check rx-buffer
-            while read_buffs < (rd_nbufs + drop_nbufs)
-                buffs = Ptr{format}[C_NULL]
-                err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream_rx, buffs, 0)
+        # RX reads the buffers in, and pushes them onto `iq_data`
+        c_rx = flowgate(stream_data(stream_rx, mtu*num_buffers; leadin_buffers=0), tx_go)
+        iq_data = collect_buffers(c_rx)
 
-                if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                    continue
-                elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
-                    err = mtu # nothing to do, should be the MTU
-                end
-                @assert err > 0
-
-                if (read_buffs > drop_nbufs)
-                    arr = unsafe_wrap(Matrix{format}, buffs[1], (num_channels, mtu))
-                    push!(iq_data, copy(arr))
-                end
-
-                SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream_rx, handle)
-                read_buffs += 1
-            end
-            @show read_buffs, written_buffs
-        end; end
-
-        # Concatenate into a giant matrix, then sign-extend since it's
-        # most like 12-bit signed data hiding in a 16-bit buffer:
-        iq_data = cat(iq_data...; dims=2)
-        sign_extend!(iq_data)
-
+        # Ensure that we're done transmitting as well.
+        # This should always be the case, but best to be sure.
+        wait(t_tx)
         return iq_data, data_tx
     end
 end
@@ -268,14 +230,14 @@ using Plots
 
 # Plot out received signals
 function make_txrx_plots(iq_data, data_tx; name::String="data")
-    plt = plot(real.(data_tx[1, :]); label="re(tx[1])", title="$(name) - Real")
-    plot!(plt, real.(iq_data)[1, :]; label="re(rx[1])")
-    plot!(plt, real.(iq_data)[2, :]; label="re(rx[2])")
+    plt = plot(real.(data_tx[:, 1]); label="re(tx[1])", title="$(name) - Real")
+    plot!(plt, real.(iq_data)[:, 1]; label="re(rx[1])")
+    plot!(plt, real.(iq_data)[:, 2]; label="re(rx[2])")
     savefig(plt, "$(name)_re.png")
 
-    plt = plot(imag.(data_tx[1, :]); label="im(tx[1])", title="$(name) - Imag")
-    plot!(plt, imag.(iq_data)[1, :]; label="im(rx[1])")
-    plot!(plt, imag.(iq_data)[2, :]; label="im(rx[2])")
+    plt = plot(imag.(data_tx[:, 1]); label="im(tx[1])", title="$(name) - Imag")
+    plot!(plt, imag.(iq_data)[:, 1]; label="im(rx[1])")
+    plot!(plt, imag.(iq_data)[:, 2]; label="im(rx[2])")
     savefig(plt, "$(name)_im.png")
 end
 
@@ -312,6 +274,7 @@ function main(args::String...)
     mode = guess_mode(args)
     dump_inis = "--dump-inis" in args
     full_suite = "--full" in args
+    skip_sanity_check = "--no-sanity-check" in args
 
     # You can set this here, but Elliot has changed XTRXDevice.cpp to do this automatically.
     register_sets = Pair[
@@ -325,9 +288,9 @@ function main(args::String...)
     ]
 
     if full_suite
-        full_loopback_suite(; dump_inis, register_sets)
+        full_loopback_suite(; dump_inis, register_sets, skip_sanity_check)
     else
-        iq_data, data_tx = do_txrx(mode; dump_inis, register_sets)
+        iq_data, data_tx = do_txrx(mode; dump_inis, register_sets, skip_sanity_check)
         make_txrx_plots(iq_data, data_tx; name="$(mode)")
     end
 end
