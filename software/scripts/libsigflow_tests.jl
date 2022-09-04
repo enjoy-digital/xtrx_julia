@@ -5,10 +5,10 @@ include("libsigflow.jl")
 #set_libsigflow_verbose(true)
 
 function verify_test_pattern_buffer(buff, idx, buff_size)
-    @test length(buff) == buff_size
-    @test real(buff[1]) == imag(buff[1])
-    @test real(buff[end]) == buff_size*idx
-    @test real(buff[1]) == buff_size*(idx-1) + 1
+    @test size(buff,1) == buff_size
+    @test all(real(buff[1, :]) .== imag(buff[1, :]))
+    @test all(real(buff[end, :]) .== buff_size*idx)
+    @test all(real(buff[1, :]) .== buff_size*(idx-1) + 1)
 end
 
 @testset "generate_test_pattern" begin
@@ -20,6 +20,11 @@ end
 
     c = generate_test_pattern(num_samples; num_buffers=2)
     verify_test_pattern_buffer(take!(c), 1, num_samples)
+    verify_test_pattern_buffer(take!(c), 1, num_samples)
+    sleep(0.001)
+    @test !isopen(c)
+
+    c = generate_test_pattern(num_samples; num_channels=2)
     verify_test_pattern_buffer(take!(c), 1, num_samples)
     sleep(0.001)
     @test !isopen(c)
@@ -222,4 +227,25 @@ end
     sig = [Complex{Int16}(0, 2048)]
     sign_extend!(sig)
     @test sig[1] == Complex{Int16}(0, -2048)
+end
+
+@testset "stream_data -> disk -> stream_data" begin
+    mktempdir() do dir
+        # Stream our test pattern out to a file
+        num_samples = 32
+        test_paths = [
+            joinpath(dir, "channel1.cf32"),
+            joinpath(dir, "channel2.cf32"),
+        ]
+        c = generate_test_pattern(num_samples; num_channels=2)
+        wait(stream_data(test_paths, c))
+
+        # Next, stream it back in from file, and verify it
+        c = stream_data(test_paths, ComplexF32; chunk_size=num_samples)
+        reconstituted_buffer = take!(c)
+        @test size(reconstituted_buffer) == (num_samples, 2)
+        verify_test_pattern_buffer(reconstituted_buffer, 1, num_samples)
+        sleep(0.001)
+        @test !isopen(c)
+    end
 end
