@@ -27,7 +27,7 @@
 
 SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
                                          const std::string &format,
-                                         const std::vector<size_t> &/*channels*/,
+                                         const std::vector<size_t> &channels,
                                          const SoapySDR::Kwargs &/*args*/) {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -59,6 +59,11 @@ SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
 
         _rx_stream.format = format;
 
+        if (channels.empty())
+            _rx_stream.channels = {0, 1};
+        else
+            _rx_stream.channels = channels;
+
         return RX_STREAM;
     } else if (direction == SOAPY_SDR_TX) {
         if (_tx_stream.opened)
@@ -86,6 +91,11 @@ SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
         _tx_stream.opened = true;
 
         _tx_stream.format = format;
+
+        if (channels.empty())
+            _tx_stream.channels = {0, 1};
+        else
+            _tx_stream.channels = channels;
 
         return TX_STREAM;
     } else {
@@ -348,7 +358,7 @@ void readbuf(int8_t *src, void *dst, uint32_t len, std::string format, size_t of
     {
 
         int16_t *samples_cs16 = (int16_t *)dst + offset * BYTES_PER_SAMPLE;
-        for (uint32_t i = offset; i < len; i+=2)
+        for (uint32_t i = offset; i < len; i += 2)
         {
             samples_cs16[i * BYTES_PER_SAMPLE] = (int16_t)(src[i * BYTES_PER_SAMPLE] << 8);
             samples_cs16[i * BYTES_PER_SAMPLE + 1] = (int16_t)(src[i * BYTES_PER_SAMPLE + 1] << 8);
@@ -365,7 +375,7 @@ void writebuf(const void *src, int8_t *dst, uint32_t len, std::string format, si
     if (format == SOAPY_SDR_CS16)
     {
         int16_t *samples_cs16 = (int16_t *)src + offset * BYTES_PER_SAMPLE;
-        for (uint32_t i = offset; i < len; i+=2)
+        for (uint32_t i = offset; i < len; i += 2)
         {
             dst[i * BYTES_PER_SAMPLE] = (int8_t)(samples_cs16[i * BYTES_PER_SAMPLE] >> 8);
             dst[i * BYTES_PER_SAMPLE + 1] = (int8_t)(samples_cs16[i * BYTES_PER_SAMPLE + 1] >> 8);
@@ -404,10 +414,11 @@ int SoapyXTRX::readStream(
             samp_avail = n;
         }
 
-        // Read out channel A
-        readbuf(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[0], n/2, _rx_stream.format, 0);
-        // Read out channel B
-        readbuf(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[1], n/2, _rx_stream.format, 0);
+        // Read out channels
+        for (size_t i = 0; i < _rx_stream.channels.size(); i++)
+        {
+            readbuf(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[i], n/2, _rx_stream.format, _rx_stream.channels[i]);
+        }
 
         _rx_stream.remainderOffset += n;
         _rx_stream.remainderSamps -= n;
@@ -482,10 +493,11 @@ int SoapyXTRX::writeStream(
             samp_avail = n;
         }
 
-        // Write out channel A
-        writebuf(buffs[0], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, 0);
-        // Write out channel B
-        writebuf(buffs[1], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, 1);
+        // Write out channels
+        for (size_t i = 0; i < _tx_stream.channels.size(); i++)
+        {
+            writebuf(buffs[i], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, _tx_stream.channels[i]);
+        }
 
         _tx_stream.remainderSamps -= n;
         _tx_stream.remainderOffset += n;

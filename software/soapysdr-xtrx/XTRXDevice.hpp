@@ -302,6 +302,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
         size_t remainderOffset;
         int8_t* remainderBuff;
         std::string format;
+        std::vector<size_t> channels;
     };
 
     struct RXStream: Stream {
