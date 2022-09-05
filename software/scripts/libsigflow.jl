@@ -11,6 +11,24 @@ function set_libsigflow_verbose(verbose::Bool)
 end
 
 """
+    spawn_channel_thread(f::Function)
+
+Use this convenience wrapper to invoke `f(out_channel)` on a separate thread, closing
+`out_channel` when `f()` finishes.
+"""
+function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_flight::Int = 0) where {T_in}
+    out = Channel{Matrix{T}}(buffers_in_flight)
+    Base.errormonitor(Threads.@spawn begin
+        try
+            f(out)
+        finally
+            close(out)
+        end
+    end)
+    return out
+end
+
+"""
     generate_stream(gen_buff!::Function, buff_size, num_channels)
 
 Returns a `Channel` that allows multiple buffers to be 
@@ -19,24 +37,16 @@ function generate_stream(gen_buff!::Function, buff_size::Integer, num_channels::
                          wrapper::Function = (f) -> f(),
                          buffers_in_flight::Integer = 1,
                          T = ComplexF32)
-    c = Channel{Matrix{T}}(buffers_in_flight)
+    return spawn_channel_thread(;T, buffers_in_flight) do c
+        wrapper() do
+            buff = Matrix{T}(undef, buff_size, num_channels)
 
-    Base.errormonitor(Threads.@spawn begin
-        buff_idx = 1
-        try
-            wrapper() do
-                buff = Matrix{T}(undef, buff_size, num_channels)
-
-                # Keep on generating buffers until `gen_buff!()` returns `false`.
-                while gen_buff!(buff)
-                    put!(c, copy(buff))
-                end
+            # Keep on generating buffers until `gen_buff!()` returns `false`.
+            while gen_buff!(buff)
+                put!(c, copy(buff))
             end
-        finally
-            close(c)
         end
-    end)
-    return c
+    end
 end
 function generate_stream(f::Function, s::SoapySDR.Stream{T}; kwargs...) where {T}
     return generate_stream(f, s.mtu, s.nchannels; T, kwargs...)
@@ -80,7 +90,7 @@ function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", ve
                     permutedims(pbuff),
                 )
 
-                # Sign-extend `buffs[1]` if we're dealing with Complex{Int16}
+                # Sign-extend `buff` if we're dealing with Complex{Int16}
                 # but which is actually Complex{Int12} inside.
                 if auto_sign_extend && T == Complex{Int16}
                     sign_extend!(buff)
@@ -369,9 +379,7 @@ end
 Converts a stream of chunks with size A to a stream of chunks with size B.
 """
 function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T}
-    out = Channel{Matrix{T}}()
-
-    Base.errormonitor(Threads.@spawn begin
+    return spawn_channel_thread(;T) do out
         chunk_filled = 0
         chunk_idx = 1
         # We'll alternate between filling up these three chunks, then sending
@@ -420,10 +428,7 @@ function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T}
                 end
             end
         end
-        close(out)
-    end)
-
-    return out
+    end
 end
 
 """
@@ -435,51 +440,39 @@ grouping/reductions across time.
 """
 function stft(in::Channel{Matrix{T}};
               window_function::Function = DSP.hanning) where {T}
-    out = Channel{Matrix{T}}()
-    BUFFS = [
-        Matrix{T}(undef, 1, 1),
-        Matrix{T}(undef, 1, 1),
-    ]
-    fft_plan = FFTW.plan_fft(BUFFS[1])
+    BUFF = Matrix{T}(undef, 1, 1)
+    fft_plan = FFTW.plan_fft(BUFF)
     win = T.([0])
-    function make_BUFF!(buff)
-        if size(BUFFS[1]) != size(buff)
-            BUFFS = [
-                Matrix{T}(undef, size(buff)...),
-                Matrix{T}(undef, size(buff)...),
-            ]
-            fft_plan = FFTW.plan_fft(BUFFS[1], 1)
+    function resize_data!(buff)
+        if size(BUFF) != size(buff)
+            BUFF = Matrix{T}(undef, size(buff)...)
+            fft_plan = FFTW.plan_fft(BUFF, 1)
             win = T.(window_function(size(buff, 1)))
         end
     end
     
-    Base.errormonitor(Threads.@spawn begin
+    return spawn_channel_thread(;T) do out
         buff_idx = 1
         consume_channel(in) do buff
-            # Prepare our lazyily-initialized memory/planning structures
-            make_BUFF!(buff)
+            # Prepare our lazily-initialized memory/planning structures
+            resize_data!(buff)
 
             # Perform the frequency transform
-            FFTW.mul!(BUFFS[buff_idx], fft_plan, buff .* win)
-            put!(out, BUFFS[buff_idx])
-            buff_idx = mod1(buff_idx + 1, length(BUFFS))
+            FFTW.mul!(BUFF, fft_plan, buff .* win)
+            put!(out, copy(BUFF))
         end
-        close(out)
-    end)
+    end
     return out
 end
 
 function absshift(in::Channel{Matrix{T}}) where {T}
-    out = Channel{Matrix{Float32}}()
-
-    Base.errormonitor(Threads.@spawn begin
+    # Note this coerces to Float32
+    spawn_channel_thread(; T=Float32) do out
         consume_channel(in) do buff
             val = FFTW.fftshift(Float32.(abs.(buff)))
             put!(out, val)
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -489,8 +482,7 @@ Buffers `reduction_factor` buffers together into a vector, then calls
 `reductor(buffs)`, pushing the result out onto a `Channel`.
 """
 function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_factor::Integer; verbose::Bool = _default_verbosity) where {T}
-    out = Channel{Matrix}()
-    Base.errormonitor(Threads.@spawn begin
+    spawn_channel_thread(;T) do out
         buff_idx = 1
         acc = Array{T,3}(undef, 0, 0, 0)
         function make_acc!(buff)
@@ -510,9 +502,7 @@ function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_facto
                 buff_idx = 1
             end
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -564,15 +554,14 @@ end
 Logs messages summarizing our data transfer to stdout.
 """
 function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7) where {T}
-    out = Channel{Matrix{T}}()
-    Base.errormonitor(Threads.@spawn begin
+    spawn_channel_thread(;T) do out
         start_time = time()
         last_print = start_time
         total_samples = 0
         buffers = 0
         consume_channel(in) do data
             buffers += 1
-            total_samples += prod(size(data))
+            total_samples += size(data,1)
 
             curr_time = time()
             if curr_time - last_print > print_period
@@ -599,9 +588,7 @@ function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 
             data_rate = @sprintf("%.1f MB/s", samples_per_sec * sizeof(T)/1e6),
             duration = @sprintf("%.1f s", duration),
         )
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -611,8 +598,7 @@ Waits upon `ctl` before passing buffers through; useful for synchronization.
 """
 function flowgate(in::Channel{Matrix{T}}, ctl::Base.Event;
                   name::String = "flowgate", verbose::Bool = _default_verbosity) where {T}
-    out = Channel{Matrix{T}}()
-    Base.errormonitor(Threads.@spawn begin
+    spawn_channel_thread(;T) do out
         already_printed = false
         consume_channel(in) do buff
             wait(ctl)
@@ -622,9 +608,7 @@ function flowgate(in::Channel{Matrix{T}}, ctl::Base.Event;
             end
             put!(out, buff)
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -634,8 +618,7 @@ Notifies `ctl` when a buffer passes through.
 """
 function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
                   name::String = "tripwire", verbose::Bool = _default_verbosity) where {T}
-    out = Channel{Matrix{T}}()
-    Base.errormonitor(Threads.@spawn begin
+    spawn_channel_thread(;T) do out
         already_printed = false
         consume_channel(in) do buff
             notify(ctl)
@@ -645,9 +628,7 @@ function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
             end
             put!(out, buff)
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 
