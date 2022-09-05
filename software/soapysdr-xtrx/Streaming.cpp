@@ -351,12 +351,9 @@ void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream */*stream*/, size_t handle,
     checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_READER_UPDATE, &mmap_dma_update);
 }
 
-void readbuf(int8_t *src, void *dst, uint32_t len, std::string format, size_t offset)
+void deinterleave(const int8_t *src, void *dst, uint32_t len, std::string format, size_t offset)
 {
-
-    if (format == SOAPY_SDR_CS16)
-    {
-
+    if (format == SOAPY_SDR_CS16) {
         int16_t *samples_cs16 = (int16_t *)dst + offset * BYTES_PER_SAMPLE;
         for (uint32_t i = offset; i < len; i += 2)
         {
@@ -364,16 +361,14 @@ void readbuf(int8_t *src, void *dst, uint32_t len, std::string format, size_t of
             samples_cs16[i * BYTES_PER_SAMPLE + 1] = (int16_t)(src[i * BYTES_PER_SAMPLE + 1] << 8);
         }
     }
-    else
-    {
-        SoapySDR_logf(SOAPY_SDR_ERROR, "Unsupported read format: %s", format.c_str());
+    else {
+        SoapySDR_logf(SOAPY_SDR_ERROR, "Unsupported format: %s", format.c_str());
     }
 }
 
-void writebuf(const void *src, int8_t *dst, uint32_t len, std::string format, size_t offset)
+void interleave(const void *src, int8_t *dst, uint32_t len, std::string format, size_t offset)
 {
-    if (format == SOAPY_SDR_CS16)
-    {
+    if (format == SOAPY_SDR_CS16) {
         int16_t *samples_cs16 = (int16_t *)src + offset * BYTES_PER_SAMPLE;
         for (uint32_t i = offset; i < len; i += 2)
         {
@@ -381,9 +376,8 @@ void writebuf(const void *src, int8_t *dst, uint32_t len, std::string format, si
             dst[i * BYTES_PER_SAMPLE + 1] = (int8_t)(samples_cs16[i * BYTES_PER_SAMPLE + 1] >> 8);
         }
     }
-    else
-    {
-        SoapySDR_logf(SOAPY_SDR_ERROR, "Unsupported write format: %s", format.c_str());
+    else {
+        SoapySDR_logf(SOAPY_SDR_ERROR, "Unsupported format: %s", format.c_str());
     }
 }
 
@@ -417,7 +411,7 @@ int SoapyXTRX::readStream(
         // Read out channels
         for (size_t i = 0; i < _rx_stream.channels.size(); i++)
         {
-            readbuf(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[i], n/2, _rx_stream.format, _rx_stream.channels[i]);
+            deinterleave(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[i], n/2, _rx_stream.format, _rx_stream.channels[i]);
         }
 
         _rx_stream.remainderOffset += n;
@@ -452,7 +446,7 @@ int SoapyXTRX::readStream(
 
     const size_t n = std::min((returnedElems - samp_avail), _rx_stream.remainderSamps);
 
-    readbuf(_rx_stream.remainderBuff, buffs[0], n, _rx_stream.format, samp_avail);
+    deinterleave(_rx_stream.remainderBuff, buffs[0], n, _rx_stream.format, samp_avail);
     _rx_stream.remainderSamps -= n;
     _rx_stream.remainderOffset += n;
 
@@ -496,7 +490,7 @@ int SoapyXTRX::writeStream(
         // Write out channels
         for (size_t i = 0; i < _tx_stream.channels.size(); i++)
         {
-            writebuf(buffs[i], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, _tx_stream.channels[i]);
+            interleave(buffs[i], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, _tx_stream.channels[i]);
         }
 
         _tx_stream.remainderSamps -= n;
@@ -530,7 +524,7 @@ int SoapyXTRX::writeStream(
 
     const size_t n = std::min((returnedElems - samp_avail), _tx_stream.remainderSamps);
 
-    writebuf(buffs[0], _tx_stream.remainderBuff, n, _tx_stream.format, samp_avail);
+    interleave(buffs[0], _tx_stream.remainderBuff, n, _tx_stream.format, samp_avail);
     _tx_stream.remainderSamps -= n;
     _tx_stream.remainderOffset += n;
 
