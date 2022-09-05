@@ -8,16 +8,6 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 //
 
-// TODO
-//
-// - we're not properly setting the channels here, see ch2LMS/setAntenna/etc
-//   in the EVB7 driver (https://github.com/myriadrf/LMS7002M-driver/tree/master/evb7)
-//
-// - we're also completely ignoring formats
-//
-// - implement the user-friendlier non-zero copy API on top of this? see e.g.
-//   https://github.com/pothosware/SoapyHackRF/blob/master/HackRF_Streaming.cpp
-
 #include "XTRXDevice.hpp"
 
 #include <chrono>
@@ -135,8 +125,6 @@ int SoapyXTRX::activateStream(SoapySDR::Stream *stream, const int /*flags*/,
         litepcie_dma_reader(_fd, 1, &_tx_stream.hw_count, &_tx_stream.sw_count);
         _tx_stream.user_count = 0;
     }
-
-    // TODO: set-up the LMS7002M
 
     return 0;
 }
@@ -393,14 +381,12 @@ int SoapyXTRX::readStream(
     {
         return SOAPY_SDR_NOT_SUPPORTED;
     }
-    /* this is the user's buffer for channel 0 */
     size_t returnedElems = std::min(numElems, this->getStreamMTU(stream));
 
     size_t samp_avail = 0;
 
     if (_rx_stream.remainderHandle >= 0)
     {
-
         const size_t n = std::min(_rx_stream.remainderSamps, returnedElems);
 
         if (n < returnedElems)
