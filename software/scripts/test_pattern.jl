@@ -59,7 +59,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
         bytes = mtu*num_channels*4
         total_bytes = 0
 
-        counter = Int32(0)
+        counter = UInt32(0)
 
         comp = Vector{Complex{Int16}}(undef, mtu*num_channels)
 
@@ -105,9 +105,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     # XXX: this loop does not stay within the 60us time budget
                     for j in eachindex(comp)
                         z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
-                        if comp[j] != z
-                            @warn("Error", received=comp[j], expected=z)
-                        end
+                        @assert comp[j] == z
                         counter = (counter + 1) & 0xffffff
                     end
 
@@ -127,22 +125,23 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                             end
                         end
                     else
-                        buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
+                        buf = unsafe_wrap(Array{UInt32}, reinterpret(Ptr{UInt32}, buffs[1]), Int(mtu*num_channels))
 
                         # sync the counter on start
                         if !initialized_count
-                            counter = Int32(real(buf[1])) & 0xfff | ((Int32(imag(buf[1])) & 0xfff) << 12)
+                            counter = ((buf[1] & 0xfff0000) >> 4) | (buf[1] & 0xfff) #Int32(real(buf[1])) & 0xfff | ((Int32(imag(buf[1])) & 0xfff) << 12)
                             initialized_count = true
                         end
 
                         # check the data
                         # XXX: this loop does not stay within the 60us time budget
                         for j in eachindex(buf)
-                            z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
-                            if buf[j] != z
-                                @warn("Error", received=buf[j], expected=z)
+                            if buf[j] != ((counter << 4) & 0xfff0000) | (counter & 0xfff)
+                                @show i, j
+                                @show counter, buf[j], buf[j+1]
+                                error("failed")
                             end
-                            counter = (counter + 1) & 0xffffff
+                            counter = counter + 0x1
                         end
                     end
                 end
@@ -160,7 +159,7 @@ end
 function main()
     for dev_args in Devices(driver="XTRX")
         try
-            dma_test(dev_args; use_gpu=false, lfsr_mode=true)
+            #dma_test(dev_args; use_gpu=false, lfsr_mode=true)
             dma_test(dev_args; use_gpu=false, lfsr_mode=false)
             dma_test(dev_args; use_gpu=true,  lfsr_mode=false)
         catch e
