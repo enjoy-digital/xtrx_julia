@@ -1070,6 +1070,13 @@ std::vector<std::string> SoapyXTRX::listRegisterInterfaces(void) const {
     return interfaces;
 }
 
+void SoapyXTRX::writeMACregister(const unsigned int A, const unsigned int B) {
+    // Get current value of 0x0020
+    uint16_t val = this->readRegister(0x0020);
+    // Insert our A and B enables
+    val = (val & 0xfffc) | ((B & 0x1) << 1) | (A & 0x1);
+    this->writeRegister(0x0020, val);
+}
 
 void SoapyXTRX::writeRegister(const unsigned addr, const unsigned value) {
     LMS7002M_spi_write(_lms, addr, value);

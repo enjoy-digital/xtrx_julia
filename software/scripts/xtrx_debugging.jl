@@ -13,17 +13,29 @@ function read_lms_register(dev::Device, addr::UInt16)
     return UInt16(ccall((:_ZNK9SoapyXTRX12readRegisterEj, libSoapyXTRX), Cuint, (Ptr{Cvoid}, Cuint), dev.ptr, addr))
 end
 
+function set_mac(dev::Device, channels::Symbol)
+    enable_A = channels ∈ (:A, :AB)
+    enable_B = channels ∈ (:B, :AB)
+    ccall((:_ZN9SoapyXTRX16writeMACregisterEjj, libSoapyXTRX), Cvoid, (Ptr{Cvoid}, Cint, Cint), dev.ptr, Cint(enable_A), Cint(enable_B))
+    return nothing
+end
+
 function set_cgen_freq(dev::Device, clk_rate::Float64)
     ccall((:_ZN9SoapyXTRX18setMasterClockRateEd, libSoapyXTRX), Cvoid, (Ptr{Cvoid}, Cdouble), dev.ptr, clk_rate)
     return nothing
 end
-set_cgen_freq(dev::Device, clk_freq::Unitful.Frequency) = set_cgen_freq(dev, Float64(upreferred(clk_freq).val))
+function set_cgen_freq(dev::Device, freq::Unitful.Frequency)
+    return set_cgen_freq(dev, Float64(upreferred(freq).val))
+end
 function get_cgen_freq(dev::Device)
     return ccall((:_ZNK9SoapyXTRX18getMasterClockRateEv, libSoapyXTRX), Cdouble, (Ptr{Cvoid},), dev.ptr)
 end
 
+function get_bit(bitpos, val)
+    return Bool((val & (0x1 << bitpos)) >> bitpos)
+end
 
-function bit_set(bitpos, val, orig_val = 0x0000)
+function set_bit(bitpos, val, orig_val = 0x0000)
     return UInt16(val << bitpos | (orig_val & ~(1 << bitpos)))
 end
 

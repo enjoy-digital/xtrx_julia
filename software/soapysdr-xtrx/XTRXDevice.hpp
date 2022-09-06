@@ -198,6 +198,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
 
     // Register API
     std::vector<std::string> listRegisterInterfaces(void) const override;
+    void writeMACregister(const unsigned int A, const unsigned int B);
     void writeRegister(const unsigned addr, const unsigned value) override;
     unsigned readRegister(const unsigned addr) const override;
     void writeRegister(const std::string &name, const unsigned addr, const unsigned value) override;
