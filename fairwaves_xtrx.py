@@ -92,10 +92,11 @@ class BaseSoC(SoCCore):
         platform = fairwaves_xtrx.Platform()
 
         git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip().decode('utf-8')
+        git_dirty = "-dirty" if len(subprocess.check_output(['git', 'diff'])) != 0 else ""
 
         # SoCCore ----------------------------------------------------------------------------------
         SoCCore.__init__(self, platform, sys_clk_freq,
-            ident                    = "LiteX SoC on Fairwaves XTRX "+git_sha,
+            ident                    = "LiteX SoC on Fairwaves XTRX "+git_sha+git_dirty,
             ident_version            = True,
             cpu_type                 = "vexriscv" if with_cpu else None,
             cpu_variant              = "minimal",
