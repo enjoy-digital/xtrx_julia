@@ -399,13 +399,11 @@ int SoapyXTRX::readStream(
         {
             deinterleave(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[i], n/2, _rx_stream.format, _rx_stream.channels[i]);
         }
-
-        _rx_stream.remainderOffset += n;
         _rx_stream.remainderSamps -= n;
+        _rx_stream.remainderOffset += n;
 
         if (_rx_stream.remainderSamps == 0)
         {
-
             this->releaseReadBuffer(stream, _rx_stream.remainderHandle);
             _rx_stream.remainderHandle = -1;
             _rx_stream.remainderOffset = 0;
@@ -432,7 +430,11 @@ int SoapyXTRX::readStream(
 
     const size_t n = std::min((returnedElems - samp_avail), _rx_stream.remainderSamps);
 
-    deinterleave(_rx_stream.remainderBuff, buffs[0], n, _rx_stream.format, samp_avail);
+    // Read out channels
+    for (size_t i = 0; i < _rx_stream.channels.size(); i++)
+    {
+        deinterleave(_rx_stream.remainderBuff, buffs[i], n, _rx_stream.format, samp_avail + _rx_stream.channels[i]);
+    }
     _rx_stream.remainderSamps -= n;
     _rx_stream.remainderOffset += n;
 
@@ -443,7 +445,7 @@ int SoapyXTRX::readStream(
         _rx_stream.remainderOffset = 0;
     }
 
-    return (returnedElems);
+    return returnedElems;
 }
 
 int SoapyXTRX::writeStream(
@@ -478,7 +480,6 @@ int SoapyXTRX::writeStream(
         {
             interleave(buffs[i], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, _tx_stream.channels[i]);
         }
-
         _tx_stream.remainderSamps -= n;
         _tx_stream.remainderOffset += n;
 
@@ -510,7 +511,11 @@ int SoapyXTRX::writeStream(
 
     const size_t n = std::min((returnedElems - samp_avail), _tx_stream.remainderSamps);
 
-    interleave(buffs[0], _tx_stream.remainderBuff, n, _tx_stream.format, samp_avail);
+    // Write out channels
+    for (size_t i = 0; i < _tx_stream.channels.size(); i++)
+    {
+        interleave(buffs[i], _tx_stream.remainderBuff, n, _tx_stream.format, samp_avail + _tx_stream.channels[i]);
+    }
     _tx_stream.remainderSamps -= n;
     _tx_stream.remainderOffset += n;
 
