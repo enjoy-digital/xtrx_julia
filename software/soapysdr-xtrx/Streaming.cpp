@@ -197,6 +197,23 @@ int SoapyXTRX::getDirectAccessBufferAddrs(SoapySDR::Stream *stream,
     return 0;
 }
 
+// Our DMA readers/writers are zero-copy (i.e. using a single buffer shared with
+// the kernel), and use three counters to index that buffer:
+// - hw_count: where the hardware has read from / written to
+// - sw_count: where userspace has read from / written to
+// - user_count: where userspace is currently reading from / writing to
+//
+// The distinction between sw and user makes it possible to keep track of which
+// buffers are being processed. This is not supported by the LitePCIe DMA
+// library, and is why we do it ourselves.
+//
+// In addition, with a separate user count, the implementation of read/write can
+// advance buffers without performing a syscall (only having to interface with
+// the kernel when retiring buffers). That however results in slower detection
+// of overflows/underflows, so we make that configurable:
+#define DETECT_EVERY_OVERFLOW  true
+#define DETECT_EVERY_UNDERFLOW true
+
 int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
                                  const void **buffs, int &flags,
                                  long long &/*timeNs*/, const long timeoutUs) {
@@ -208,7 +225,7 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
     assert(buffers_available >= 0);
 
     // if not, check with the DMA engine
-    if (buffers_available == 0) {
+    if (buffers_available == 0 || DETECT_EVERY_OVERFLOW) {
         litepcie_dma_writer(_fd, 1, &_rx_stream.hw_count, &_rx_stream.sw_count);
         buffers_available = _rx_stream.hw_count - _rx_stream.user_count;
     }
@@ -268,7 +285,8 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
     assert(buffers_pending <= (int)_dma_mmap_info.dma_tx_buf_count);
 
     // if not, check with the DMA engine
-    if (buffers_pending == ((int64_t)_dma_mmap_info.dma_tx_buf_count)) {
+    if (buffers_pending == ((int64_t)_dma_mmap_info.dma_tx_buf_count) ||
+        DETECT_EVERY_UNDERFLOW) {
         litepcie_dma_reader(_fd, 1, &_tx_stream.hw_count, &_tx_stream.sw_count);
         buffers_pending = _tx_stream.user_count - _tx_stream.hw_count;
     }
