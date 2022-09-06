@@ -197,6 +197,23 @@ int SoapyXTRX::getDirectAccessBufferAddrs(SoapySDR::Stream *stream,
     return 0;
 }
 
+// Our DMA readers/writers are zero-copy (i.e. using a single buffer shared with
+// the kernel), and use three counters to index that buffer:
+// - hw_count: where the hardware has read from / written to
+// - sw_count: where userspace has read from / written to
+// - user_count: where userspace is currently reading from / writing to
+//
+// The distinction between sw and user makes it possible to keep track of which
+// buffers are being processed. This is not supported by the LitePCIe DMA
+// library, and is why we do it ourselves.
+//
+// In addition, with a separate user count, the implementation of read/write can
+// advance buffers without performing a syscall (only having to interface with
+// the kernel when retiring buffers). That however results in slower detection
+// of overflows/underflows, so we make that configurable:
+#define DETECT_EVERY_OVERFLOW  true
+#define DETECT_EVERY_UNDERFLOW true
+
 int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
                                  const void **buffs, int &flags,
                                  long long &/*timeNs*/, const long timeoutUs) {
@@ -208,7 +225,7 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
     assert(buffers_available >= 0);
 
     // if not, check with the DMA engine
-    if (buffers_available == 0) {
+    if (buffers_available == 0 || DETECT_EVERY_OVERFLOW) {
         litepcie_dma_writer(_fd, 1, &_rx_stream.hw_count, &_rx_stream.sw_count);
         buffers_available = _rx_stream.hw_count - _rx_stream.user_count;
     }
@@ -225,33 +242,40 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
         }
 
         // get new DMA counters
-        litepcie_dma_writer(_fd, 1, &_rx_stream.hw_count,
-                            &_rx_stream.user_count);
+        litepcie_dma_writer(_fd, 1, &_rx_stream.hw_count, &_rx_stream.sw_count);
         buffers_available = _rx_stream.hw_count - _rx_stream.user_count;
         assert(buffers_available > 0);
     }
 
-    // get the buffer
-    int buf_offset = _rx_stream.user_count % _dma_mmap_info.dma_rx_buf_count;
-    getDirectAccessBufferAddrs(stream, buf_offset, (void **)buffs);
-
-    // update the DMA counters
-    handle = _rx_stream.user_count;
-    _rx_stream.user_count++;
-
     // detect overflows of the underlying circular buffer
-    // NOTE: the kernel driver is more aggressive here and
-    //       treats a difference of half the count as an overflow
     if ((_rx_stream.hw_count - _rx_stream.sw_count) >
-        ((int64_t)_dma_mmap_info.dma_rx_buf_count)) {
+        ((int64_t)_dma_mmap_info.dma_rx_buf_count / 2)) {
+        // drain all buffers to get out of the overflow quicker
+        struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
+        mmap_dma_update.sw_count = _rx_stream.hw_count;
+        checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_WRITER_UPDATE, &mmap_dma_update);
+        _rx_stream.user_count = _rx_stream.hw_count;
+        _rx_stream.sw_count = _rx_stream.hw_count;
+        handle = -1;
+
         flags |= SOAPY_SDR_END_ABRUPT;
         return SOAPY_SDR_OVERFLOW;
     } else {
+        // get the buffer
+        int buf_offset = _rx_stream.user_count % _dma_mmap_info.dma_rx_buf_count;
+        getDirectAccessBufferAddrs(stream, buf_offset, (void **)buffs);
+
+        // update the DMA counters
+        handle = _rx_stream.user_count;
+        _rx_stream.user_count++;
+
         return getStreamMTU(stream);
     }
 }
 
 void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream */*stream*/, size_t handle) {
+    assert(handle != (size_t)-1 && "Attempt to release an invalid buffer (e.g., from an overflow)");
+
     // update the DMA counters
     struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
     mmap_dma_update.sw_count = handle + 1;
@@ -268,7 +292,8 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
     assert(buffers_pending <= (int)_dma_mmap_info.dma_tx_buf_count);
 
     // if not, check with the DMA engine
-    if (buffers_pending == ((int64_t)_dma_mmap_info.dma_tx_buf_count)) {
+    if (buffers_pending == ((int64_t)_dma_mmap_info.dma_tx_buf_count) ||
+        DETECT_EVERY_UNDERFLOW) {
         litepcie_dma_reader(_fd, 1, &_tx_stream.hw_count, &_tx_stream.sw_count);
         buffers_pending = _tx_stream.user_count - _tx_stream.hw_count;
     }
@@ -284,8 +309,7 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
             return SOAPY_SDR_TIMEOUT;
 
         // get new DMA counters
-        litepcie_dma_reader(_fd, 1, &_tx_stream.hw_count,
-                            &_tx_stream.user_count);
+        litepcie_dma_reader(_fd, 1, &_tx_stream.hw_count, &_tx_stream.sw_count);
         buffers_pending = _tx_stream.user_count - _tx_stream.hw_count;
         assert(buffers_pending < ((int64_t)_dma_mmap_info.dma_tx_buf_count));
     }

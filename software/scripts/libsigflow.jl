@@ -9,6 +9,42 @@ _default_verbosity = false
 function set_libsigflow_verbose(verbose::Bool)
     global _default_verbosity = verbose
 end
+_num_overflows = Ref{Int64}(0)
+_num_underflows = Ref{Int64}(0)
+
+"""
+    spawn_channel_thread(f::Function)
+
+Use this convenience wrapper to invoke `f(out_channel)` on a separate thread, closing
+`out_channel` when `f()` finishes.
+"""
+function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_flight::Int = 0) where {T_in}
+    out = Channel{Matrix{T}}(buffers_in_flight)
+    Base.errormonitor(Threads.@spawn begin
+        try
+            f(out)
+        finally
+            close(out)
+        end
+    end)
+    return out
+end
+
+
+
+"""
+    membuffer(in, max_size = 16)
+
+Provide some buffering for realtime applications.
+"""
+function membuffer(in::Channel{Matrix{T}}, max_size::Int = 16) where {T}
+    spawn_channel_thread(;T, buffers_in_flight=max_size) do out
+        consume_channel(in) do buff
+            put!(out, buff)
+        end
+    end
+end
+
 
 """
     generate_stream(gen_buff!::Function, buff_size, num_channels)
@@ -19,24 +55,16 @@ function generate_stream(gen_buff!::Function, buff_size::Integer, num_channels::
                          wrapper::Function = (f) -> f(),
                          buffers_in_flight::Integer = 1,
                          T = ComplexF32)
-    c = Channel{Matrix{T}}(buffers_in_flight)
+    return spawn_channel_thread(;T, buffers_in_flight) do c
+        wrapper() do
+            buff = Matrix{T}(undef, buff_size, num_channels)
 
-    Base.errormonitor(Threads.@spawn begin
-        buff_idx = 1
-        try
-            wrapper() do
-                buff = Matrix{T}(undef, buff_size, num_channels)
-
-                # Keep on generating buffers until `gen_buff!()` returns `false`.
-                while gen_buff!(buff)
-                    put!(c, copy(buff))
-                end
+            # Keep on generating buffers until `gen_buff!()` returns `false`.
+            while gen_buff!(buff)
+                put!(c, copy(buff))
             end
-        finally
-            close(c)
         end
-    end)
-    return c
+    end
 end
 function generate_stream(f::Function, s::SoapySDR.Stream{T}; kwargs...) where {T}
     return generate_stream(f, s.mtu, s.nchannels; T, kwargs...)
@@ -44,54 +72,53 @@ end
 
 # Because the XTRX does not support the Soapy Streaming API yet,
 # we polyfill it here:
-function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity) where {T}
+function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity, auto_sign_extend::Bool = true) where {T}
     if s.d.driver == Symbol("XTRX over LitePCIe")
         buffs = Ptr{T}[C_NULL]
         GC.@preserve buffs begin
             t_us = round(Int, uconvert(u"μs", timeout).val)
             err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(s.d, s, buffs, t_us)
 
-            try
-                if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                    if verbose
-                        @warn("RX TIMEOUT", s.d, timeout)
-                    end
-                    # Not sure what else to do here.
-                    return
-                elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
-                    if verbose
-                        @warn("RX OVERFLOW", s.d)
-                    end
-                    # This isn't really an error, just continue on until we
-                    # care about dropping samples.
-                elseif err <= 0
-                    @error("SoapySDRDevice_acquireReadBuffer() failed", err)
-                    error("SoapySDRDevice_acquireReadBuffer() failed")
-                elseif err != s.mtu
-                    if verbose
-                        @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
-                    end
+            if err == SoapySDR.SOAPY_SDR_TIMEOUT
+                if verbose
+                    @warn("RX TIMEOUT", s.d, timeout)
                 end
-
-                # Copy the SoapySDR-provided buffer out into our own
-                pbuff = unsafe_wrap(Matrix{T}, buffs[1], (s.nchannels, Int(s.mtu)))
-                copyto!(
-                    buff,
-                    permutedims(pbuff),
-                )
-
-                # Sign-extend `buffs[1]` if we're dealing with Complex{Int16}
-                # but which is actually Complex{Int12} inside.
-                if T == Complex{Int16}
-                    sign_extend!(buff)
+                return false
+            elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
+                if verbose
+                    @warn("RX OVERFLOW", s.d)
                 end
-            finally
-                SoapySDR.SoapySDRDevice_releaseReadBuffer(s.d, s, handle)
+                _num_overflows[] += 1
+                return false
+            elseif err <= 0
+                @error("SoapySDRDevice_acquireReadBuffer() failed", err)
+                error("SoapySDRDevice_acquireReadBuffer() failed")
+            elseif err != s.mtu
+                if verbose
+                    @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
+                end
             end
+
+            # Copy the SoapySDR-provided buffer out into our own
+            pbuff = unsafe_wrap(Matrix{T}, buffs[1], (s.nchannels, Int(s.mtu)))
+            copyto!(
+                buff,
+                permutedims(pbuff),
+            )
+
+            # Sign-extend `buff` if we're dealing with Complex{Int16}
+            # but which is actually Complex{Int12} inside.
+            if auto_sign_extend && T == Complex{Int16}
+                sign_extend!(buff)
+            end
+
+            SoapySDR.SoapySDRDevice_releaseReadBuffer(s.d, s, handle)
+            return true
         end
     else
         # The high-level streaming API makes this a tad bit easier
-        return read!(s, split_matrix(buff); timeout)
+        read!(s, split_matrix(buff); timeout)
+        return true
     end
 end
 
@@ -114,6 +141,7 @@ function soapy_write!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 0.1u"s",
                     if verbose
                         @warn("TX UNDERFLOW")
                     end
+                    _num_underflows[] += 1
                     # This isn't really an error, just continue on until we
                     # care about dropping samples.
                 elseif err <= 0
@@ -149,14 +177,17 @@ number of samples are read, or the given `Event` is notified.
 """
 function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base.Event};
                      leadin_buffers::Integer = 16,
+                     auto_sign_extend::Bool = true,
                      kwargs...) where {T}
     # Wrapper to activate/deactivate `s_rx`
     wrapper = (f) -> begin
         SoapySDR.activate!(s_rx) do
             # Let the stream come online for a bit
             buff = Matrix{T}(undef, s_rx.mtu, s_rx.nchannels)
-            for _ in 1:leadin_buffers
-                soapy_read!(s_rx, buff)
+            while leadin_buffers > 0
+                if soapy_read!(s_rx, buff; auto_sign_extend)
+                    leadin_buffers -= 1
+                end
             end
 
             # Invoke the rest of `generate_stream()`
@@ -178,7 +209,9 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             end
         end
 
-        soapy_read!(s_rx, buff)
+        while !soapy_read!(s_rx, buff; auto_sign_extend)
+        end
+
         buff_idx += 1
         return true
     end
@@ -368,9 +401,7 @@ end
 Converts a stream of chunks with size A to a stream of chunks with size B.
 """
 function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T}
-    out = Channel{Matrix{T}}()
-
-    Base.errormonitor(Threads.@spawn begin
+    return spawn_channel_thread(;T) do out
         chunk_filled = 0
         chunk_idx = 1
         # We'll alternate between filling up these three chunks, then sending
@@ -419,10 +450,7 @@ function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T}
                 end
             end
         end
-        close(out)
-    end)
-
-    return out
+    end
 end
 
 """
@@ -434,51 +462,39 @@ grouping/reductions across time.
 """
 function stft(in::Channel{Matrix{T}};
               window_function::Function = DSP.hanning) where {T}
-    out = Channel{Matrix{T}}()
-    BUFFS = [
-        Matrix{T}(undef, 1, 1),
-        Matrix{T}(undef, 1, 1),
-    ]
-    fft_plan = FFTW.plan_fft(BUFFS[1])
+    BUFF = Matrix{T}(undef, 1, 1)
+    fft_plan = FFTW.plan_fft(BUFF)
     win = T.([0])
-    function make_BUFF!(buff)
-        if size(BUFFS[1]) != size(buff)
-            BUFFS = [
-                Matrix{T}(undef, size(buff)...),
-                Matrix{T}(undef, size(buff)...),
-            ]
-            fft_plan = FFTW.plan_fft(BUFFS[1], 1)
+    function resize_data!(buff)
+        if size(BUFF) != size(buff)
+            BUFF = Matrix{T}(undef, size(buff)...)
+            fft_plan = FFTW.plan_fft(BUFF, 1)
             win = T.(window_function(size(buff, 1)))
         end
     end
     
-    Base.errormonitor(Threads.@spawn begin
+    return spawn_channel_thread(;T) do out
         buff_idx = 1
         consume_channel(in) do buff
-            # Prepare our lazyily-initialized memory/planning structures
-            make_BUFF!(buff)
+            # Prepare our lazily-initialized memory/planning structures
+            resize_data!(buff)
 
             # Perform the frequency transform
-            FFTW.mul!(BUFFS[buff_idx], fft_plan, buff .* win)
-            put!(out, BUFFS[buff_idx])
-            buff_idx = mod1(buff_idx + 1, length(BUFFS))
+            FFTW.mul!(BUFF, fft_plan, buff .* win)
+            put!(out, copy(BUFF))
         end
-        close(out)
-    end)
+    end
     return out
 end
 
 function absshift(in::Channel{Matrix{T}}) where {T}
-    out = Channel{Matrix{Float32}}()
-
-    Base.errormonitor(Threads.@spawn begin
+    # Note this coerces to Float32
+    spawn_channel_thread(; T=Float32) do out
         consume_channel(in) do buff
             val = FFTW.fftshift(Float32.(abs.(buff)))
             put!(out, val)
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -488,8 +504,7 @@ Buffers `reduction_factor` buffers together into a vector, then calls
 `reductor(buffs)`, pushing the result out onto a `Channel`.
 """
 function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_factor::Integer; verbose::Bool = _default_verbosity) where {T}
-    out = Channel{Matrix}()
-    Base.errormonitor(Threads.@spawn begin
+    spawn_channel_thread(;T) do out
         buff_idx = 1
         acc = Array{T,3}(undef, 0, 0, 0)
         function make_acc!(buff)
@@ -509,9 +524,7 @@ function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_facto
                 buff_idx = 1
             end
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -562,16 +575,15 @@ end
 
 Logs messages summarizing our data transfer to stdout.
 """
-function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7) where {T}
-    out = Channel{Matrix{T}}()
-    Base.errormonitor(Threads.@spawn begin
+function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7, extra_values::Function = () -> (;)) where {T}
+    spawn_channel_thread(;T) do out
         start_time = time()
         last_print = start_time
         total_samples = 0
         buffers = 0
         consume_channel(in) do data
             buffers += 1
-            total_samples += prod(size(data))
+            total_samples += size(data,1)
 
             curr_time = time()
             if curr_time - last_print > print_period
@@ -581,9 +593,11 @@ function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 
                     buffers,
                     buffer_size = size(data),
                     total_samples,
+                    over_and_underflows = (_num_overflows[], _num_underflows[]),
                     samples_per_sec = @sprintf("%.1f MHz", samples_per_sec/1e6),
                     data_rate = @sprintf("%.1f MB/s", samples_per_sec * sizeof(T)/1e6),
                     duration = @sprintf("%.1f s", duration),
+                    extra_values()...,
                 )
                 last_print = curr_time
             end
@@ -598,9 +612,7 @@ function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 
             data_rate = @sprintf("%.1f MB/s", samples_per_sec * sizeof(T)/1e6),
             duration = @sprintf("%.1f s", duration),
         )
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -610,8 +622,7 @@ Waits upon `ctl` before passing buffers through; useful for synchronization.
 """
 function flowgate(in::Channel{Matrix{T}}, ctl::Base.Event;
                   name::String = "flowgate", verbose::Bool = _default_verbosity) where {T}
-    out = Channel{Matrix{T}}()
-    Base.errormonitor(Threads.@spawn begin
+    spawn_channel_thread(;T) do out
         already_printed = false
         consume_channel(in) do buff
             wait(ctl)
@@ -621,9 +632,7 @@ function flowgate(in::Channel{Matrix{T}}, ctl::Base.Event;
             end
             put!(out, buff)
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 """
@@ -633,8 +642,7 @@ Notifies `ctl` when a buffer passes through.
 """
 function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
                   name::String = "tripwire", verbose::Bool = _default_verbosity) where {T}
-    out = Channel{Matrix{T}}()
-    Base.errormonitor(Threads.@spawn begin
+    spawn_channel_thread(;T) do out
         already_printed = false
         consume_channel(in) do buff
             notify(ctl)
@@ -644,9 +652,7 @@ function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
             end
             put!(out, buff)
         end
-        close(out)
-    end)
-    return out
+    end
 end
 
 

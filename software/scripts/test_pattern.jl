@@ -5,12 +5,11 @@
 using SoapySDR
 using Test
 using CUDA
+device!(0)  # SoapySDR needs CUDA to be initialized
 
 #SoapySDR.register_log_handler()
 
-
 function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
-
     # GPU: set the DMA target
     dma_mode = use_gpu ? "GPU" : "CPU"
     dev_args["device"] = dma_mode
@@ -57,11 +56,11 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
 
         # acquire buffers using the low-level API
         buffs = Ptr{UInt32}[C_NULL]
-        bytes = mtu*4
+        bytes = mtu*num_channels*4
         total_bytes = 0
 
         prior_pointer = Ptr{UInt32}(0)
-        counter = one(Int16)
+        counter = Int32(0)
 
         comp = Vector{Complex{Int16}}(undef, mtu*num_channels)
 
@@ -73,12 +72,13 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
 
         @info "Receiving data using $dma_mode with $test_mode..."
         SoapySDR.activate!(stream) do
-            time = @elapsed for i in 1:600
+            time = @elapsed for i in 1:50000
                 err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
                 if err == SoapySDR.SOAPY_SDR_OVERFLOW
                     overflow_events += 1
+                    initialized_count = false
+                    continue
                 elseif err == SoapySDR.SOAPY_SDR_TIMEOUT
-                    SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
                     continue
                 end
 
@@ -91,20 +91,25 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     #
                     # we also shouldn't wait for the GPU to finish processing the data,
                     # but that requires more careful design that's out of scope here.
-            
+
                     arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
                     if !initialized_count
                         #setup arrays for comparison
-                        CUDA.@allowscalar counter = arr[1]
+                        CUDA.@allowscalar counter = Int32(real(arr[1])) & 0xfff | ((Int32(imag(arr[1])) & 0xfff) << 12)
                         initialized_count = true
                     end
 
                     # copy the array over to the CPU for validation
                     copyto!(comp, arr)
 
+                    # check the data
+                    # XXX: this loop does not stay within the 60us time budget
                     for j in eachindex(comp)
-                        @assert arr[j] == counter
-                        counter = Complex{Int16}((real(counter) + 1) & 0xfff, (imag(counter) + 2) & 0xfff)
+                        z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                        if comp[j] != z
+                            @warn("Error", received=comp[j], expected=z)
+                        end
+                        counter = (counter + 1) & 0xffffff
                     end
 
                     #arr .= 1        # to verify we can actually do something with this
@@ -114,31 +119,40 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
 
                     if lfsr_mode
                         buf = unsafe_wrap(Array{UInt16}, reinterpret(Ptr{UInt16}, buffs[1]), Int(mtu*num_channels*2))
+
                         # LFSR data check
                         for j in 1:2:length(buf)-1
-                            @assert buf[j] == ((~buf[j+1]) & 0x0fff)
+                            z = (~buf[j+1]) & 0x0fff
+                            if buf[j] != z
+                                @warn("Error", received=buf[j], expected=z)
+                            end
                         end
                     else
                         buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
+
                         # sync the counter on start
                         if !initialized_count
-                            counter = buf[1]
+                            counter = Int32(real(buf[1])) & 0xfff | ((Int32(imag(buf[1])) & 0xfff) << 12)
                             initialized_count = true
                         end
 
+                        # check the data
+                        # XXX: this loop does not stay within the 60us time budget
                         for j in eachindex(buf)
-                            @assert buf[j] == counter
-                            counter = Complex{Int16}((real(counter) + 1) & 0xfff, (imag(counter) + 2) & 0xfff)
+                            z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                            if buf[j] != z
+                                @warn("Error", received=buf[j], expected=z)
+                            end
+                            counter = (counter + 1) & 0xffffff
                         end
                     end
 
-                    buf_pointer = reinterpret(Ptr{UInt32}, buffs[1])
-
                     # make sure we aren't recycling the same buffer
+                    # XXX: this can fail when overflowing a lot
+                    buf_pointer = reinterpret(Ptr{UInt32}, buffs[1])
                     if i != 1
                         @assert prior_pointer != buf_pointer
                     end
-
                     prior_pointer = buf_pointer
                 end
 
@@ -147,28 +161,22 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                 total_bytes += bytes
             end
             @info "Data rate: $(Base.format_bytes(total_bytes / time))/s"
-            @info "Overflow Events: $overflow_events"
+            @info "Overflow events: $overflow_events"
 
         end
     end
 end
 
-using CUDA
-# GPU: initialize the device# GPU: initialize the device
-device!(0)
-CuArray(UInt32[1]) .= 1
-# XXX: actually creating an array to initialize CUDA won't be required anymore
-#      in the next version of CUDA.jl, but it helps to ensure code is compiled
-
-using Base.Threads
-
-for dev_args in Devices(driver="XTRX")
-    try
-        dma_test(dev_args;use_gpu=false, lfsr_mode=true)
-        dma_test(dev_args;use_gpu=false, lfsr_mode=false)
-        dma_test(dev_args;use_gpu=true, lfsr_mode=false)
-    catch e
-        @error("failed on $(dev_args["path"]), serial: $(dev_args["serial"])")
-        @error(e)
+function main()
+    for dev_args in Devices(driver="XTRX")
+        try
+            dma_test(dev_args; use_gpu=false, lfsr_mode=true)
+            dma_test(dev_args; use_gpu=false, lfsr_mode=false)
+            dma_test(dev_args; use_gpu=true,  lfsr_mode=false)
+        catch e
+            @error "Test failed" path=dev_args["path"] serial=dev_args["serial"] exception=(e, catch_backtrace())
+        end
     end
 end
+
+isinteractive() || main()
