@@ -88,6 +88,7 @@ function generate_stream(f::Function, s::SoapySDR.Stream{T}; kwargs...) where {T
     return generate_stream(f, s.mtu, s.nchannels; T, kwargs...)
 end
 
+
 """
     stream_data(s_rx::SoapySDR.Stream, end_condition::Union{Integer,Event})
 
