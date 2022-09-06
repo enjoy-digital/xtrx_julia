@@ -44,7 +44,7 @@ end
 
 # Because the XTRX does not support the Soapy Streaming API yet,
 # we polyfill it here:
-function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity) where {T}
+function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity, auto_sign_extend::Bool = true) where {T}
     if s.d.driver == Symbol("XTRX over LitePCIe")
         buffs = Ptr{T}[C_NULL]
         GC.@preserve buffs begin
@@ -82,7 +82,7 @@ function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", ve
 
                 # Sign-extend `buffs[1]` if we're dealing with Complex{Int16}
                 # but which is actually Complex{Int12} inside.
-                if T == Complex{Int16}
+                if auto_sign_extend && T == Complex{Int16}
                     sign_extend!(buff)
                 end
             finally
@@ -149,6 +149,7 @@ number of samples are read, or the given `Event` is notified.
 """
 function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base.Event};
                      leadin_buffers::Integer = 16,
+                     auto_sign_extend::Bool = true,
                      kwargs...) where {T}
     # Wrapper to activate/deactivate `s_rx`
     wrapper = (f) -> begin
@@ -156,7 +157,7 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             # Let the stream come online for a bit
             buff = Matrix{T}(undef, s_rx.mtu, s_rx.nchannels)
             for _ in 1:leadin_buffers
-                soapy_read!(s_rx, buff)
+                soapy_read!(s_rx, buff; auto_sign_extend)
             end
 
             # Invoke the rest of `generate_stream()`
@@ -178,7 +179,7 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             end
         end
 
-        soapy_read!(s_rx, buff)
+        soapy_read!(s_rx, buff; auto_sign_extend)
         buff_idx += 1
         return true
     end

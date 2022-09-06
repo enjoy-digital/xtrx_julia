@@ -61,7 +61,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
         total_bytes = 0
 
         prior_pointer = Ptr{UInt32}(0)
-        counter = one(Int16)
+        counter = one(Int32)
 
         comp = Vector{Complex{Int16}}(undef, mtu*num_channels)
 
@@ -95,7 +95,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
                     if !initialized_count
                         #setup arrays for comparison
-                        CUDA.@allowscalar counter = arr[1]
+                        CUDA.@allowscalar counter = (real(arr[1]) & 0xfff) + ((imag(arr[1]) & 0xfff) << 12)
                         initialized_count = true
                     end
 
@@ -103,8 +103,8 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     copyto!(comp, arr)
 
                     for j in eachindex(comp)
-                        @assert arr[j] == counter
-                        counter = Complex{Int16}((real(counter) + 1) & 0xfff, (imag(counter) + 2) & 0xfff)
+                        @assert arr[j] == Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                        counter = (counter + 1) & 0xffffff
                     end
 
                     #arr .= 1        # to verify we can actually do something with this
@@ -122,13 +122,13 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                         buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
                         # sync the counter on start
                         if !initialized_count
-                            counter = buf[1]
+                            counter = (real(buf[1]) & 0xfff) + ((imag(buf[1]) & 0xfff) << 12)
                             initialized_count = true
                         end
 
                         for j in eachindex(buf)
-                            @assert buf[j] == counter
-                            counter = Complex{Int16}((real(counter) + 1) & 0xfff, (imag(counter) + 2) & 0xfff)
+                            @assert buf[j] == Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                            counter = (counter + 1) & 0xffffff
                         end
                     end
 

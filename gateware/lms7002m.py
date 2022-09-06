@@ -103,25 +103,22 @@ class TXPatternGenerator(Module, AutoCSR):
         # ----------
 
         # Counter.
-        count0 = Signal(12)
-        count1 = Signal(12)
+        count = Signal(24)
         self.sync.rfic += [
             # Reset Count when disabled.
             If(~enable,
-                count0.eq(0),
-                count1.eq(0),
+                count.eq(0),
             # Increment Count when enabled.
             ).Else(
-                count0.eq(count0 + 1),
-                count1.eq(count1 + 2),
+                count.eq(count + 1),
             )
         ]
 
         # Data-Path.
         # ----------
         self.sync.rfic += [
-            self.source.data[ 0:16].eq(count0),
-            self.source.data[16:32].eq(count1),
+            self.source.data[ 0:16].eq(count[ 0:12]),
+            self.source.data[16:32].eq(count[12:24]),
         ]
 
 
