@@ -20,9 +20,9 @@ GC.enable(false)
 function dma_test(dev_args)
     Device(dev_args) do dev
         # Setup transmission/recieve parameters
-        set_cgen_freq(dev, 64u"MHz")
+        set_cgen_freq(dev, 32u"MHz")
         sample_rate = 2u"MHz"
-        for (c_idx, cr) in enumerate(dev.rx)
+        for cr in dev.rx
             cr.sample_rate = sample_rate
         end
         for ct in dev.tx
@@ -34,6 +34,8 @@ function dma_test(dev_args)
         SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_TX_PATTERN", "1")
         SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
 
+        SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "test_pattern_multithreaded.ini")
+
         # open MIMO RX stream
         stream = SoapySDR.Stream(dev.rx[1].native_stream_format, dev.rx)
 
@@ -42,35 +44,51 @@ function dma_test(dev_args)
         @info "Number of DMA buffers: $wr_nbufs"
         @info "MTU: $mtu"
 
+        buffs_processed = 0
         total_bytes = 0
         initialized_count = false
+        counter = Int32(0)
+        last_print = time()
+        errors = Int64(0)
 
         c = stream_data(stream, mtu*wr_nbufs*2000; auto_sign_extend=false, leadin_buffers=0)
+        c = membuffer(c)
 
         # Log out information about data rate and such
-        c = log_stream_xfer(c)
+        c = log_stream_xfer(c; extra_values=() -> (;errors, total_bytes, counter=UInt32(counter)))
 
-        counter = 0
         consume_channel(c) do buff
-            # Pick up wherever we are in the sequence
-            if !initialized_count
-                counter = (real(buff[1]) & 0xfff) + ((imag(buff[1]) & 0xfff) << 12)
-                initialized_count = true
-            end
-
             # libsigflow permutes our data into a standardized ordering
             # let's un-permute to get back to the native ordering, which
             # is better for this test.
             pbuff = permutedims(buff)
+
+            # Pick up wherever we are in the sequence
+            if !initialized_count
+                counter = Int32(real(pbuff[1])) & 0xfff | ((Int32(imag(pbuff[1])) & 0xfff) << 12)
+                initialized_count = true
+            end
+
             for j in eachindex(pbuff)
                 comp = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
                 if pbuff[j] != comp
-                    @error("fail", j, pbuff[j], comp, total_bytes)
+                    # We may fail a few times while compiling at first, because we'll drop buffers.
+                    # but eventually, we should be able to keep up with the data stream, as long as
+                    # it's low enough.
+                    @warn("Error", pbuff[j], comp, buffs_processed)
+                    errors += 1
+                    initialized_count = false
+                    break
                 end
-                @assert pbuff[j] == comp
                 counter = (counter + 1) & 0xffffff
             end
+
+            curr_time = time()
+            if curr_time - last_print > 1.0
+                last_print = curr_time
+            end
             total_bytes += sizeof(buff)
+            buffs_processed += 1
         end
     end
 end

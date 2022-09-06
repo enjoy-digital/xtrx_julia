@@ -1,3 +1,5 @@
+using Unitful
+
 # Debugging register poking API.  This is very unportable
 const SoapyXTRXModules =
     get(ENV, "SOAPY_SDR_PLUGIN_PATH",
@@ -15,6 +17,7 @@ function set_cgen_freq(dev::Device, clk_rate::Float64)
     ccall((:_ZN9SoapyXTRX18setMasterClockRateEd, libSoapyXTRX), Cvoid, (Ptr{Cvoid}, Cdouble), dev.ptr, clk_rate)
     return nothing
 end
+set_cgen_freq(dev::Device, clk_freq::Unitful.Frequency) = set_cgen_freq(dev, Float64(upreferred(clk_freq).val))
 function get_cgen_freq(dev::Device)
     return ccall((:_ZNK9SoapyXTRX18getMasterClockRateEv, libSoapyXTRX), Cdouble, (Ptr{Cvoid},), dev.ptr)
 end
