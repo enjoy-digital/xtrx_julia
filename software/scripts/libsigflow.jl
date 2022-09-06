@@ -209,8 +209,7 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             end
         end
 
-        if !soapy_read!(s_rx, buff; auto_sign_extend)
-            return false
+        while !soapy_read!(s_rx, buff; auto_sign_extend)
         end
 
         buff_idx += 1
