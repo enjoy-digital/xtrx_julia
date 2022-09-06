@@ -6,7 +6,7 @@ using SoapySDR
 using Test
 using CUDA
 
-SoapySDR.register_log_handler()
+#SoapySDR.register_log_handler()
 
 
 function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
@@ -73,7 +73,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
 
         @info "Receiving data using $dma_mode with $test_mode..."
         SoapySDR.activate!(stream) do
-            time = @elapsed for i in 1:300
+            time = @elapsed for i in 1:600
                 err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
                 if err == SoapySDR.SOAPY_SDR_OVERFLOW
                     overflow_events += 1
@@ -95,7 +95,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
                     if !initialized_count
                         #setup arrays for comparison
-                        CUDA.@allowscalar counter = Int16(real(arr[1]))
+                        CUDA.@allowscalar counter = arr[1]
                         initialized_count = true
                     end
 
@@ -103,8 +103,8 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     copyto!(comp, arr)
 
                     for j in eachindex(comp)
-                        @assert comp[j] == Complex{Int16}(counter, counter)
-                        counter = (counter + 0x1) & 0xfff
+                        @assert arr[j] == counter
+                        counter = Complex{Int16}((real(counter) + 1) & 0xfff, (imag(counter) + 2) & 0xfff)
                     end
 
                     #arr .= 1        # to verify we can actually do something with this
@@ -122,13 +122,13 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                         buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
                         # sync the counter on start
                         if !initialized_count
-                            counter = Int16(real(buf[1]))
+                            counter = buf[1]
                             initialized_count = true
                         end
 
                         for j in eachindex(buf)
-                            @assert buf[j] == Complex{Int16}(counter, counter)
-                            counter = (counter + 0x1) & 0xfff
+                            @assert buf[j] == counter
+                            counter = Complex{Int16}((real(counter) + 1) & 0xfff, (imag(counter) + 2) & 0xfff)
                         end
                     end
 
@@ -160,11 +160,13 @@ CuArray(UInt32[1]) .= 1
 # XXX: actually creating an array to initialize CUDA won't be required anymore
 #      in the next version of CUDA.jl, but it helps to ensure code is compiled
 
+using Base.Threads
+
 for dev_args in Devices(driver="XTRX")
     try
         dma_test(dev_args;use_gpu=false, lfsr_mode=true)
-        dma_test(dev_args;use_gpu=true, lfsr_mode=false)
         dma_test(dev_args;use_gpu=false, lfsr_mode=false)
+        dma_test(dev_args;use_gpu=true, lfsr_mode=false)
     catch e
         @error("failed on $(dev_args["path"]), serial: $(dev_args["serial"])")
         @error(e)
