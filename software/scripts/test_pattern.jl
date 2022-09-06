@@ -61,7 +61,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
         total_bytes = 0
 
         prior_pointer = Ptr{UInt32}(0)
-        counter = one(Int32)
+        counter = Int32(0)
 
         comp = Vector{Complex{Int16}}(undef, mtu*num_channels)
 
@@ -95,7 +95,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
                     if !initialized_count
                         #setup arrays for comparison
-                        CUDA.@allowscalar counter = (real(arr[1]) & 0xfff) + ((imag(arr[1]) & 0xfff) << 12)
+                        CUDA.@allowscalar counter = Int32(real(arr[1])) & 0xfff | ((Int32(imag(arr[1])) & 0xfff) << 12)
                         initialized_count = true
                     end
 
@@ -103,7 +103,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                     copyto!(comp, arr)
 
                     for j in eachindex(comp)
-                        @assert arr[j] == Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                        @assert comp[j] == Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
                         counter = (counter + 1) & 0xffffff
                     end
 
@@ -122,12 +122,16 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                         buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
                         # sync the counter on start
                         if !initialized_count
-                            counter = (real(buf[1]) & 0xfff) + ((imag(buf[1]) & 0xfff) << 12)
+                            counter = Int32(real(buf[1])) & 0xfff | ((Int32(imag(buf[1])) & 0xfff) << 12)
                             initialized_count = true
                         end
 
                         for j in eachindex(buf)
-                            @assert buf[j] == Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                            z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                            if buf[j] != z
+                                @warn("Error", received=buf[j], expected=z)
+                            end
+                            @assert buf[j] == z
                             counter = (counter + 1) & 0xffffff
                         end
                     end
