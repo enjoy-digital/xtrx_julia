@@ -75,7 +75,7 @@ function dma_test(dev_args)
                     # We may fail a few times while compiling at first, because we'll drop buffers.
                     # but eventually, we should be able to keep up with the data stream, as long as
                     # it's low enough.
-                    @warn("Error", pbuff[j], comp, buffs_processed)
+                    @warn("Error", j, pbuff[j], comp, buffs_processed, _num_overflows[])
                     errors += 1
                     initialized_count = false
                     break
