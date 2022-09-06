@@ -242,8 +242,7 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
         }
 
         // get new DMA counters
-        litepcie_dma_writer(_fd, 1, &_rx_stream.hw_count,
-                            &_rx_stream.user_count);
+        litepcie_dma_writer(_fd, 1, &_rx_stream.hw_count, &_rx_stream.sw_count);
         buffers_available = _rx_stream.hw_count - _rx_stream.user_count;
         assert(buffers_available > 0);
     }
@@ -302,8 +301,7 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
             return SOAPY_SDR_TIMEOUT;
 
         // get new DMA counters
-        litepcie_dma_reader(_fd, 1, &_tx_stream.hw_count,
-                            &_tx_stream.user_count);
+        litepcie_dma_reader(_fd, 1, &_tx_stream.hw_count, &_tx_stream.sw_count);
         buffers_pending = _tx_stream.user_count - _tx_stream.hw_count;
         assert(buffers_pending < ((int64_t)_dma_mmap_info.dma_tx_buf_count));
     }
