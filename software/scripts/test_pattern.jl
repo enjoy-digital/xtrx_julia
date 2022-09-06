@@ -59,7 +59,6 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
         bytes = mtu*num_channels*4
         total_bytes = 0
 
-        prior_pointer = Ptr{UInt32}(0)
         counter = Int32(0)
 
         comp = Vector{Complex{Int16}}(undef, mtu*num_channels)
@@ -146,16 +145,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                             counter = (counter + 1) & 0xffffff
                         end
                     end
-
-                    # make sure we aren't recycling the same buffer
-                    # XXX: this can fail when overflowing a lot
-                    buf_pointer = reinterpret(Ptr{UInt32}, buffs[1])
-                    if i != 1
-                        @assert prior_pointer != buf_pointer
-                    end
-                    prior_pointer = buf_pointer
                 end
-
 
                 SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
                 total_bytes += bytes
