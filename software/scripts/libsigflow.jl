@@ -79,48 +79,46 @@ function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", ve
             t_us = round(Int, uconvert(u"μs", timeout).val)
             err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(s.d, s, buffs, t_us)
 
-            try
-                if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                    if verbose
-                        @warn("RX TIMEOUT", s.d, timeout)
-                    end
-                    # Not sure what else to do here.
-                    return
-                elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
-                    if verbose
-                        @warn("RX OVERFLOW", s.d)
-                    end
-                    _num_overflows[] += 1
-                    # This isn't really an error, just continue on until we
-                    # care about dropping samples.
-                elseif err <= 0
-                    @error("SoapySDRDevice_acquireReadBuffer() failed", err)
-                    error("SoapySDRDevice_acquireReadBuffer() failed")
-                elseif err != s.mtu
-                    if verbose
-                        @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
-                    end
+            if err == SoapySDR.SOAPY_SDR_TIMEOUT
+                if verbose
+                    @warn("RX TIMEOUT", s.d, timeout)
                 end
-
-                # Copy the SoapySDR-provided buffer out into our own
-                pbuff = unsafe_wrap(Matrix{T}, buffs[1], (s.nchannels, Int(s.mtu)))
-                copyto!(
-                    buff,
-                    permutedims(pbuff),
-                )
-
-                # Sign-extend `buff` if we're dealing with Complex{Int16}
-                # but which is actually Complex{Int12} inside.
-                if auto_sign_extend && T == Complex{Int16}
-                    sign_extend!(buff)
+                return false
+            elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
+                if verbose
+                    @warn("RX OVERFLOW", s.d)
                 end
-            finally
-                SoapySDR.SoapySDRDevice_releaseReadBuffer(s.d, s, handle)
+                _num_overflows[] += 1
+                return false
+            elseif err <= 0
+                @error("SoapySDRDevice_acquireReadBuffer() failed", err)
+                error("SoapySDRDevice_acquireReadBuffer() failed")
+            elseif err != s.mtu
+                if verbose
+                    @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
+                end
             end
+
+            # Copy the SoapySDR-provided buffer out into our own
+            pbuff = unsafe_wrap(Matrix{T}, buffs[1], (s.nchannels, Int(s.mtu)))
+            copyto!(
+                buff,
+                permutedims(pbuff),
+            )
+
+            # Sign-extend `buff` if we're dealing with Complex{Int16}
+            # but which is actually Complex{Int12} inside.
+            if auto_sign_extend && T == Complex{Int16}
+                sign_extend!(buff)
+            end
+
+            SoapySDR.SoapySDRDevice_releaseReadBuffer(s.d, s, handle)
+            return true
         end
     else
         # The high-level streaming API makes this a tad bit easier
-        return read!(s, split_matrix(buff); timeout)
+        read!(s, split_matrix(buff); timeout)
+        return true
     end
 end
 
@@ -186,8 +184,10 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
         SoapySDR.activate!(s_rx) do
             # Let the stream come online for a bit
             buff = Matrix{T}(undef, s_rx.mtu, s_rx.nchannels)
-            for _ in 1:leadin_buffers
-                soapy_read!(s_rx, buff; auto_sign_extend)
+            while leadin_buffers > 0
+                if soapy_read!(s_rx, buff; auto_sign_extend)
+                    leadin_buffers -= 1
+                end
             end
 
             # Invoke the rest of `generate_stream()`
@@ -209,7 +209,10 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             end
         end
 
-        soapy_read!(s_rx, buff; auto_sign_extend)
+        if !soapy_read!(s_rx, buff; auto_sign_extend)
+            return false
+        end
+
         buff_idx += 1
         return true
     end
