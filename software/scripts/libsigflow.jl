@@ -30,6 +30,22 @@ function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_
     return out
 end
 
+
+
+"""
+    membuffer(in, max_size = 16)
+
+Provide some buffering for realtime applications.
+"""
+function membuffer(in::Channel{Matrix{T}}, max_size::Int = 16) where {T}
+    spawn_channel_thread(;T, buffers_in_flight=max_size) do out
+        consume_channel(in) do buff
+            put!(out, buff)
+        end
+    end
+end
+
+
 """
     generate_stream(gen_buff!::Function, buff_size, num_channels)
 
