@@ -19,7 +19,6 @@ GC.enable(false)
 
 function dma_test(dev_args)
     Device(dev_args) do dev
-        # Setup transmission/recieve parameters
         # Try increasing `sample_rate`
         sample_rate = 1u"MHz"
         for cr in dev.rx
@@ -46,7 +45,6 @@ function dma_test(dev_args)
         total_bytes = 0
         initialized_count = false
         counter = Int32(0)
-        last_print = time()
         errors = Int64(0)
 
         c = stream_data(stream, mtu*wr_nbufs*2000; leadin_buffers=0)
@@ -82,11 +80,6 @@ function dma_test(dev_args)
                     break
                 end
                 counter = (counter + 1) & 0xffffff
-            end
-
-            curr_time = time()
-            if curr_time - last_print > 1.0
-                last_print = curr_time
             end
             total_bytes += sizeof(buff)
             buffs_processed += 1
