@@ -9,6 +9,7 @@
 import os
 import argparse
 import sys
+import subprocess
 
 from migen import *
 from migen.fhdl.specials import Tristate
@@ -90,9 +91,11 @@ class BaseSoC(SoCCore):
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
+        git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip().decode('utf-8')
+
         # SoCCore ----------------------------------------------------------------------------------
         SoCCore.__init__(self, platform, sys_clk_freq,
-            ident                    = "LiteX SoC on Fairwaves XTRX",
+            ident                    = "LiteX SoC on Fairwaves XTRX "+git_sha,
             ident_version            = True,
             cpu_type                 = "vexriscv" if with_cpu else None,
             cpu_variant              = "minimal",
