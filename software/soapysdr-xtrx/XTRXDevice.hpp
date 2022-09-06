@@ -289,7 +289,8 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     void *_dma_buf;
 
     struct Stream {
-        Stream() : opened(false) {}
+        Stream() : opened(false), remainderHandle(-1), remainderSamps(0),
+                   remainderOffset(0), remainderBuff(nullptr) {}
 
         bool opened;
         void *buf;
@@ -301,6 +302,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
         size_t remainderOffset;
         int8_t* remainderBuff;
         std::string format;
+        std::vector<size_t> channels;
     };
 
     struct RXStream: Stream {
