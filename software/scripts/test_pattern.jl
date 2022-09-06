@@ -77,10 +77,6 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                 if err == SoapySDR.SOAPY_SDR_OVERFLOW
                     overflow_events += 1
                     initialized_count = false
-
-                    # this buffer is invalid
-                    SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
-                    total_bytes += bytes
                     continue
                 elseif err == SoapySDR.SOAPY_SDR_TIMEOUT
                     continue

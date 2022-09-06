@@ -247,25 +247,35 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
         assert(buffers_available > 0);
     }
 
-    // get the buffer
-    int buf_offset = _rx_stream.user_count % _dma_mmap_info.dma_rx_buf_count;
-    getDirectAccessBufferAddrs(stream, buf_offset, (void **)buffs);
-
-    // update the DMA counters
-    handle = _rx_stream.user_count;
-    _rx_stream.user_count++;
-
     // detect overflows of the underlying circular buffer
     if ((_rx_stream.hw_count - _rx_stream.sw_count) >
         ((int64_t)_dma_mmap_info.dma_rx_buf_count / 2)) {
+        // drain all buffers to get out of the overflow quicker
+        struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
+        mmap_dma_update.sw_count = _rx_stream.hw_count;
+        checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_WRITER_UPDATE, &mmap_dma_update);
+        _rx_stream.user_count = _rx_stream.hw_count;
+        _rx_stream.sw_count = _rx_stream.hw_count;
+        handle = -1;
+
         flags |= SOAPY_SDR_END_ABRUPT;
         return SOAPY_SDR_OVERFLOW;
     } else {
+        // get the buffer
+        int buf_offset = _rx_stream.user_count % _dma_mmap_info.dma_rx_buf_count;
+        getDirectAccessBufferAddrs(stream, buf_offset, (void **)buffs);
+
+        // update the DMA counters
+        handle = _rx_stream.user_count;
+        _rx_stream.user_count++;
+
         return getStreamMTU(stream);
     }
 }
 
 void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream */*stream*/, size_t handle) {
+    assert(handle != (size_t)-1 && "Attempt to release an invalid buffer (e.g., from an overflow)");
+
     // update the DMA counters
     struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
     mmap_dma_update.sw_count = handle + 1;
