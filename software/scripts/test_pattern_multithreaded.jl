@@ -20,8 +20,9 @@ GC.enable(false)
 function dma_test(dev_args)
     Device(dev_args) do dev
         # Setup transmission/recieve parameters
-        set_cgen_freq(dev, 32u"MHz")
-        sample_rate = 2u"MHz"
+        # Try increasing `sample_rate`
+        sample_rate = 1u"MHz"
+        set_cgen_freq(dev, 16*sample_rate)
         for cr in dev.rx
             cr.sample_rate = sample_rate
         end
