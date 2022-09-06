@@ -9,6 +9,8 @@ _default_verbosity = false
 function set_libsigflow_verbose(verbose::Bool)
     global _default_verbosity = verbose
 end
+_num_overflows = Ref{Int64}(0)
+_num_underflows = Ref{Int64}(0)
 
 """
     spawn_channel_thread(f::Function)
@@ -72,6 +74,7 @@ function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", ve
                     if verbose
                         @warn("RX OVERFLOW", s.d)
                     end
+                    _num_overflows[] += 1
                     # This isn't really an error, just continue on until we
                     # care about dropping samples.
                 elseif err <= 0
@@ -124,6 +127,7 @@ function soapy_write!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 0.1u"s",
                     if verbose
                         @warn("TX UNDERFLOW")
                     end
+                    _num_underflows[] += 1
                     # This isn't really an error, just continue on until we
                     # care about dropping samples.
                 elseif err <= 0
@@ -553,7 +557,7 @@ end
 
 Logs messages summarizing our data transfer to stdout.
 """
-function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7) where {T}
+function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7, extra_values::Function = () -> (;)) where {T}
     spawn_channel_thread(;T) do out
         start_time = time()
         last_print = start_time
@@ -571,9 +575,11 @@ function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 
                     buffers,
                     buffer_size = size(data),
                     total_samples,
+                    over_and_underflows = (_num_overflows[], _num_underflows[]),
                     samples_per_sec = @sprintf("%.1f MHz", samples_per_sec/1e6),
                     data_rate = @sprintf("%.1f MB/s", samples_per_sec * sizeof(T)/1e6),
                     duration = @sprintf("%.1f s", duration),
+                    extra_values()...,
                 )
                 last_print = curr_time
             end
