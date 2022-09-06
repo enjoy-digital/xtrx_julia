@@ -256,10 +256,8 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
     _rx_stream.user_count++;
 
     // detect overflows of the underlying circular buffer
-    // NOTE: the kernel driver is more aggressive here and
-    //       treats a difference of half the count as an overflow
     if ((_rx_stream.hw_count - _rx_stream.sw_count) >
-        ((int64_t)_dma_mmap_info.dma_rx_buf_count)) {
+        ((int64_t)_dma_mmap_info.dma_rx_buf_count / 2)) {
         flags |= SOAPY_SDR_END_ABRUPT;
         return SOAPY_SDR_OVERFLOW;
     } else {
