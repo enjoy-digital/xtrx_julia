@@ -145,12 +145,10 @@ class RXPatternChecker(Module, AutoCSR):
         # Checker/Data-Path.
         # -------------------
         count_error = Signal()
-        count0      = Signal(12)
-        count1      = Signal(12)
-        self.sync.rfic += count0.eq(self.sink.data[0:])
-        self.sync.rfic += count1.eq(self.sink.data[16:])
-        self.comb += If(self.sink.data[ 0:12] != (count0 + 1), count_error.eq(1))
-        self.comb += If(self.sink.data[16:28] != (count1 + 2), count_error.eq(1))
+        count       = Signal(24)
+        self.sync.rfic += count[ 0:12].eq(self.sink.data[0:16])
+        self.sync.rfic += count[12:24].eq(self.sink.data[16:32])
+        self.comb += If(Cat(self.sink.data[0:12], self.sink.data[16:28]) != (count + 1), count_error.eq(1))
 
         # Errors.
         # -------
