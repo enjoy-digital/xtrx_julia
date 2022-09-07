@@ -996,6 +996,13 @@ std::string SoapyXTRX::readSetting(const std::string &key) const
         uint32_t mask = ((uint32_t)(1 << CSR_LMS7002M_DELAY_RX_DELAY_SIZE)-1);
         uint32_t delay = (reg >> CSR_LMS7002M_DELAY_RX_DELAY_OFFSET) & mask;
         return std::to_string(delay);
+    } else if (key == "DMA_BUFFERS") {
+        return "RX hw count: " + std::to_string(_rx_stream.hw_count)
+                + " RX sw count: " + std::to_string(_rx_stream.sw_count)
+                + " RX user count: " + std::to_string(_rx_stream.user_count)
+                + " TX hw count: " + std::to_string(_tx_stream.hw_count)
+                + " TX sw count: " + std::to_string(_tx_stream.sw_count)
+                + " TX user count: " + std::to_string(_tx_stream.user_count);
     } else
         throw std::runtime_error("SoapyXTRX::readSetting(" + key + ") unknown key");
 }
