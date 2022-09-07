@@ -64,7 +64,7 @@ function run_experiment(; dump_inis::Bool = false,
     devs = collect(Devices(driver="XTRX"))
 
     # Open one TX device
-    dev_tx = Device(first(filter(p -> p["serial"]=="121c444ea8c85c", devs)))
+    dev_tx = Device(first(filter(p -> p["serial"]=="134c5241b884854", devs)))
 
     # Open three Rx devices, identified by serial number
     rx_serials = ["1cc5241b88485c", "12cc5241b88485c", "18c5241b88485c"]
