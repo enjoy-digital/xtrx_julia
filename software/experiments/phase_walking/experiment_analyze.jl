@@ -6,14 +6,16 @@ include("../../scripts/libsigflow.jl")
 
 
 # Plot out received signals
-function make_time_plots(iq_data, names; title="experiment")
+function make_time_plots(iq_data, names, sample_rate; title="experiment")
     @info("Plotting $(size(iq_data,2)) channels...")
-    for (f, fname) in [(real, "re"), (imag, "im"), (abs, "abs")]
-        plt = plot(f.(iq_data[:, 1]); label="$(fname)($(names[1]))", title="$(title) - $(fname)")
-        for i in 2:size(iq_data, 2)
-            plot!(plt, f.(iq_data[:, i]); label="$(fname)($(names[i]))")
+    for (f, fname) in [(real, "real"), (imag, "imaginary"), (abs, "abs"), (angle, "angle")]
+        t = (0:(size(iq_data, 1)-1))/upreferred(sample_rate).val
+        plt = plot(; title="$(title) - $(fname)", xlabel="Time (s)", ylabel="Amplitude")
+        for i in 1:size(iq_data, 2)
+            plot!(plt, t, f.(iq_data[:, i]); label="$(fname)($(names[i]))")
         end
         savefig(plt, "$(title)_$(fname).png")
+        savefig(plt, "$(title)_$(fname).pdf")
     end
 end
 
@@ -25,7 +27,7 @@ function make_fft_plots(iq_data, names, fs; title="experiment", max_freq = 50.0)
 
     fs = uconvert(u"kHz", fs).val
     f = LinRange(0, fs, size(DATA, 1))
-    plt = plot(f, DATA[:, 1]; label="|$(names[1])|", title="$(title) - Spectrum", xlabel="Frequency", ylabel="Magnitude (normalized)")
+    plt = plot(f, DATA[:, 1]; label="|$(names[1])|", title="$(title) - Spectrum", xlabel="Frequency (kHz)", ylabel="Magnitude (normalized)")
     for i in 2:size(DATA, 2)
         plot!(plt, f, DATA[:, i]; label="|$(names[i])|")
     end
@@ -174,11 +176,11 @@ struct FreqPhaseEstimate
     signal::Vector
 end
 
-function make_FP_plots(fpe_data::Matrix{FreqPhaseEstimate}, names; title="FPE")
+function make_FP_plots(fpe_data::Matrix{FreqPhaseEstimate}, names, sample_rate; title="FPE")
     @info("Plotting $(size(fpe_data,2)) Frequency and Phase estimates...")
 
     for prop in [:frequency, :magnitude, :phase, :snr]
-        p = plot(; title="$(title) - $(prop)")
+        p = plot(; title="$(title) - $(prop)", xlabel="Time (s)")
         for ch_idx in 1:size(fpe_data,2)
             ds = [getproperty(x, prop) for x in fpe_data[:, ch_idx]]
             plot!(p, ds; label="$(names[ch_idx])")
@@ -242,7 +244,7 @@ function main()
         return endswith(f, ".sc16") && occursin("-rx", f)
     end
     names = replace.(basename.(capture_files), ".sc16" => "")
-    sample_rate = 2u"MHz"
+    sample_rate = 1u"MHz"
     samples_1ms = round(Int, upreferred(sample_rate).val/1000)
 
     c = stream_data(capture_files, Complex{Int16})
@@ -250,6 +252,11 @@ function main()
     # Divide all channels by the first channel, to get relative drifting:
     c, c_demod = tee(c)
     c_demod = relative_demod(c_demod)
+
+    # Filter demodulation to drop higher frequency products
+    filter_len = 256
+    filter_coeffs = digitalfilter(Lowpass(1e3; fs=upreferred(sample_rate).val), FIRWindow(hanning(filter_len)))
+    c_demod = streaming_filter(c_demod, filter_coeffs)
     
     # track frequency and phase on the raw signal
     c, c_fp = tee(c)
@@ -272,21 +279,21 @@ function main()
     # Plot time and frequency of the last 1ms of data
     @info("Flowgraph running...")
     iq_raw = fetch(iq_raw)
-    make_time_plots(iq_raw[end-101*samples_1ms:end-100*samples_1ms, :], names; title="raw")
-    make_fft_plots(iq_raw[end-101*samples_1ms:end-100*samples_1ms, :], names, sample_rate; title="raw")
+    make_time_plots(iq_raw[1050*samples_1ms:1051*samples_1ms, :], names, sample_rate; title="raw")
+    make_fft_plots(iq_raw[1050*samples_1ms:1051*samples_1ms, :], names, sample_rate; title="raw")
 
     # Next, plot demodulated signal
     iq_demod = fetch(iq_demod)
-    make_time_plots(iq_demod[end-101*samples_1ms:end-100*samples_1ms, :], names[2:end]; title="demod")
-    make_fft_plots(iq_demod[end-101*samples_1ms:end-100*samples_1ms, :], names[2:end], sample_rate; title="demod")
+    make_time_plots(iq_demod[1050*samples_1ms:1100*samples_1ms, :], names[2:end], sample_rate; title="demod")
+    make_fft_plots(iq_demod[1050*samples_1ms:1100*samples_1ms, :], names[2:end], sample_rate; title="demod")
 
     # Next, plot frequency and phase for raw signal
     fp = fetch(fp)
-    make_FP_plots(fp[end-101:end, :], names; title="FP")
+    make_FP_plots(fp[end-101:end, :], names, sample_rate; title="FP")
 
     # And frequency and phase for demodulated signal
     fp_demod = fetch(fp_demod)
-    make_FP_plots(fp_demod[end-101:end, :], names; title="FP_demod")
+    make_FP_plots(fp_demod[end-101:end, :], names, sample_rate; title="FP_demod")
 end
 
 main()

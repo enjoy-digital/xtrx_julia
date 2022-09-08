@@ -3,12 +3,12 @@
 
 ENV["SOAPY_SDR_LOG_LEVEL"] = "DEBUG"
 
-using SoapySDR, Printf, Unitful, DSP, Dates, SoapyMultiSDR_jll
+using SoapySDR, Printf, Unitful, DSP, Dates
 include("../../scripts/libsigflow.jl")
 include("../../scripts/xtrx_debugging.jl")
 
 # Let's see if we ever over/underflow.
-set_libsigflow_verbose(true)
+#set_libsigflow_verbose(true)
 
 # We've got memory to burn, let's just not pause.
 GC.enable(false)
@@ -68,7 +68,7 @@ function run_experiment(; dump_inis::Bool = false,
 
     # Open three Rx devices, identified by serial number
     rx_serials = ["1cc5241b88485c", "12cc5241b88485c", "18c5241b88485c"]
-    rx_serials = rx_serials[1:1]
+    rx_serials = rx_serials[1:2]
     #dev_rx = build_multi_device(rx_serials)
     devs_rx = Device.(filter(p -> p["serial"] in rx_serials, devs))
 
@@ -78,22 +78,24 @@ function run_experiment(; dump_inis::Bool = false,
 
     #frequency = 1575.00u"MHz"
     frequency = 600u"MHz"
-    sample_rate = 2u"MHz"
+    sample_rate = 1u"MHz"
 
     # Setup transmission/recieve parameters
     for dev_rx in devs_rx
         # Set an integer multiple of our samplerate
-        set_cgen_freq(dev_rx, 64u"MHz")
+        set_cgen_freq(dev_rx, 16*sample_rate)
 
         for cr in dev_rx.rx
             @try_N_times 3 cr.frequency = frequency
             @try_N_times 3 cr.sample_rate = sample_rate
             @try_N_times 3 cr.bandwidth = max(sample_rate, 1.5u"MHz")
 
-            @try_N_times 3 cr[SoapySDR.GainElement(:LNA)] = 30u"dB"
-            @try_N_times 3 cr[SoapySDR.GainElement(:TIA)] = 6u"dB"
-            @try_N_times 3 cr[SoapySDR.GainElement(:PGA)] = 10u"dB"
             @try_N_times 3 cr.antenna = Symbol("LNAW")
+            #@try_N_times 3 cr[SoapySDR.GainElement(:LNA)] = 30u"dB"
+            #@try_N_times 3 cr[SoapySDR.GainElement(:TIA)] = 6u"dB"
+            #@show cr[SoapySDR.GainElement(:TIA)]
+            #@try_N_times 3 cr[SoapySDR.GainElement(:PGA)] = 10u"dB"
+            @try_N_times 3 cr.gain = 50u"dB"
         end
 
         # Set the RxTSP values
@@ -102,23 +104,19 @@ function run_experiment(; dump_inis::Bool = false,
         rx_tsp.enables.dc_corrector = true
         write(dev_rx, rx_tsp)
         @show rx_tsp
+        @show dev_rx.rx[1]
+        @show dev_rx.rx[2]
     end
 
-    # Set an integer multiple of our samplerate
-    set_cgen_freq(dev_tx, 64u"MHz")
+    # Because of a LMS7002M-driver bug, we must divide samplerate here by 4.
+    set_cgen_freq(dev_tx, 16*sample_rate/4)
     for ct in dev_tx.tx
         @try_N_times 3 ct.frequency = frequency
-        @try_N_times 3 ct.sample_rate = sample_rate
+        @try_N_times 3 ct.sample_rate = sample_rate/4
         @try_N_times 3 ct.bandwidth = max(sample_rate, 5u"MHz")
 
         # If we're actually TX'ing and RX'ing, juice it up
         @try_N_times 3 ct.gain = 30u"dB"
-    end
-
-    # Also set values for dev_tx's RX channels, as apparently we don't
-    # get a standard samplerate without this...
-    for cr in dev_tx.rx
-        @try_N_times 3 cr.sample_rate = sample_rate
     end
 
     ## Dump an initial INI, showing how the registers are configured here
