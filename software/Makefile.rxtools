@@ -1,0 +1,19 @@
+
+rxtools: $(SOAPYSDR_LIB)
+	rm -rf rx_tools/_build
+	mkdir -p rx_tools/_build
+	cmake -DCMAKE_PREFIX_PATH=$(SOAPYSDR_PREFIX) \
+		  -DSoapySDR_INCLUDE_DIRS=$(SOAPYSDR_PREFIX) \
+		  -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
+		  -DCMAKE_BUILD_TYPE=Debug \
+		  -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
+		  -S rx_tools \
+		  -B rx_tools/_build
+	$(MAKE) -C rx_tools/_build VERBOSE=1 install
+
+rxtools: $(RXSDR_EXE)
+clean-rxtools:
+	rm -rf rx_tools/_build
+clean: clean-rxtools
+
+.PHONY: rxtools

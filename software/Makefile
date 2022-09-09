@@ -29,6 +29,7 @@ include Makefile.lms7002m
 include Makefile.soapysdr
 include Makefile.limesuite
 include Makefile.fairwaves
+include Makefile.rxtools
 
 # Helper target to unload all of our kernel modules, install the new ones, and reload them:
 reload-modules: $(LITEPCIE_KO) $(NVIDIA_DRIVER_KO)
