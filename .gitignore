@@ -10,11 +10,3 @@ JuliaLocalPreferences.toml
 
 # External software that gets vendored in via software/Makefile
 software/nvidia-cuda
-software/nvidia-driver
-software/kernel
-software/soapysdr
-software/limesuite
-software/LMS7002M-driver
-software/SoapySDR.jl
-software/libusb
-software/fairwaves

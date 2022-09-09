@@ -1,11 +1,6 @@
-SOAPYSDR_VERSION := 0.8.1
-SOAPYSDR_MAJMIN := $(basename $(SOAPYSDR_VERSION))
-soapysdr/.git/HEAD:
-	git clone --depth=1 -b soapy-sdr-$(SOAPYSDR_VERSION) https://github.com/pothosware/SoapySDR soapysdr
-
 SOAPYSDR_PREFIX ?= $(PREFIX)
 SOAPYSDR_LIB = $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so
-$(SOAPYSDR_LIB): soapysdr/.git/HEAD
+$(SOAPYSDR_LIB):
 	$(RM) -r soapysdr/build
 	mkdir -p soapysdr/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
@@ -38,13 +33,6 @@ clean-soapysdr-xtrx:
 	-$(MAKE) -C soapysdr-xtrx/build clean
 	$(RM) $(SOAPYSDR_XTRX_LIB)
 clean: clean-soapysdr-xtrx
-
-SOAPYSDR_JL_URL := https://github.com/JuliaTelecom/SoapySDR.jl.git
-SOAPYSDR_JL_VERSION ?= main
-SoapySDR.jl/.git/HEAD:
-	git clone --depth=1 -b $(SOAPYSDR_JL_VERSION) $(SOAPYSDR_JL_URL) SoapySDR.jl
-
-SoapySDR.jl: SoapySDR.jl/.git/HEAD
 
 print-soapysdr-plugin-path:
 	@echo $(dir $(SOAPYSDR_XTRX_LIB))

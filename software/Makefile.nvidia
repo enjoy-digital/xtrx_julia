@@ -7,17 +7,8 @@ NVIDIA_DRIVER_MODPATH ?= $(PREFIX)
 endif
 
 
-
-# Use our own fork until this PR is merged: https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3
-NV_DRIVER_URL := https://github.com/JuliaComputing/open-gpu-kernel-modules.git
-NV_DRIVER_VERSION := sjk/rebar2
-nvidia-driver/.git/HEAD:
-	git clone --depth=1 -b $(NV_DRIVER_VERSION) $(NV_DRIVER_URL) nvidia-driver
-get-nvidia-driver: nvidia-driver/.git/HEAD
-
-
 NVIDIA_DRIVER_KO = $(NVIDIA_DRIVER_MODPATH)/lib/modules/$(KERNEL_FULLVERSION)/kernel/drivers/video/nvidia.ko
-$(NVIDIA_DRIVER_KO): $(KERNEL_IMAGE) nvidia-driver/.git/HEAD
+$(NVIDIA_DRIVER_KO): $(KERNEL_IMAGE)
 	$(MAKE) -C nvidia-driver SYSSRC="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)"
 	@# Ignore the error here, from depmod.
 	@# Note that this may fail if you aren't running with sudo; TODO figure out a good API to automatically use sudo here.

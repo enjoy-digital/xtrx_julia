@@ -65,9 +65,11 @@ steps:
           rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-28.x86_64.tar.gz"
           rootfs_treehash: "1f6052d12bccf1fd9988eff97b0b1a201519b2db"
     commands: |
+      echo "--- Init Submodules"
+      git submodule update --init --recursive
+
       export USE_LIVE_KERNEL=false
       echo "--- clone kernel source"
-      make -C software get-kernel
 
       # We must do a full kernel build to get `Module.symvers`, which makes the nvidia build happy
       echo "--- Build kernel"
@@ -75,9 +77,6 @@ steps:
 
       echo "--- Bundle kernel"
       cp -Lv build/bzImage bzImage
-
-      echo "--- clone nvidia-driver source"
-      make -C software get-nvidia-driver
 
       echo "--- Build NVIDIA driver"
       make -C software nvidia-driver -j$$(nproc)

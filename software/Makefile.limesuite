@@ -5,11 +5,7 @@ LIBUSB_MAJMIN := $(subst v,,$(basename $(LIBUSB_VERSION)))
 LIBUSB_PREFIX ?= $(PREFIX)
 LIBUSB_LIB = $(LIBUSB_PREFIX)/lib/libusb-$(LIBUSB_MAJMIN).so
 
-libusb/.git/HEAD:
-	git clone --depth=1 -b $(LIBUSB_VERSION) $(LIBUSB_URL) libusb
-get-libusb: libusb/.git/HEAD
-
-libusb/Makefile: libusb/.git/HEAD
+libusb/Makefile:
 	cd libusb && ./bootstrap.sh
 	cd libusb && ./configure --prefix=$(LIBUSB_PREFIX)
 
@@ -17,15 +13,8 @@ $(LIBUSB_LIB): libusb/Makefile
 	$(MAKE) -C libusb install
 libusb: $(LIBUSB_LIB)
 
-# Helper to build LimeSuite's SoapyLMS7 driver against our SoapySDR:
-LIMESUITE_URL := https://github.com/juliacomputing/LimeSuite.git
-LIMESUITE_VERSION ?= master
-limesuite/.git/HEAD:
-	git clone --depth=1 -b $(LIMESUITE_VERSION) $(LIMESUITE_URL) limesuite
-get-limesuite: limesuite/.git/HEAD
-
 SOAPYLMS7_LIB = $(SOAPYSDR_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
-$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC) limesuite/.git/HEAD
+$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC)
 	rm -rf limesuite/_build
 	mkdir -p limesuite/_build
 	-# We must provide a few helpful hints here; we redirect to our `libusb`, and
