@@ -11,7 +11,6 @@ rxtools: $(SOAPYSDR_LIB)
 		  -B rx_tools/_build
 	$(MAKE) -C rx_tools/_build VERBOSE=1 install
 
-rxtools: $(RXSDR_EXE)
 clean-rxtools:
 	rm -rf rx_tools/_build
 clean: clean-rxtools
