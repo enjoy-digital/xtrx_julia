@@ -275,7 +275,8 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
 }
 
 void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream */*stream*/, size_t handle) {
-    assert(handle != (size_t)-1 && "Attempt to release an invalid buffer (e.g., from an overflow)");
+    assert(handle != (size_t)-1 &&
+           "Attempt to release an invalid buffer (e.g., from an overflow)");
 
     // update the DMA counters
     struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
@@ -318,18 +319,26 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
         assert(buffers_pending < ((int64_t)_dma_mmap_info.dma_tx_buf_count));
     }
 
-    // get the buffer
-    int buf_offset = _tx_stream.user_count % _dma_mmap_info.dma_tx_buf_count;
-    getDirectAccessBufferAddrs(stream, buf_offset, buffs);
-
-    // update the DMA counters
-    handle = _tx_stream.user_count;
-    _tx_stream.user_count++;
-
-    // detect underflows
+    // detect underflows of the underlying circular buffer
     if (buffers_pending < 0) {
+        // drain all buffers to get out of the underflow quicker
+        struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
+        mmap_dma_update.sw_count = _tx_stream.hw_count;
+        checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_READER_UPDATE, &mmap_dma_update);
+        _tx_stream.user_count = _tx_stream.hw_count;
+        _tx_stream.sw_count = _tx_stream.hw_count;
+        handle = -1;
+
         return SOAPY_SDR_UNDERFLOW;
     } else {
+        // get the buffer
+        int buf_offset = _tx_stream.user_count % _dma_mmap_info.dma_tx_buf_count;
+        getDirectAccessBufferAddrs(stream, buf_offset, buffs);
+
+        // update the DMA counters
+        handle = _tx_stream.user_count;
+        _tx_stream.user_count++;
+
         return getStreamMTU(stream);
     }
 }
@@ -337,6 +346,9 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
 void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream */*stream*/, size_t handle,
                                    const size_t /*numElems*/, int &/*flags*/,
                                    const long long /*timeNs*/) {
+    assert(handle != (size_t)-1 &&
+           "Attempt to release an invalid buffer (e.g., from an underflow)");
+
     // XXX: inspect user-provided numElems and flags, and act upon them?
 
     // update the DMA counters so that the engine can submit this buffer
