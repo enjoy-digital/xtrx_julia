@@ -1,6 +1,11 @@
+LMS7002M-driver/.git:
+	git submodule update --init LMS7002M-driver
+get-LMS7002M-driver: LMS7002M-driver/.git
+
+
 LMS7002M_PREFIX ?= $(PREFIX)
 LMS7002M_LIB = $(LMS7002M_PREFIX)/lib/libLMS7002M.a
-$(LMS7002M_LIB):
+$(LMS7002M_LIB): LMS7002M-driver/.git
 	$(RM) -r LMS7002M-driver/build
 	mkdir -p LMS7002M-driver/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(LMS7002M_PREFIX) \

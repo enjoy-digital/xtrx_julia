@@ -1,6 +1,10 @@
+soapysdr/.git:
+	git submodule update --init soapysdr
+get-soapysdr: soapysdr/.git
+
 SOAPYSDR_PREFIX ?= $(PREFIX)
 SOAPYSDR_LIB = $(SOAPYSDR_PREFIX)/lib/libSoapySDR.so
-$(SOAPYSDR_LIB):
+$(SOAPYSDR_LIB): soapysdr/.git
 	$(RM) -r soapysdr/build
 	mkdir -p soapysdr/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \

@@ -5,7 +5,12 @@ LIBUSB_MAJMIN := $(subst v,,$(basename $(LIBUSB_VERSION)))
 LIBUSB_PREFIX ?= $(PREFIX)
 LIBUSB_LIB = $(LIBUSB_PREFIX)/lib/libusb-$(LIBUSB_MAJMIN).so
 
-libusb/Makefile:
+libusb/.git:
+	git submodule update --init libusb
+get-libusb: libusb/.git
+
+
+libusb/Makefile: libusb/.git
 	cd libusb && ./bootstrap.sh
 	cd libusb && ./configure --prefix=$(LIBUSB_PREFIX)
 
@@ -13,8 +18,13 @@ $(LIBUSB_LIB): libusb/Makefile
 	$(MAKE) -C libusb install
 libusb: $(LIBUSB_LIB)
 
+
+limesuite/.git:
+	git submodule update --init limesuite
+get-limesuite: limesuite/.git
+
 SOAPYLMS7_LIB = $(SOAPYSDR_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
-$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC)
+$(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC) limesuite/.git
 	rm -rf limesuite/_build
 	mkdir -p limesuite/_build
 	-# We must provide a few helpful hints here; we redirect to our `libusb`, and
