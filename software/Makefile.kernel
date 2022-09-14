@@ -11,9 +11,17 @@ kernel:
 else
 KERNEL_PATH ?= $(REPO_DIR)/software/kernel
 
+KERNEL_URL := https://github.com/torvalds/linux.git
+KERNEL_VERSION ?= v5.15
+KERNEL_FULLVERSION ?= 5.15.0
+
+kernel/.git/HEAD:
+	git clone --depth=1 -b $(KERNEL_VERSION) $(KERNEL_URL) kernel
+get-kernel: kernel/.git/HEAD
+
 # Running `make kernel` builds this file
 KERNEL_IMAGE := $(PREFIX)/bzImage
-$(KERNEL_IMAGE):
+$(KERNEL_IMAGE): kernel/.git/HEAD
 	$(MAKE) -C kernel defconfig
 	$(MAKE) -C kernel
 	mkdir -p $(dir $@)

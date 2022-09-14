@@ -14,14 +14,6 @@
 	path = software/soapysdr
 	url = https://github.com/pothosware/SoapySDR.git
 	shallow = true
-[submodule "software/kernel"]
-	path = software/kernel
-	url = https://github.com/torvalds/linux.git
-	shallow = true
-[submodule "software/nvidia-driver"]
-	path = software/nvidia-driver
-	url = https://github.com/JuliaComputing/open-gpu-kernel-modules.git
-	shallow = true
 [submodule "software/limesuite"]
 	path = software/limesuite
 	url = https://github.com/juliacomputing/LimeSuite.git

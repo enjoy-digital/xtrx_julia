@@ -10,3 +10,5 @@ JuliaLocalPreferences.toml
 
 # External software that gets vendored in via software/Makefile
 software/nvidia-cuda
+software/nvidia-driver
+software/kernel
