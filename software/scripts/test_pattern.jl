@@ -5,11 +5,15 @@
 using SoapySDR
 using Test
 using CUDA
+using TimerOutputs
+
+const to = TimerOutput()
+
 device!(0)  # SoapySDR needs CUDA to be initialized
 
 #SoapySDR.register_log_handler()
 
-function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
+function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
     # GPU: set the DMA target
     dma_mode = use_gpu ? "GPU" : "CPU"
     dev_args["device"] = dma_mode
@@ -69,19 +73,26 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
 
         test_mode = lfsr_mode ? "LFSR" : "pattern"
 
+        error_count = 0
+        errored_buffer_count = 0
         @info "Receiving data using $dma_mode with $test_mode..."
         SoapySDR.activate!(stream) do
-            time = @elapsed for i in 1:50000
-                err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
+            time = @elapsed for i in 1:5000
+                @timeit to "acquire" err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
                 if err == SoapySDR.SOAPY_SDR_OVERFLOW
                     overflow_events += 1
-                    initialized_count = false
                     continue
                 elseif err == SoapySDR.SOAPY_SDR_TIMEOUT
                     continue
                 end
 
-                if use_gpu
+                # uncomment to dump the DMA buffer states
+                #if i%32 == 0
+                    #println(unsafe_string(SoapySDR.SoapySDRDevice_readSetting(dev, "DMA_BUFFERS")))
+                #end
+
+                prev_error_count = error_count
+                @timeit to "data validation" if use_gpu
                     # GPU NOTE:
                     # this is very tight with our 8K buffers: a kernel launch +
                     # 8K broadcast + sync takes ~10, while at a data rate of 1Gbps we
@@ -103,12 +114,13 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
 
                     # check the data
                     # XXX: this loop does not stay within the 60us time budget
-                    for j in eachindex(comp)
+                    step = 8
+                    for j in 1:step:length(comp)
                         z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
                         if comp[j] != z
-                            @warn("Error", received=comp[j], expected=z)
+                            error_count = error_count + 1
                         end
-                        counter = (counter + 1) & 0xffffff
+                        counter = counter + step
                     end
 
                     #arr .= 1        # to verify we can actually do something with this
@@ -123,7 +135,8 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
                         for j in 1:2:length(buf)-1
                             z = (~buf[j+1]) & 0x0fff
                             if buf[j] != z
-                                @warn("Error", received=buf[j], expected=z)
+                                show_mismatch && @warn("Error", received=buf[j], expected=z)
+                                error_count = error_count + 1
                             end
                         end
                     else
@@ -137,28 +150,53 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false)
 
                         # check the data
                         # XXX: this loop does not stay within the 60us time budget
-                        for j in eachindex(buf)
-                            z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
-                            if buf[j] != z
-                                @warn("Error", received=buf[j], expected=z)
+                        # So we can just check the first element and assume the rest are correct
+                        # by setting the flag below
+                        trust_first = false
+                        if !trust_first
+                            every_other = 8
+                            for j in 1:every_other:length(buf)
+                                z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                                if buf[j] != z
+                                    show_mismatch && @warn("Error", received=buf[j], expected=z)
+                                    error_count = error_count + 1
+                                end
+                                counter = counter + every_other
                             end
-                            counter = (counter + 1) & 0xffffff
+                        else
+                            z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+                            if buf[1] != z
+                                show_mismatch && @warn("Error", received=buf[j], expected=z)
+                                error_count = error_count + 1
+                            end
+                            counter = counter + length(buf)
                         end
                     end
                 end
 
-                SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
+                if prev_error_count != error_count
+                    errored_buffer_count = errored_buffer_count + 1
+                end
+
+                @timeit to "release" SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
                 total_bytes += bytes
             end
+            show(to)
+            println()
+            reset_timer!(to)
             @info "Data rate: $(Base.format_bytes(total_bytes / time))/s"
             @info "Overflow events: $overflow_events"
-
+            if error_count > 0
+                @warn "Errored buffer count: $errored_buffer_count"
+                @warn "Total error count: $error_count"
+            end
         end
     end
 end
 
 function main()
     for dev_args in Devices(driver="XTRX")
+        GC.enable(false)
         try
             dma_test(dev_args; use_gpu=false, lfsr_mode=true)
             dma_test(dev_args; use_gpu=false, lfsr_mode=false)

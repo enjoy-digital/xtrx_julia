@@ -230,6 +230,9 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
 
     // if not, wait for new buffers to arrive
     if (buffers_available == 0) {
+        if (timeoutUs == 0) {
+            return SOAPY_SDR_TIMEOUT;
+        }
         int ret = poll(&_rx_stream.fds, 1, timeoutUs / 1000);
         if (ret < 0)
             throw std::runtime_error(
@@ -298,6 +301,9 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
 
     // if not, wait for new buffers to become available
     if (buffers_pending == ((int64_t)_dma_mmap_info.dma_tx_buf_count)) {
+        if (timeoutUs == 0) {
+            return SOAPY_SDR_TIMEOUT;
+        }
         int ret = poll(&_tx_stream.fds, 1, timeoutUs / 1000);
         if (ret < 0)
             throw std::runtime_error(
