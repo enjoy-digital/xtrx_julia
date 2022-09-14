@@ -1,0 +1,28 @@
+[submodule "software/rx_tools"]
+	path = software/rx_tools
+	url = https://github.com/JuliaComputing/rx_tools
+	shallow = true
+[submodule "software/fpga-source"]
+	path = software/fpga-source
+	url = https://github.com/xtrx-sdr/fpga-source.git
+	shallow = true
+[submodule "software/LMS7002M-driver"]
+	path = software/LMS7002M-driver
+	url = https://github.com/JuliaComputing/LMS7002M-driver
+	shallow = true
+[submodule "software/soapysdr"]
+	path = software/soapysdr
+	url = https://github.com/pothosware/SoapySDR.git
+	shallow = true
+[submodule "software/limesuite"]
+	path = software/limesuite
+	url = https://github.com/juliacomputing/LimeSuite.git
+	shallow = true
+[submodule "software/libusb"]
+	path = software/libusb
+	url = https://github.com/libusb/libusb
+	shallow = true
+[submodule "software/SoapySDR.jl"]
+	path = software/SoapySDR.jl
+	url = https://github.com/JuliaTelecom/SoapySDR.jl.git
+	shallow = true

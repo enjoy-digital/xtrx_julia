@@ -12,9 +12,3 @@ JuliaLocalPreferences.toml
 software/nvidia-cuda
 software/nvidia-driver
 software/kernel
-software/soapysdr
-software/limesuite
-software/LMS7002M-driver
-software/SoapySDR.jl
-software/libusb
-software/fairwaves
