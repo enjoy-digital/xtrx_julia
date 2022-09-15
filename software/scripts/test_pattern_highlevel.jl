@@ -33,7 +33,7 @@ function dma_test(dev_args;lfsr_mode=false, show_mismatch=false)
 
         # we want to go through the ring buffer a few times.        
         rd_nbufs = SoapySDR.SoapySDRDevice_getNumDirectAccessBuffers(dev, stream)
-        nbufs = 3 #rd_nbufs*3
+        nbufs = rd_nbufs*3
 
         # pre allocate memory to copy the data into.
         bufs = ntuple(_->Vector{chans[1].native_stream_format}(undef, mtu*nbufs), num_channels)
@@ -44,7 +44,7 @@ function dma_test(dev_args;lfsr_mode=false, show_mismatch=false)
 
         @info "Receiving data..."
         time_rd = @elapsed SoapySDR.activate!(stream) do
-            read!(stream, bufs)
+            read!(stream, bufs; timeout=1u"s")
         end
 
         @info "Data read rate: $(Base.format_bytes(total_bytes / time_rd))/s, Total Bytes: $(Base.format_bytes(total_bytes))"
