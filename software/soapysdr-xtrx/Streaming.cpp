@@ -365,8 +365,8 @@ void deinterleave(const void *src, size_t src_offset, void *dst, size_t dst_offs
         int16_t *dst_cs16 = (int16_t *)dst + 2*dst_offset;
         for (uint32_t i = 0; i < len; i += 1)
         {
-            dst_cs16[2*i]     = src_cs16[4*i + channel];
-            dst_cs16[2*i + 1] = src_cs16[4*i + channel + 2];
+            dst_cs16[2*i]     = src_cs16[4*i + 2*channel];
+            dst_cs16[2*i + 1] = src_cs16[4*i + 2*channel + 1];
         }
     }
     else {
@@ -382,8 +382,8 @@ void interleave(const void *src, size_t src_offset, void *dst, size_t dst_offset
         int16_t *dst_cs16 = (int16_t *)dst + 4*dst_offset ;
         for (uint32_t i = 0; i < len; i += 1)
         {
-            dst_cs16[4*i + channel] = src_cs16[2*i];
-            dst_cs16[4*i + channel + 2] = src_cs16[2*i + 1];
+            dst_cs16[4*i + channel*2] = src_cs16[2*i];
+            dst_cs16[4*i + channel*2 + 1] = src_cs16[2*i + 1];
         }
     }
     else {
