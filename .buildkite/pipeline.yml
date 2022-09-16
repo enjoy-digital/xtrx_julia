@@ -1,0 +1,237 @@
+steps:
+  - label: ":electron: Build FPGA gateware and firmware"
+    key: gateware
+    plugins:
+      - JuliaCI/julia#v1:
+          version: '1'
+          # Set a depot hard size limit of 200GB, since we have artifacts in excess of 100GB here.
+          depot_hard_size_limit: '214748364800'
+      - staticfloat/sandbox#v1:
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/litex_builder-2022-07-14.x86_64.tar.gz"
+          rootfs_treehash: "a50c2e8710fa0bbd1564ccfab01443ec86355d9e"
+          workspaces:
+            # Include `/cache/repos` so that we can `git diff`
+            - "/cache/repos:/cache/repos"
+    commands: |
+      echo "--- Patch faulty rootfs"
+      rm -f /usr/local/bin/vivado
+      export PATH=$${PATH}:$$(echo /usr/local/vivado/Vivado/*/bin)
+
+      echo "--- Update LiteX"
+      pushd /usr/local/litex
+      # first update to latest master
+      curl -Lso litex_setup.py https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
+      python3 litex_setup.py --update
+      # then go back to a known state
+      while IFS="," read -r repo sha; do
+          git -C $$repo reset --hard $$sha || true
+      done < $$BUILDKITE_BUILD_CHECKOUT_PATH/LitexManifest
+      python3 ./litex/litex_setup.py --install
+      popd
+
+      echo "--- Build LiteX project"
+      python3 fairwaves_xtrx.py --build
+
+      echo "--- Bundle gateware"
+      tar -czf litex-gateware.tar.gz -C build/fairwaves_xtrx_platform/gateware fairwaves_xtrx_platform.bin fairwaves_xtrx_platform.bit
+
+      echo "--- Bundle firmware"
+      tar -czf litex-firmware.tar.gz -C firmware firmware.bin
+
+      echo "--- Bundle generated headers"
+      tar -czf litex-headers.tar.gz -C build/fairwaves_xtrx_platform/software/include/generated .
+
+      echo "--- Test generated headers didn't change"
+      git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/litepcie-kernel-module
+    artifact_paths:
+      - "litex-gateware.tar.gz"
+      - "litex-firmware.tar.gz"
+      - "litex-headers.tar.gz"
+    # We restrict to running on the `vivado` queue because the litex_builder rootfs is >100GB in size!
+    agents:
+      sandbox_capable: "true"
+      os: "linux"
+      arch: "x86_64"
+      queue: "vivado"
+    env:
+
+
+  - label: ":linux: :corn: Build kernel modules"
+    key: kernel-modules
+    plugins:
+      - JuliaCI/julia#v1:
+          version: '1'
+      - staticfloat/sandbox#v1:
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-28.x86_64.tar.gz"
+          rootfs_treehash: "1f6052d12bccf1fd9988eff97b0b1a201519b2db"
+    commands: |
+      export USE_LIVE_KERNEL=false
+      echo "--- clone kernel source"
+      make -C software get-kernel
+
+      # We must do a full kernel build to get `Module.symvers`, which makes the nvidia build happy
+      echo "--- Build kernel"
+      make -C software kernel -j$$(nproc)
+
+      echo "--- Bundle kernel"
+      cp -Lv build/bzImage bzImage
+
+      echo "--- clone nvidia-driver source"
+      make -C software get-nvidia-driver
+
+      echo "--- Build NVIDIA driver"
+      make -C software nvidia-driver -j$$(nproc)
+
+      echo "--- Bundle NVIDIA kernel modules"
+      tar -cvzf nvidia-kernel-modules.tar.gz -C "$$(echo $$(pwd)/build/lib/modules/*/kernel/drivers/video)" .
+
+      echo "--- Build litepcie kernel modules"
+      make -C software litepcie-kernel-module-install -j$$(nproc)
+
+      echo "--- debugging"
+      find $$(pwd)/build
+
+      echo "--- Bundle litepcie kernel modules"
+      tar -cvzf litepcie-kernel-modules.tar.gz -C "$$(echo $$(pwd)/build/lib/modules/*/extra)" .
+    artifact_paths:
+      - "nvidia-kernel-modules.tar.gz"
+      - "litepcie-kernel-modules.tar.gz"
+      - "bzImage"
+    agents:
+      sandbox_capable: "true"
+      os: "linux"
+      arch: "x86_64"
+
+
+  - label: ":linux: Build userspace utilities"
+    key: userspace-utilities
+    plugins:
+      - JuliaCI/julia#v1:
+          version: '1'
+      - staticfloat/sandbox#v1:
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/kernel_builder-2022-07-28.x86_64.tar.gz"
+          rootfs_treehash: "1f6052d12bccf1fd9988eff97b0b1a201519b2db"
+    commands: |
+      echo "--- Download CUDA"
+      make -C software nvidia-cuda
+      SOFTWARE_DIR=$$(pwd)/software
+
+      echo "--- Build litepcie user library"
+      make -C software litepcie-user-library -j$$(nproc) LITEPCIE_PREFIX=$$(pwd)/build/litepcie-user-library
+
+      echo "--- Bundle liblitepcie"
+      tar -czvf liblitepcie.tar.gz -C build/litepcie-user-library .
+
+      echo "--- Build LMS7002M driver library"
+      make -C software LMS7002M-driver -j$$(nproc) LMS7002M_PREFIX=$$(pwd)/build/LMS7002M-driver
+
+      echo "--- Bundle LMS7002M driver"
+      tar -czvf lms7002m.tar.gz -C build/LMS7002M-driver .
+
+      echo "--- Build SoapySDR"
+      make -C software soapysdr -j$$(nproc) SOAPYSDR_PREFIX=$$(pwd)/build/soapysdr
+
+      echo "--- Bundle SoapySDR"
+      tar -czvf soapysdr.tar.gz -C build/soapysdr .
+
+      echo "--- Build SoapySDR-XTRX plugin"
+      make -C software soapysdr-xtrx -j$$(nproc) SOAPYSDR_XTRX_PREFIX=$$(pwd)/build/soapysdr-xtrx
+
+      echo "--- Bundle SoapySDR-XTRX"
+      tar -czvf soapysdr-xtrx.tar.gz -C build/soapysdr-xtrx .
+
+      echo "--- Build libusb"
+      make -C software libusb -j$$(nproc) LIBUSB_PREFIX=$$(pwd)/build/libusb
+
+      echo "--- Bundle libusb"
+      tar -czvf libusb.tar.gz -C build/libusb .
+    artifact_paths:
+      - "liblitepcie.tar.gz"
+      - "lms7002m.tar.gz"
+      - "soapysdr.tar.gz"
+      - "soapysdr-xtrx.tar.gz"
+      - "libusb.tar.gz"
+    agents:
+      sandbox_capable: "true"
+      os: "linux"
+      arch: "x86_64"
+
+  - label: ":linux: :robot_face: :lemon: LimeSDR test suite"
+    plugins:
+     - JuliaCI/julia#v1:
+         version: '1'
+    commands: |
+      echo "--- Build limesuite and dependencies"
+      make -C software limesuite -j$$(nproc)
+
+      echo "--- List LimeSDR devices"
+      ./build/bin/SoapySDRUtil --find=driver=lime
+
+      echo "--- Check out SoapySDR.jl#main"
+      make -C software SoapySDR.jl
+
+      echo "--- Run C read example"
+      julia --project software/scripts/limesdr_tests/c_rx_example.jl
+
+      echo "--- Instantiate julia project"
+      julia --project -e 'import Pkg; Pkg.precompile()'
+
+      echo "--- Run libsigflow tests"
+      julia --project software/scripts/libsigflow_tests.jl
+
+      echo "--- Run Julia read example"
+      julia --project software/scripts/limesdr_tests/julia_rx_example.jl
+
+      echo "--- Run spectrum scan (threads=2)"
+      julia -t 2 --project software/scripts/limesdr_tests/julia_psd.jl
+
+      echo "--- Run chirp MIMO loopback (threads=3)"
+      julia -t 3 --project software/scripts/limesdr_tests/julia_chirp_loopback_mimo.jl
+    agents:
+      os: "linux"
+      queue: "triad"
+      sdr_present: "lime"
+    artifact_paths:
+      - "*.png"
+
+
+  - label: ":linux: :robot_face: Test loading kernel modules"
+    depends_on:
+      - kernel-modules
+    commands: |
+      echo "--- Download kernel module bundles"
+      buildkite-agent artifact download --step kernel-modules *-kernel-modules.tar.gz .
+
+      echo "--- Extract bundles"
+      MODDIR="/lib/modules/$$(uname -r)"
+      export PATH=$$PATH:/sbin
+      mkdir -p $${MODDIR}
+
+      mkdir /tmp/litepcie /tmp/nvidia
+      tar -C /tmp/litepcie -zxf litepcie-kernel-modules.tar.gz
+      tar -C /tmp/nvidia -zxf nvidia-kernel-modules.tar.gz
+      mv /tmp/litepcie/*.ko "$${MODDIR}"
+      mv /tmp/nvidia/*.ko "$${MODDIR}"
+
+      # Depmod fails without these two files
+      touch "$${MODDIR}/modules.builtin"
+      touch "$${MODDIR}/modules.order"
+      depmod -v
+
+      echo "+++ Load kernel modules"
+      echo -n "Load liteuart: "
+      modprobe liteuart
+      echo "✔"
+
+      echo SKIPPING NVIDIA AND LITEPCIE FOR NOW
+      #echo -n "Load nvidia: "
+      #modprobe nvidia
+      #echo "✔"
+
+      #echo -n "Load litepcie: "
+      #modprobe litepcie
+      #echo "✔"
+    agents:
+      os: "linux"
+      queue: "triad"
+      sdr_present: "xtrx"

@@ -18,6 +18,15 @@ LiteX/LitePCIe:
 ![](https://user-images.githubusercontent.com/1450143/147348139-503834af-76d5-4172-8ca0-e323b719fa17.png)
 
 
+This Julia Computing remote contains support for GPU P2P operations.
+
+[> GPU Setup
+------------
+
+For P2P operation the [open source Nvidia drivers](https://github.com/NVIDIA/open-gpu-kernel-modules) are required.
+Note that we currently carry [our own patch for resizing the addressable memory space](https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3), and until that is merged, the easiest thing to do is to build our fork of the driver, which can be done via `make -C software nvidia-driver`.
+
+
 [> Getting started
 ------------------
 
@@ -25,6 +34,9 @@ LiteX/LitePCIe:
 
 LiteX can be installed by following the installation instructions from the LiteX
 Wiki: https://github.com/enjoy-digital/litex/wiki/Installation
+
+Be sure to use the latest master branch of the LiteX sources, as none of the
+currently-available tags include some of the changes we require.
 
 ### [> Installing the RISC-V toolchain for the Soft-CPU:
 
@@ -45,22 +57,34 @@ Build the design and flash it to the board:
 ./fairwaves_xtrx.py --build --flash
 ```
 
-Build the Linux kernel driver and load it:
+Build the Linux kernel driver and load it.
+Note that by default, the current live kernel will be built against, but you can cross-compile for a target kernel version by setting `USE_LIVE_KERNEL=false`.
 
 ```
-cd software/kernel
-make
-sudo ./init.sh
+make -C software litepcie-kernel-module
+sudo software/litepcie-kernel-module/init.sh
+```
+
+Note that if a thunderbolt carrier is in use, it may be necessary rescan the pci bus:
+
+```
+sudo bash -c 'echo "1" > /sys/bus/pci/rescan'
 ```
 
 Build the Linux user-space utilities and test them:
 
 ```
-cd software/user
-make
+make -C software litepcie-user-library -j$(nproc)
+cd build/litepcie-user-library
 ./litepcie_util info
 ./litepcie_util scratch_test
 ./litepcie_util dma_test
+```
+
+If anything goes wrong, reset the device with:
+
+```
+sudo bash -c 'echo "1" > /sys/bus/pci/devices/0000\:02\:00.0/reset'
 ```
 
 
@@ -73,11 +97,8 @@ library](https://github.com/myriadrf/LMS7002M-driver), which is downloaded and
 installed automatically when you compile the SoapySDR driver:
 
 ```
-cd software/soapysdr
-mkdir build
-cmake -S . -B build
-make -C build
-export SOAPY_SDR_PLUGIN_PATH=$(pwd)/build
+make -C software soapysdr-xtrx -j$(nproc)
+export SOAPY_SDR_PLUGIN_PATH="$(make -sC software print-soapysdr-plugin-path)"
 ```
 
 The above snippet sets `SOAPY_SDR_PLUGIN_PATH` so that any SoapySDR application
@@ -85,6 +106,8 @@ can find the XTRX driver. This can be used to execute the example Julia scripts
 in this repository:
 
 ```
+make -C software SoapySDR.jl
+
 cd software/scripts
 julia --project -e 'using Pkg; Pkg.instantiate()'
 julia --project test_pattern.jl
@@ -100,15 +123,12 @@ There is also a modified version of LimeSuite available that makes it possible
 to interactively configure the LMS7002M:
 
 ```
-git clone https://github.com/JuliaComputing/LimeSuite -b tb/xtrx_litepcie
-cd LimeSuite
-mkdir builddir
-cd builddir
-export LITEPCIE_ROOT=/path/to/xtrx_julia/software
-cmake -DENABLE_XTRX=yes -DCMAKE_BUILD_TYPE=Debug ../
-make
-sudo make install
+make -C software limesuite -j$(nproc)
 ```
+
+You can then run it out of the `build/soapysdr/bin` directory.  Note that we
+install to the `soapysdr` directory to simplify the path manipulation needed
+for SoapySDR module autodetection.
 
 [> Development
 --------------

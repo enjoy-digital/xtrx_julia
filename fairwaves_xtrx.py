@@ -9,6 +9,7 @@
 import os
 import argparse
 import sys
+import subprocess
 
 from migen import *
 from migen.fhdl.specials import Tristate
@@ -34,6 +35,7 @@ from litepcie.phy.s7pciephy import S7PCIEPHY
 from litescope import LiteScopeAnalyzer
 
 from gateware.gpio import GPIO
+from gateware.aux import AUX
 from gateware.gps import GPS
 from gateware.vctcxo import VCTCXO
 from gateware.rf_switches import RFSwitches
@@ -89,9 +91,12 @@ class BaseSoC(SoCCore):
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
 
+        git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip().decode('utf-8')
+        git_dirty = "-dirty" if len(subprocess.check_output(['git', 'diff'])) != 0 else ""
+
         # SoCCore ----------------------------------------------------------------------------------
         SoCCore.__init__(self, platform, sys_clk_freq,
-            ident                    = "LiteX SoC on Fairwaves XTRX",
+            ident                    = "LiteX SoC on Fairwaves XTRX "+git_sha+git_dirty,
             ident_version            = True,
             cpu_type                 = "vexriscv" if with_cpu else None,
             cpu_variant              = "minimal",
@@ -116,6 +121,10 @@ class BaseSoC(SoCCore):
         # Leds -------------------------------------------------------------------------------------
         self.submodules.leds = LedChaser(
             pads         = platform.request_all("user_led"),
+            sys_clk_freq = sys_clk_freq
+        )
+        self.submodules.leds2 = LedChaser(
+            pads         = platform.request_all("user_led2"),
             sys_clk_freq = sys_clk_freq
         )
 
@@ -147,13 +156,10 @@ class BaseSoC(SoCCore):
             with_msi           = True
         )
 
-        # I2C Peripherals --------------------------------------------------------------------------
-        self.comb += platform.request("pwrdwn_n").eq(1) # Enable.
-
         # I2C Bus0:
         # - Temperature Sensor (TMP108  @ 0x4a).
         # - PMIC-LMS           (LP8758  @ 0x60).
-        # - VCTCXO DAC         (MCP4725 @ 0x62).
+        # - VCTCXO DAC         Rev4: (MCP4725 @ 0x62) Rev5: (DAC60501 @ 0x4b).
         self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
 
         # I2C Bus1:
@@ -172,6 +178,9 @@ class BaseSoC(SoCCore):
         # Buck2: +1.75V (used as input to 1.4V LDO for LMS analog 1.4V).
         # Buck3: +1.5V  (used as input to 1.25V LDO for LMS analog 1.25V).
 
+        # Aux -------------------------------------------------------------------------------------
+        self.submodules.aux = AUX(platform.request("aux"))
+
         # GPIO -------------------------------------------------------------------------------------
         self.submodules.gpio = GPIO(platform.request("gpio"))
 
@@ -179,9 +188,9 @@ class BaseSoC(SoCCore):
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
         # VCTCXO ------------------------------------------------------------------------------------
-        vctxo_pads = platform.request("vctcxo")
-        self.submodules.vctcxo = VCTCXO(vctxo_pads)
-        platform.add_period_constraint(vctxo_pads.clk, 1e9/26e6)
+        vctcxo_pads = platform.request("vctcxo")
+        self.submodules.vctcxo = VCTCXO(vctcxo_pads)
+        platform.add_period_constraint(vctcxo_pads.clk, 20)
 
         # RF Switches ------------------------------------------------------------------------------
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))

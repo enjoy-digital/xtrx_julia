@@ -1,0 +1,60 @@
+# Change behavior based on whether we're building against the live kernel or not
+ifeq ($(USE_LIVE_KERNEL),true)
+# When using a live kernel, we usually don't apply a modpath
+NVIDIA_DRIVER_MODPATH ?=
+else
+NVIDIA_DRIVER_MODPATH ?= $(PREFIX)
+endif
+
+
+
+# Use our own fork until this PR is merged: https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3
+NV_DRIVER_URL := https://github.com/JuliaComputing/open-gpu-kernel-modules.git
+NV_DRIVER_VERSION := sjk/rebar2
+nvidia-driver/.git/HEAD:
+	git clone --depth=1 -b $(NV_DRIVER_VERSION) $(NV_DRIVER_URL) nvidia-driver
+get-nvidia-driver: nvidia-driver/.git/HEAD
+
+
+NVIDIA_DRIVER_KO = $(NVIDIA_DRIVER_MODPATH)/lib/modules/$(KERNEL_FULLVERSION)/kernel/drivers/video/nvidia.ko
+$(NVIDIA_DRIVER_KO): $(KERNEL_IMAGE) nvidia-driver/.git/HEAD
+	$(MAKE) -C nvidia-driver SYSSRC="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)"
+	@# Ignore the error here, from depmod.
+	@# Note that this may fail if you aren't running with sudo; TODO figure out a good API to automatically use sudo here.
+	-$(MAKE) -C nvidia-driver SYSSRC="$(KERNEL_PATH)" INSTALL_MOD_PATH="$(NVIDIA_DRIVER_MODPATH)" modules_install
+nvidia-driver: $(NVIDIA_DRIVER_KO)
+clean-nvidia-driver:
+	-$(MAKE) -C nvidia-driver clean
+	$(RM) $(NVIDIA_DRIVER_KO)
+clean: clean-nvidia-driver
+
+
+ifeq ($(USE_LOCAL_CUDA),true)
+CUDA_PREFIX ?= /opt/cuda
+else
+NV_CUDA_VERSION := v11.7.0
+
+# For now, this is all we're using, we can do an actual platform search in the future
+TRIPLET := "x86_64-linux-gnu"
+CUDA_URL ?= https://github.com/JuliaBinaryWrappers/CUDA_full_jll.jl/releases/download/CUDA_full-$(NV_CUDA_VERSION)+0/CUDA_full.$(NV_CUDA_VERSION).$(TRIPLET).tar.gz
+CUDA_PREFIX ?= $(REPO_DIR)/software/nvidia-cuda
+$(CUDA_PREFIX)/bin/nvcc:
+	@mkdir -p nvidia-cuda
+	curl -# -f -L "$(CUDA_URL)" | tar -C nvidia-cuda -zx --strip-components=1 cuda
+endif
+
+# Build some symlinks for libraries/utilities
+NVCC = $(PREFIX)/bin/nvcc
+$(NVCC): $(CUDA_PREFIX)/bin/nvcc
+	mkdir -p $(dir $@)
+	ln -s $(CUDA_PREFIX)/bin/nvcc $@
+
+# If there's no system-wide libcuda.so.1, build a symlink to it in our `build/` directory
+ifeq ($(shell ldconfig -p | grep libcuda.so.1),)
+$(PREFIX)/lib/libcuda.so.1: $(CUDA_PREFIX)/bin/nvcc
+	mkdir -p $(dir $@)
+	ln -s $(CUDA_PREFIX)/lib64/stubs/libcuda.so $@
+$(NVCC): $(PREFIX)/lib/libcuda.so.1
+endif
+nvidia-cuda: $(NVCC)
+.PHONY: nvidia-cuda

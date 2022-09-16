@@ -17,14 +17,12 @@ class GPIO(Module, AutoCSR):
     def __init__(self, pads):
         # CSRs.
         self.control = CSRStorage(fields=[
-            CSRField("iovcc_sel",  size=1, offset=0, reset=0),
-            CSRField("en_smsigio", size=1, offset=1, reset=0),
+            CSRField("gpio",  size=len(pads), offset=0, reset=0)
         ])
 
         # # #
 
         # Drive Control Pins.
         self.comb += [
-            pads.iovcc_sel.eq(self.control.fields.iovcc_sel),   # FIXME: Check polarity.
-            pads.en_smsigio.eq(self.control.fields.en_smsigio), # FIXME: Check polarity.
+            pads.eq(self.control.fields.gpio),
         ]

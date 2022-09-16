@@ -142,8 +142,8 @@ static int board_get_revision(void)
 {
 	/* Get board revision from SPI DACs:
 	   - XTRX Rev4 is equipped with a MCP4725.
-	   - XTRX Rev5 is equipped with a LTC26X6.
-	   The LTC26X6 has the particularity of only accepting write commands,
+	   - XTRX Rev5 is equipped with a DAC60501.
+	   The DAC60501 has the particularity of only accepting write commands,
 	   so we detect MCP4725 presence (and thus Rev4 revision) by doing a
 	   I2C read to the MCP4725 I2C address.
 	*/
@@ -197,6 +197,7 @@ static void vctcxo_dac_set(int value) {
 	int board_revision;
 	unsigned char cmd;
 	unsigned char dat[2];
+	bool ret;
 
 	/* Get board revision */
 	board_revision = board_get_revision();
@@ -209,40 +210,61 @@ static void vctcxo_dac_set(int value) {
 		i2c1_write(MPC4725_I2C_ADDR, cmd, dat, 1);
 	/* Rev5 is equipped with a LTC26X6 */
 	} else {
-		value = value & 0xfff;       /* 12-bit full range */
-		cmd    = (0b0011 << 4);      /* Write to and update */
-		dat[0] = (value >> 4);       /* 8 MSBs */
-		dat[1] = (value & 0xf) << 4; /* 4 LSBs + padding */
-		i2c1_write(LTC26x6_I2C_ADDR, cmd, dat, 2);
+		// Bottom four bits are ignored on DAC60501
+		value <<= 4;
+		dat[0] = (value & 0xff00) >> 8;
+		dat[1] = value & 0xff;
+		cmd = 0x08;
+		ret = i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
+		if (!ret) {
+			printf("DAC write failed\n");
+		}
 	}
 }
+
+static int vctcxo_cycles[16];
 
 static void vctcxo_test(int n)
 {
 	int i;
-	int prev;
-	int curr;
 	int diff;
-	prev = 0;
+	volatile int before, after;
 	vctcxo_control_write(XTRX_VCTCXO_CLK);
-	for (i=0; i<n; i++) {
-		vctcxo_dac_set(i*0x100);
-		vctcxo_cycles_latch_write(1);
-		curr = vctcxo_cycles_read();
-		if (i > 0) {
-			diff = curr - prev;
-			printf("VCTCXO freq: %3d.%03dMHz (cycles: %d / dac: 0x%04x)\n",
-				(diff)/1000000,
-				(diff/1000)%1000,
-				curr - prev,
-				i*0x100
-			);
-		}
-		prev = curr;
-		busy_wait(1000);
-	}
-}
 
+	for (i=0; i<n; i++) {
+		vctcxo_dac_set(i*0x111);
+
+		// Pulse cycle count into status register, then read it
+		vctcxo_cycles_latch_write(1);
+		before = vctcxo_cycles_read();
+
+		// Wait for 1 second
+		busy_wait(1000);
+
+		// Pulse cycle count into status register, then read it
+		vctcxo_cycles_latch_write(1);
+		after = vctcxo_cycles_read();
+
+		// Calculate how many cycles we observed in the last second
+		vctcxo_cycles[i] = after - before;
+	}
+
+	for (i=0; i<n; i++) {
+		diff = vctcxo_cycles[i];
+		// see the effect it's having, as the DAC tunes it very precisely.
+		// Of course, since we're counting cycles over 1 second, our `diff`
+		// value is literally just the frequency in Hz, so this double-
+		// printing in cycles and MHz is arguably not that interesting...
+		printf("VCTCXO freq: %3d.%5dMHz (cycles: %d / dac: 0x%04x)\n",
+			(diff)/1000000,
+			diff%1000000,
+			diff,
+			i*0x111
+		);
+	}
+
+
+}
 
 /*-----------------------------------------------------------------------*/
 /* Digital Interface                                                     */
