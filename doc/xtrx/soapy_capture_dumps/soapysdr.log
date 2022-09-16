@@ -1,0 +1,133 @@
+julia> using SoapySDR
+
+julia> devs = Devices()
+12:49:39.322897 DEBUG:  xtrxllpciev0_discovery:263 [PCIE] pcie: Found `pcie:///dev/xtrx0`
+[1] "addr" => "pcie:///dev/xtrx0", "dev" => "pcie:///dev/xtrx0", "driver" => "xtrx", "label" => "XTRX: pcie:///dev/xtrx0 (10Gbit)", "media" => "PCIe", "module" => "SoapyXTRX", "name" => "XTRX", "serial" => "", "type" => "xtrx"
+
+
+julia> dev = Device(devs[1])
+12:49:43.518149 DEBUG:  xtrxllpciev0_discovery:263 [PCIE] pcie: Found `pcie:///dev/xtrx0`
+[INFO] Make connection: 'pcie:///dev/xtrx0'
+12:49:43.518202 INFO:   [XTRX] xtrx_open(): dev[0]='pcie:///dev/xtrx0'
+12:49:43.518239 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x000300
+12:49:43.534280 INFO:   [CTRL] PCI:/dev/xtrx0: XTRX Rev4 (04000113)
+12:49:43.534287 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA STOP MIMO @0.0
+12:49:43.534293 INFO:   [PCIE] PCI:/dev/xtrx0: Device `pcie:///dev/xtrx0` has been opened successfully
+CPU Features: SSE2+ SSE4.1+ AVX+ FMA+
+12:49:43.647326 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x000304
+12:49:43.747745 INFO:   [CTRL] PCI:/dev/xtrx0: FPGA V_GPIO set to 3280mV
+12:49:43.747776 INFO:   [CTRL] PCI:/dev/xtrx0: LMS PMIC DCDC out set to VA18=1880mV VA14=1480mV VA12=1340mV
+12:49:43.751918 INFO:   [CTRL] PCI:/dev/xtrx0: FPGA V_IO set to 1800mV
+12:49:43.762332 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x000306
+12:49:43.773030 INFO:   [LSM7] PCI:/dev/xtrx0: LMS VER:7 REV:1 MASK:1 (3841)
+12:49:43.773050 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x00031e
+[INFO] Created: `pcie:///dev/xtrx0`
+SoapySDR xtrxdev device
+  driver: xtrxsoapy
+  number of TX channels:2
+  number of RX channels:2
+  sensors: SoapySDR.SensorComponent[clock_locked,lms7_temp,board_temp,lms7002m_regs,]
+  time_source:
+  time_sources:SoapySDR.TimeSource[]
+  frontendmapping_rx:
+  frontendmapping_tx:
+  master_clock_rate: 00 Hz
+
+julia> write("reset.ini", dev[dev.sensors[4]])
+16461
+
+julia> c_rx = dev.rx[1]
+  antenna: LNAW
+  antennas: SoapySDR.Antenna[LNAH,LNAL,LNAW,]
+  bandwidth [ 1..60 MHz ]: 0.0 Hz
+  frequency [ 30 MHz .. 3.8 GHz ]: 0.0 Hz
+    RF [ 30 MHz .. 3.8 GHz ]: 0.0 Hz
+    BB [ -00..00 Hz ]: 0.0 Hz
+  gain_mode (AGC=true/false/missing): missing
+  gain: 12.0 dB
+  gain_elements:
+    LNA [0.0:0.0:30.0]: 0.0 dB
+    TIA [0.0:0.0:12.0]: 0.0 dB
+    PGA [-12.0:0.0:19.0]: 0.0 dB
+  fullduplex: true
+  stream_formats: DataType[ComplexF32, Complex{Int8}, Complex{Int16}]
+  native_stream_format: Complex{Int16}
+  fullscale: 2048.0
+  sensors: SoapySDR.SensorComponent[lo_locked,]
+  sample_rate [ 200 kHz .. 56.2 MHz, 61.4..80 MHz ]: 0.0 Hz
+  dc_offset_mode (true/false/missing): false
+  dc_offset: missing
+  iq_balance_mode (true/false/missing): missing
+  iq_balance: (0.0, 0.0)
+  frequency_correction: missing
+
+
+julia> c_rx.sample_rate = 2u"MHz"
+12:49:57.024221 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x00031e
+12:49:57.039409 INFO:   [XTRX] PCI:/dev/xtrx0: Set INT RefClk to 26000000 based on 25999605 measurement
+12:49:57.039421 INFO:   [LSM7] PCI:/dev/xtrx0: CGEN: VCO/2=1168000000 k/2=73 int=89 frac=887256
+12:49:57.039951 INFO:   [LSM7] PCI:/dev/xtrx0: CGEN: binary result: 153
+12:49:57.040225 INFO:   [LSM7] PCI:/dev/xtrx0: CGEN: Retuned [155:161] -> 158
+12:49:57.040388 INFO:   [CTRL] PCI:/dev/xtrx0: RFIC_GPIO 0x00031e
+12:49:57.040397 INFO:   [CTRL] PCI:/dev/xtrx0: FPGA V_IO set to 1800mV
+12:49:57.040398 INFO:   [LMSF] PCI:/dev/xtrx0: rxrate=2.000MHz txrate=0.000MHz actual_master=16.000MHz rxdecim=2(h_1) txinterp=1(h_1) RX_ADC=4.000MHz TX_DAC=2.000MHz hintr=0 hdecim=0 delay=0 NRXFWD=0 LML1HID=3 LML2HID=1 RX_div=0 TX_div=0 RX_TSP_div=1 TX_TSP_div=1 FclkRX=0.000 (PHS=0) RXx2=0
+2 MHz
+
+julia> write("rx_sample_rate.ini", dev[dev.sensors[4]])
+16461
+
+julia> s_rx = SoapySDR.Stream(ComplexF32, [c_rx])
+12:50:46.980365 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA SKIP MIMO @0.0
+12:50:46.980414 INFO:   [LSM7] PCI:/dev/xtrx0: 0x0124[00, 00]
+12:50:46.980497 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA SKIP MIMO @0.0
+12:50:46.980508 INFO:   [LMSF] PCI:/dev/xtrx0: Auto RX band selection: LNAL
+12:50:46.980511 INFO:   [LMSF] PCI:/dev/xtrx0: Set RX band to 2 (L)
+12:50:46.980606 INFO:   [CTRL] PCI:/dev/xtrx0: RX_ANT: 1 TX_ANT: 0
+12:50:46.980608 INFO:   [LMSF] PCI:/dev/xtrx0: DC START
+12:50:46.980645 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980658 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980671 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980685 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980697 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980710 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980723 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980737 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980750 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980764 INFO:   [LSM7] PCI:/dev/xtrx0:  5c1=0000
+12:50:46.980806 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[0]=0000
+12:50:46.980844 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[1]=0000
+12:50:46.980885 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[2]=0000
+12:50:46.980929 INFO:   [LSM7] PCI:/dev/xtrx0:  TX[3]=0000
+12:50:46.980969 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[0]=0000
+12:50:46.981006 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[1]=0000
+12:50:46.981042 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[2]=0000
+12:50:46.981078 INFO:   [LSM7] PCI:/dev/xtrx0:  RX[3]=0000
+Stream on xtrxdev
+
+julia> SoapySDR.activate!(s_rx)
+12:50:55.612119 INFO:   [LMSF] PCI:/dev/xtrx0: AFE TX=[0;0] RX=[1;0]
+12:50:55.612199 INFO:   [LSM7] PCI:/dev/xtrx0: 0x0124[08, 00]
+12:50:55.612309 INFO:   [LSM7] PCI:/dev/xtrx0: 0x0124[0c, 00]
+12:50:55.612808 INFO:   [XTRX] PCI:/dev/xtrx0: RX initialized to 65536 bytes packet size
+12:50:55.612814 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA 16 bit SISO (BLK:16384 TS:32768); TX DMA SKIP MIMO @0.0
+12:50:55.612824 INFO:   [CTRL] PCI:/dev/xtrx0: Placing TC @32768 on 0 data: 0 stat:20
+[INFO] SoapyXTRX::activateStream(RX) 0 Samples per packet; res = 0
+
+julia> write("rx_stream_activated.ini", dev[dev.sensors[4]])
+16461
+
+julia> Base.read(s_rx, 1024)
+12:51:35.463654 ERROR:  [BPCI] PCI:/dev/xtrx0: RX DMA STAT O- 00000000 Bytes -R03 00/32 I:33
+Using avx for xtrxdsp_iq16_sc32
+(ComplexF32[0.1381836f0 + 0.203125f0im, 0.14941406f0 + 0.21240234f0im, 0.13964844f0 + 0.20166016f0im, 0.1508789f0 + 0.21240234f0im, 0.13574219f0 + 0.20410156f0im, 0.14941406f0 + 0.21142578f0im, 0.13574219f0 + 0.20166016f0im, 0.1484375f0 + 0.21240234f0im, 0.13720703f0 + 0.203125f0im, 0.14892578f0 + 0.2133789f0im  …  0.13671875f0 + 0.20361328f0im, 0.15234375f0 + 0.21142578f0im, 0.1381836f0 + 0.203125f0im, 0.15136719f0 + 0.21386719f0im, 0.14013672f0 + 0.20117188f0im, 0.14941406f0 + 0.21435547f0im, 0.13916016f0 + 0.20214844f0im, 0.14990234f0 + 0.21386719f0im, 0.13720703f0 + 0.20117188f0im, 0.15136719f0 + 0.21191406f0im],)
+
+julia> write("rx_stream_read.ini", dev[dev.sensors[4]])
+16461
+
+julia> SoapySDR.deactivate!(s_rx)
+12:51:51.254113 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA SKIP MIMO @0.0
+12:51:51.254356 INFO:   [LSM7] PCI:/dev/xtrx0: 0x0124[08, 00]
+12:51:51.254495 INFO:   [BPCI] PCI:/dev/xtrx0: RX DMA STOP MIMO (BLK:0 TS:0); TX DMA SKIP MIMO @0.0
+
+julia> write("rx_stream_deactivated.ini", dev[dev.sensors[4]])
+16461
