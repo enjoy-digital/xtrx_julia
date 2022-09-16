@@ -26,7 +26,7 @@ from litex.soc.cores.led import LedChaser
 from litex.soc.cores.icap import ICAP
 from litex.soc.cores.gpio import GPIOOut
 from litex.soc.cores.spi_flash import S7SPIFlash
-from litex.soc.cores.bitbang import I2CMaster
+from litex.soc.cores.bitbang import I2CMaster, SPIMaster
 from litex.soc.cores.xadc import XADC
 from litex.soc.cores.dna  import DNA
 
@@ -87,6 +87,7 @@ class BaseSoC(SoCCore):
         "vctcxo"      : 24,
         "rf_switches" : 25,
         "lms7002m"    : 26,
+        "spi"         : 27,
     }
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
@@ -166,6 +167,9 @@ class BaseSoC(SoCCore):
         # PMIC-FPGA (LP8758 @ 0x60).
         self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
 
+        # SPI Bus:
+        self.submodules.spi = SPIMaster(platform.request("spi"))
+
         # PMIC-FPGA:
         # Buck0: 1.0V VCCINT + 1.0V MGTAVCC.
         # Buck1: 1.8V/3.3V VCCIO (DIGPRVDD2/DIGPRVDD3/DIGPRPOC + VDD18_TXBUF of LMS + Bank 0/14/16/34/35 of FPGA).
@@ -182,7 +186,7 @@ class BaseSoC(SoCCore):
         self.submodules.aux = AUX(platform.request("aux"))
 
         # GPIO -------------------------------------------------------------------------------------
-        self.submodules.gpio = GPIO(platform.request("gpio"))
+        #self.submodules.gpio = GPIO(platform.request("gpio"))
 
         # GPS --------------------------------------------------------------------------------------
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)

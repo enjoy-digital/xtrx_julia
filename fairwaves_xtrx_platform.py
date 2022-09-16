@@ -75,12 +75,20 @@ _io = [
         IOStandard("LVCMOS33"),
     ),
 
+    # SPI bus.
+    ("spi", 1,
+        Subsignal("cs_n", Pins("H1")), # GPIO9
+        Subsignal("clk",  Pins("J1")), # GPIO10
+        Subsignal("mosi", Pins("N3")), # GPIO8
+        IOStandard("LVCMOS33"),
+    ),
+
     # GPS.
     ("gps", 0,
         Subsignal("rst",    Pins("L18"), IOStandard("LVCMOS25")), # enable>>
         Subsignal("pps",    Pins("P3"),  Misc("PULLDOWN=True")),
-        Subsignal("pps_out",Pins("L3")), # GPIO[1]
-        Subsignal("pps_in", Pins("M3")), # GPIO[0]
+        Subsignal("pps_out",Pins("L3")), # GPIO1
+        Subsignal("pps_in", Pins("M3")), # GPIO0
         Subsignal("rx" ,    Pins("N2"),  Misc("PULLUP=True")),
         Subsignal("tx" ,    Pins("L1"),  Misc("PULLUP=True")),
         IOStandard("LVCMOS33")
@@ -146,6 +154,7 @@ _io = [
         Misc("SLEW=FAST"),
     ),
 
+    # SIM.
     ("sim", 0,
         Subsignal("mode",    Pins("R3")),
         Subsignal("enable",  Pins("U1")),
