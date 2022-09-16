@@ -69,7 +69,8 @@ function do_txrx(mode::Symbol;
         fullscale = dev.tx[1].fullscale
 
         frequency = 1575.00u"MHz"
-        sample_rate = 6u"MHz"
+        #sample_rate = 6u"MHz"
+        sample_rate = 30.720000u"MHz"/4 # The TSP likes this in power of two factors
 
         # Setup transmission/recieve parameters
         for (c_idx, cr) in enumerate(dev.rx)
@@ -178,7 +179,7 @@ function do_txrx(mode::Symbol;
             # as it takes a long time to plot randomness
             num_buffers = 4
         else
-            num_buffers = 256
+            num_buffers = 32
         end
 
         # prepare some data to send:

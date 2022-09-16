@@ -10,7 +10,7 @@ endif
 
 # Use our own fork until this PR is merged: https://github.com/NVIDIA/open-gpu-kernel-modules/pull/3
 NV_DRIVER_URL := https://github.com/JuliaComputing/open-gpu-kernel-modules.git
-NV_DRIVER_VERSION := sjk/rebar2
+NV_DRIVER_VERSION := sjk/rebar4
 nvidia-driver/.git/HEAD:
 	git clone --depth=1 -b $(NV_DRIVER_VERSION) $(NV_DRIVER_URL) nvidia-driver
 get-nvidia-driver: nvidia-driver/.git/HEAD
