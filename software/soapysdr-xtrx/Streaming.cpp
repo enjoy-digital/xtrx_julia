@@ -319,26 +319,18 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
         assert(buffers_pending < ((int64_t)_dma_mmap_info.dma_tx_buf_count));
     }
 
-    // detect underflows of the underlying circular buffer
-    if (buffers_pending < 0) {
-        // drain all buffers to get out of the underflow quicker
-        struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
-        mmap_dma_update.sw_count = _tx_stream.hw_count;
-        checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_READER_UPDATE, &mmap_dma_update);
-        _tx_stream.user_count = _tx_stream.hw_count;
-        _tx_stream.sw_count = _tx_stream.hw_count;
-        handle = -1;
+    // get the buffer
+    int buf_offset = _tx_stream.user_count % _dma_mmap_info.dma_tx_buf_count;
+    getDirectAccessBufferAddrs(stream, buf_offset, buffs);
 
+    // update the DMA counters
+    handle = _tx_stream.user_count;
+    _tx_stream.user_count++;
+
+    // detect underflows
+    if (buffers_pending < 0) {
         return SOAPY_SDR_UNDERFLOW;
     } else {
-        // get the buffer
-        int buf_offset = _tx_stream.user_count % _dma_mmap_info.dma_tx_buf_count;
-        getDirectAccessBufferAddrs(stream, buf_offset, buffs);
-
-        // update the DMA counters
-        handle = _tx_stream.user_count;
-        _tx_stream.user_count++;
-
         return getStreamMTU(stream);
     }
 }
