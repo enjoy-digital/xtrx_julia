@@ -156,43 +156,43 @@ steps:
       os: "linux"
       arch: "x86_64"
 
-  - label: ":linux: :robot_face: :lemon: LimeSDR test suite"
-    plugins:
-     - JuliaCI/julia#v1:
-         version: '1'
-    commands: |
-      echo "--- Build limesuite and dependencies"
-      make -C software limesuite -j$$(nproc)
+  # - label: ":linux: :robot_face: :lemon: LimeSDR test suite"
+  #   plugins:
+  #    - JuliaCI/julia#v1:
+  #        version: '1'
+  #   commands: |
+  #     echo "--- Build limesuite and dependencies"
+  #     make -C software limesuite -j$$(nproc)
 
-      echo "--- List LimeSDR devices"
-      ./build/bin/SoapySDRUtil --find=driver=lime
+  #     echo "--- List LimeSDR devices"
+  #     ./build/bin/SoapySDRUtil --find=driver=lime
 
-      echo "--- Check out SoapySDR.jl#main"
-      make -C software SoapySDR.jl
+  #     echo "--- Check out SoapySDR.jl#main"
+  #     make -C software SoapySDR.jl
 
-      echo "--- Run C read example"
-      julia --project software/scripts/limesdr_tests/c_rx_example.jl
+  #     echo "--- Run C read example"
+  #     julia --project software/scripts/limesdr_tests/c_rx_example.jl
 
-      echo "--- Instantiate julia project"
-      julia --project -e 'import Pkg; Pkg.precompile()'
+  #     echo "--- Instantiate julia project"
+  #     julia --project -e 'import Pkg; Pkg.precompile()'
 
-      echo "--- Run libsigflow tests"
-      julia --project software/scripts/libsigflow_tests.jl
+  #     echo "--- Run libsigflow tests"
+  #     julia --project software/scripts/libsigflow_tests.jl
 
-      echo "--- Run Julia read example"
-      julia --project software/scripts/limesdr_tests/julia_rx_example.jl
+  #     echo "--- Run Julia read example"
+  #     julia --project software/scripts/limesdr_tests/julia_rx_example.jl
 
-      echo "--- Run spectrum scan (threads=2)"
-      julia -t 2 --project software/scripts/limesdr_tests/julia_psd.jl
+  #     echo "--- Run spectrum scan (threads=2)"
+  #     julia -t 2 --project software/scripts/limesdr_tests/julia_psd.jl
 
-      echo "--- Run chirp MIMO loopback (threads=3)"
-      julia -t 3 --project software/scripts/limesdr_tests/julia_chirp_loopback_mimo.jl
-    agents:
-      os: "linux"
-      queue: "triad"
-      sdr_present: "lime"
-    artifact_paths:
-      - "*.png"
+  #     echo "--- Run chirp MIMO loopback (threads=3)"
+  #     julia -t 3 --project software/scripts/limesdr_tests/julia_chirp_loopback_mimo.jl
+  #   agents:
+  #     os: "linux"
+  #     queue: "triad"
+  #     sdr_present: "lime"
+  #   artifact_paths:
+  #     - "*.png"
 
 
   - label: ":linux: :robot_face: Test loading kernel modules"
