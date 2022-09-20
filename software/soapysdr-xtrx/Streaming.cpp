@@ -275,7 +275,8 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
 }
 
 void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream */*stream*/, size_t handle) {
-    assert(handle != (size_t)-1 && "Attempt to release an invalid buffer (e.g., from an overflow)");
+    assert(handle != (size_t)-1 &&
+           "Attempt to release an invalid buffer (e.g., from an overflow)");
 
     // update the DMA counters
     struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
@@ -337,6 +338,9 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
 void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream */*stream*/, size_t handle,
                                    const size_t /*numElems*/, int &/*flags*/,
                                    const long long /*timeNs*/) {
+    assert(handle != (size_t)-1 &&
+           "Attempt to release an invalid buffer (e.g., from an underflow)");
+
     // XXX: inspect user-provided numElems and flags, and act upon them?
 
     // update the DMA counters so that the engine can submit this buffer
@@ -345,14 +349,19 @@ void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream */*stream*/, size_t handle,
     checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_READER_UPDATE, &mmap_dma_update);
 }
 
-void deinterleave(const int8_t *src, void *dst, uint32_t len, std::string format, size_t offset)
+void deinterleave(const void *src, size_t src_offset, void* const* dst, size_t dst_offset,
+                  size_t len, std::string format)
 {
     if (format == SOAPY_SDR_CS16) {
-        int16_t *samples_cs16 = (int16_t *)dst + offset * BYTES_PER_SAMPLE;
-        for (uint32_t i = offset; i < len; i += 2)
+        int16_t *src_cs16 = (int16_t *)src + 4*src_offset;
+        int16_t *dst_cs16_0 = (int16_t *)dst[0] + 2*dst_offset;
+        int16_t *dst_cs16_1 = (int16_t *)dst[1] + 2*dst_offset;
+        for (uint32_t i = 0; i < len; i += 2)
         {
-            samples_cs16[i * BYTES_PER_SAMPLE] = (int16_t)(src[i * BYTES_PER_SAMPLE] << 8);
-            samples_cs16[i * BYTES_PER_SAMPLE + 1] = (int16_t)(src[i * BYTES_PER_SAMPLE + 1] << 8);
+            dst_cs16_0[i]     = src_cs16[i*2];
+            dst_cs16_0[i + 1] = src_cs16[i*2 + 1];
+            dst_cs16_1[i]     = src_cs16[i*2 + 2];
+            dst_cs16_1[i + 1] = src_cs16[i*2 + 3];
         }
     }
     else {
@@ -360,14 +369,19 @@ void deinterleave(const int8_t *src, void *dst, uint32_t len, std::string format
     }
 }
 
-void interleave(const void *src, int8_t *dst, uint32_t len, std::string format, size_t offset)
+void interleave(const void* const* src, size_t src_offset, void *dst, size_t dst_offset,
+                size_t len, std::string format)
 {
     if (format == SOAPY_SDR_CS16) {
-        int16_t *samples_cs16 = (int16_t *)src + offset * BYTES_PER_SAMPLE;
-        for (uint32_t i = offset; i < len; i += 2)
+        int16_t *src_cs16_0 = (int16_t *)src[0] + 2*src_offset;
+        int16_t *src_cs16_1 = (int16_t *)src[1] + 2*src_offset;
+        int16_t *dst_cs16 = (int16_t *)dst + 4*dst_offset;
+        for (uint32_t i = 0; i < len/2; i += 1)
         {
-            dst[i * BYTES_PER_SAMPLE] = (int8_t)(samples_cs16[i * BYTES_PER_SAMPLE] >> 8);
-            dst[i * BYTES_PER_SAMPLE + 1] = (int8_t)(samples_cs16[i * BYTES_PER_SAMPLE + 1] >> 8);
+            dst_cs16[4*i]     = src_cs16_0[i*2];
+            dst_cs16[4*i + 1] = src_cs16_0[i*2 + 1];
+            dst_cs16[4*i + 2] = src_cs16_1[i*2];
+            dst_cs16[4*i + 3] = src_cs16_1[i*2 + 1];
         }
     }
     else {
@@ -384,74 +398,69 @@ int SoapyXTRX::readStream(
     const long timeoutUs)
 {
     if (stream != RX_STREAM)
-    {
         return SOAPY_SDR_NOT_SUPPORTED;
-    }
-    size_t returnedElems = std::min(numElems, this->getStreamMTU(stream));
 
-    size_t samp_avail = 0;
+    // determine how many samples (of I and Q for both channels) we can process
+    size_t samples = std::min(numElems*2, getStreamMTU(stream)*2);
 
-    if (_rx_stream.remainderHandle >= 0)
-    {
-        const size_t n = std::min(_rx_stream.remainderSamps, returnedElems);
+    // in the case of a split transaction, keep track of the amount of samples
+    // we processed already
+    size_t submitted_samples = 0;
 
-        if (n < returnedElems)
-        {
-            samp_avail = n;
+    if (_rx_stream.remainderHandle >= 0) {
+        // there is still some place left in the unsubmitted buffer, so fill
+        // it with as many new samples as possible
+        const size_t n = std::min(_rx_stream.remainderSamps, samples);
+
+        if (n < samples) {
+            // couldn't fit them all, so split the transaction
+            submitted_samples = n;
         }
 
-        // Read out channels
-        for (size_t i = 0; i < _rx_stream.channels.size(); i++)
-        {
-            deinterleave(_rx_stream.remainderBuff + _rx_stream.remainderOffset * BYTES_PER_SAMPLE, buffs[i], n/2, _rx_stream.format, _rx_stream.channels[i]);
-        }
+        // unpack data
+        deinterleave(_rx_stream.remainderBuff, _rx_stream.remainderOffset,
+                        buffs, 0, n, _rx_stream.format);
         _rx_stream.remainderSamps -= n;
         _rx_stream.remainderOffset += n;
 
         if (_rx_stream.remainderSamps == 0)
         {
-            this->releaseReadBuffer(stream, _rx_stream.remainderHandle);
+            releaseReadBuffer(stream, _rx_stream.remainderHandle);
             _rx_stream.remainderHandle = -1;
             _rx_stream.remainderOffset = 0;
         }
 
-        if (n == returnedElems)
-            return returnedElems;
+        // finish processing if all samples were processed
+        if (n == samples)
+            return samples/2;
     }
 
+    // get a new buffer
     size_t handle;
-    int ret = this->acquireReadBuffer(stream, handle, (const void **)&_rx_stream.remainderBuff, flags, timeNs, timeoutUs);
-
-    if (ret < 0)
-    {
-        if ((ret == SOAPY_SDR_TIMEOUT) && (samp_avail > 0))
-        {
-            return samp_avail;
-        }
+    int ret = acquireReadBuffer(stream, handle, (const void **)&_rx_stream.remainderBuff, flags, timeNs, timeoutUs);
+    if (ret < 0) {
         return ret;
     }
 
     _rx_stream.remainderHandle = handle;
-    _rx_stream.remainderSamps = ret;
+    _rx_stream.remainderSamps = ret*2;
 
-    const size_t n = std::min((returnedElems - samp_avail), _rx_stream.remainderSamps);
+    const size_t n = std::min((samples - submitted_samples), _rx_stream.remainderSamps);
 
-    // Read out channels
-    for (size_t i = 0; i < _rx_stream.channels.size(); i++)
-    {
-        deinterleave(_rx_stream.remainderBuff, buffs[i], n, _rx_stream.format, samp_avail + _rx_stream.channels[i]);
-    }
+    // unpack data
+    deinterleave(_rx_stream.remainderBuff, 0,
+                    buffs, submitted_samples/2,
+                    n, _rx_stream.format);
     _rx_stream.remainderSamps -= n;
     _rx_stream.remainderOffset += n;
 
-    if (_rx_stream.remainderSamps == 0)
-    {
-        this->releaseReadBuffer(stream, _rx_stream.remainderHandle);
+    if (_rx_stream.remainderSamps == 0) {
+        releaseReadBuffer(stream, _rx_stream.remainderHandle);
         _rx_stream.remainderHandle = -1;
         _rx_stream.remainderOffset = 0;
     }
 
-    return returnedElems;
+    return samples/2;
 }
 
 int SoapyXTRX::writeStream(
@@ -463,74 +472,71 @@ int SoapyXTRX::writeStream(
     const long timeoutUs)
 {
     if (stream != TX_STREAM)
-    {
         return SOAPY_SDR_NOT_SUPPORTED;
-    }
 
-    size_t returnedElems = std::min(numElems, this->getStreamMTU(stream));
+    // determine how many samples (of I and Q for both channels) we can process
+    size_t samples = std::min(numElems*2, getStreamMTU(stream)*2);
 
-    size_t samp_avail = 0;
+    // in the case of a split transaction, keep track of the amount of samples
+    // we processed already
+    size_t submitted_samples = 0;
 
-    if (_tx_stream.remainderHandle >= 0)
-    {
+    // is there still some place left in the unsubmitted buffer?
+    if (_tx_stream.remainderHandle >= 0) {
+        // there is still some place left in the unsubmitted buffer, so fill
+        // it with as many new samples as possible
+        const size_t n = std::min(_tx_stream.remainderSamps, samples);
 
-        const size_t n = std::min(_tx_stream.remainderSamps, returnedElems);
-
-        if (n < returnedElems)
-        {
-            samp_avail = n;
+        if (n < samples) {
+            // couldn't fit them all, so split the transaction
+            submitted_samples = n;
         }
 
-        // Write out channels
+        // pack data
         for (size_t i = 0; i < _tx_stream.channels.size(); i++)
-        {
-            interleave(buffs[i], _tx_stream.remainderBuff + _tx_stream.remainderOffset * BYTES_PER_SAMPLE, n/2, _tx_stream.format, _tx_stream.channels[i]);
-        }
+            interleave(buffs, 0,
+                       _tx_stream.remainderBuff, _tx_stream.remainderOffset/2,
+                       n, _tx_stream.format);
         _tx_stream.remainderSamps -= n;
         _tx_stream.remainderOffset += n;
 
         if (_tx_stream.remainderSamps == 0)
         {
-            this->releaseWriteBuffer(stream, _tx_stream.remainderHandle, _tx_stream.remainderOffset, flags, timeNs);
+            releaseWriteBuffer(stream, _tx_stream.remainderHandle,
+                               _tx_stream.remainderOffset, flags, timeNs);
             _tx_stream.remainderHandle = -1;
             _tx_stream.remainderOffset = 0;
         }
 
-        if (n == returnedElems)
-            return returnedElems;
+        // finish processing if all samples were processed
+        if (n == samples)
+            return samples/2;
     }
 
+    // get a new buffer
     size_t handle;
-
-    int ret = this->acquireWriteBuffer(stream, handle, (void **)&_tx_stream.remainderBuff, timeoutUs);
-    if (ret < 0)
-    {
-        if ((ret == SOAPY_SDR_TIMEOUT) && (samp_avail > 0))
-        {
-            return samp_avail;
-        }
+    int ret = acquireWriteBuffer(stream, handle, (void **)&_tx_stream.remainderBuff, timeoutUs);
+    if (ret < 0) {
         return ret;
     }
 
     _tx_stream.remainderHandle = handle;
-    _tx_stream.remainderSamps = ret;
+    _tx_stream.remainderSamps = ret*2;
 
-    const size_t n = std::min((returnedElems - samp_avail), _tx_stream.remainderSamps);
+    const size_t n = std::min((samples - submitted_samples), _tx_stream.remainderSamps);
 
-    // Write out channels
-    for (size_t i = 0; i < _tx_stream.channels.size(); i++)
-    {
-        interleave(buffs[i], _tx_stream.remainderBuff, n, _tx_stream.format, samp_avail + _tx_stream.channels[i]);
-    }
+    // pack data
+    interleave(buffs, submitted_samples/2,
+                _tx_stream.remainderBuff, 0,
+                n, _tx_stream.format);
     _tx_stream.remainderSamps -= n;
     _tx_stream.remainderOffset += n;
 
-    if (_tx_stream.remainderSamps == 0)
-    {
-        this->releaseWriteBuffer(stream, _tx_stream.remainderHandle, _tx_stream.remainderOffset, flags, timeNs);
+    if (_tx_stream.remainderSamps == 0) {
+        releaseWriteBuffer(stream, _tx_stream.remainderHandle, _tx_stream.remainderOffset, flags, timeNs);
         _tx_stream.remainderHandle = -1;
         _tx_stream.remainderOffset = 0;
     }
 
-    return returnedElems;
+    return samples/2;
 }

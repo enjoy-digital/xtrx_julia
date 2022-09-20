@@ -73,99 +73,18 @@ end
 # Because the XTRX does not support the Soapy Streaming API yet,
 # we polyfill it here:
 function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity, auto_sign_extend::Bool = true) where {T}
-    if s.d.driver == Symbol("XTRX over LitePCIe")
-        buffs = Ptr{T}[C_NULL]
-        GC.@preserve buffs begin
-            t_us = round(Int, uconvert(u"μs", timeout).val)
-            err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(s.d, s, buffs, t_us)
+    # The high-level streaming API makes this a tad bit easier
+    read!(s, split_matrix(buff); timeout)
 
-            if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                if verbose
-                    @warn("RX TIMEOUT", s.d, timeout)
-                end
-                return false
-            elseif err == SoapySDR.SOAPY_SDR_OVERFLOW
-                if verbose
-                    @warn("RX OVERFLOW", s.d)
-                end
-                _num_overflows[] += 1
-                return false
-            elseif err <= 0
-                @error("SoapySDRDevice_acquireReadBuffer() failed", err)
-                error("SoapySDRDevice_acquireReadBuffer() failed")
-            elseif err != s.mtu
-                if verbose
-                    @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
-                end
-            end
-
-            # Copy the SoapySDR-provided buffer out into our own
-            pbuff = unsafe_wrap(Matrix{T}, buffs[1], (s.nchannels, Int(s.mtu)))
-            copyto!(
-                buff,
-                permutedims(pbuff),
-            )
-
-            # Sign-extend `buff` if we're dealing with Complex{Int16}
-            # but which is actually Complex{Int12} inside.
-            if auto_sign_extend && T == Complex{Int16}
-                sign_extend!(buff)
-            end
-
-            SoapySDR.SoapySDRDevice_releaseReadBuffer(s.d, s, handle)
-            return true
-        end
-    else
-        # The high-level streaming API makes this a tad bit easier
-        read!(s, split_matrix(buff); timeout)
-        return true
+    if auto_sign_extend
+        sign_extend!(buff)
     end
+    return true
 end
 
 function soapy_write!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 0.1u"s", verbose::Bool = _default_verbosity) where {T}
-    if s.d.driver == Symbol("XTRX over LitePCIe")
-        # Write out a TX buffer
-        buffs = Ptr{T}[C_NULL]
-        GC.@preserve buffs begin
-            t_us = round(Int, uconvert(u"μs", timeout).val)
-            err, handle = SoapySDR.SoapySDRDevice_acquireWriteBuffer(s.d, s, buffs, t_us)
-
-            try
-                if err == SoapySDR.SOAPY_SDR_TIMEOUT
-                    if verbose
-                        @warn("TX TIMEOUT")
-                    end
-                    # Not sure what else to do here.
-                    return
-                elseif err == SoapySDR.SOAPY_SDR_UNDERFLOW
-                    if verbose
-                        @warn("TX UNDERFLOW")
-                    end
-                    _num_underflows[] += 1
-                    # This isn't really an error, just continue on until we
-                    # care about dropping samples.
-                elseif err <= 0
-                    @error("SoapySDRDevice_acquireWriteBuffer() failed", err)
-                    error("SoapySDRDevice_acquireWriteBuffer() failed")
-                elseif err != s.mtu
-                    if verbose
-                        @warn("Got a non-MTU buffer size?!", err, Int(s.mtu))
-                    end
-                end
-
-                # Copy into the provided buffer, converting from
-                # SoapySDR/libsigflow memory ordering (separate buffers for each channel)
-                # to XTRX memory ordering (interleaved samples)
-                pbuff = permutedims(buff)
-                unsafe_copyto!(buffs[1], pointer(pbuff, 1), s.nchannels*s.mtu)
-            finally
-                SoapySDR.SoapySDRDevice_releaseWriteBuffer(s.d, s, handle, 1)
-            end
-        end
-    else
-        # SoapySDR high-level streaming API.  So convenient.  So pure.
-        write(s_tx, split_matrix(buff); timeout)
-    end
+    # SoapySDR high-level streaming API.  So convenient.  So pure.
+    write(s, split_matrix(buff); timeout)
 end
 
 """
