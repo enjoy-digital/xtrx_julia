@@ -83,12 +83,16 @@ _io = [
         IOStandard("LVCMOS33"),
     ),
 
+    # Synchro.
+    ("synchro", 0,
+        Subsignal("pps_in", Pins("M3")), # GPIO0
+        Subsignal("pps_out",Pins("L3")), # GPIO1
+    ),
+
     # GPS.
     ("gps", 0,
         Subsignal("rst",    Pins("L18"), IOStandard("LVCMOS25")), # enable>>
         Subsignal("pps",    Pins("P3"),  Misc("PULLDOWN=True")),
-        Subsignal("pps_out",Pins("L3")), # GPIO1
-        Subsignal("pps_in", Pins("M3")), # GPIO0
         Subsignal("rx" ,    Pins("N2"),  Misc("PULLUP=True")),
         Subsignal("tx" ,    Pins("L1"),  Misc("PULLUP=True")),
         IOStandard("LVCMOS33")
