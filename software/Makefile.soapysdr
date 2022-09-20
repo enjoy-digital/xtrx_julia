@@ -38,5 +38,9 @@ clean-soapysdr-xtrx:
 	$(RM) $(SOAPYSDR_XTRX_LIB)
 clean: clean-soapysdr-xtrx
 
+xtrxjl:
+	julia +1.7 --project=./XTRX.jl/gen/ ./XTRX.jl/gen/gen.jl
+
 print-soapysdr-plugin-path:
 	@echo $(dir $(SOAPYSDR_XTRX_LIB))
+
