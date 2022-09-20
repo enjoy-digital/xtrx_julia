@@ -38,6 +38,7 @@ from gateware.gpio import GPIO
 from gateware.aux import AUX
 from gateware.gps import GPS
 from gateware.vctcxo import VCTCXO
+from gateware.synchro import Synchro
 from gateware.rf_switches import RFSwitches
 from gateware.lms7002m import LMS7002M
 
@@ -88,6 +89,7 @@ class BaseSoC(SoCCore):
         "rf_switches" : 25,
         "lms7002m"    : 26,
         "spi"         : 27,
+        "synchro"     : 28,
     }
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
@@ -191,10 +193,14 @@ class BaseSoC(SoCCore):
         # GPS --------------------------------------------------------------------------------------
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
-        # VCTCXO ------------------------------------------------------------------------------------
+        # VCTCXO -----------------------------------------------------------------------------------
         vctcxo_pads = platform.request("vctcxo")
         self.submodules.vctcxo = VCTCXO(vctcxo_pads)
         platform.add_period_constraint(vctcxo_pads.clk, 20)
+
+        # Synchro ----------------------------------------------------------------------------------
+        self.submodules.synchro = Synchro(platform.request("synchro"))
+        self.comb += self.synchro.pps_gps.eq(self.gps.pps)
 
         # RF Switches ------------------------------------------------------------------------------
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))

@@ -25,10 +25,7 @@ class GPS(Module, AutoCSR):
         # # #
 
         # Drive Control Pin.
-        self.comb += [
-            pads.rst.eq(~self.control.fields.enable),
-            pads.pps_out.eq(self.pps)
-        ]
+        self.comb += pads.rst.eq(~self.control.fields.enable)
 
         # PPS Resynchronization.
         self.specials += MultiReg(pads.pps, self.pps)
