@@ -75,8 +75,8 @@ _io = [
         IOStandard("LVCMOS33"),
     ),
 
-    # SPI bus.
-    ("spi", 1,
+    # XSYNC SPI bus.
+    ("xsync_spi", 1,
         Subsignal("cs_n", Pins("H1")), # GPIO9
         Subsignal("clk",  Pins("J1")), # GPIO10
         Subsignal("mosi", Pins("N3")), # GPIO8
