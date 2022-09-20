@@ -26,7 +26,8 @@ from litex.soc.cores.led import LedChaser
 from litex.soc.cores.icap import ICAP
 from litex.soc.cores.gpio import GPIOOut
 from litex.soc.cores.spi_flash import S7SPIFlash
-from litex.soc.cores.bitbang import I2CMaster, SPIMaster
+from litex.soc.cores.bitbang import I2CMaster
+from litex.soc.cores.spi import SPIMaster
 from litex.soc.cores.xadc import XADC
 from litex.soc.cores.dna  import DNA
 
@@ -88,7 +89,7 @@ class BaseSoC(SoCCore):
         "vctcxo"      : 24,
         "rf_switches" : 25,
         "lms7002m"    : 26,
-        "spi"         : 27,
+        "xsync_spi"   : 27,
         "synchro"     : 28,
     }
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
@@ -164,14 +165,21 @@ class BaseSoC(SoCCore):
         # - Temperature Sensor (TMP108  @ 0x4a).
         # - PMIC-LMS           (LP8758  @ 0x60).
         # - VCTCXO DAC         Rev4: (MCP4725 @ 0x62) Rev5: (DAC60501 @ 0x4b).
-        self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
+        self.submodules.i2c0 = I2CMaster(pads=platform.request("i2c", 0))
 
         # I2C Bus1:
         # PMIC-FPGA (LP8758 @ 0x60).
-        self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
+        self.submodules.i2c1 = I2CMaster(pads=platform.request("i2c", 1))
 
-        # SPI Bus:
-        self.submodules.spi = SPIMaster(platform.request("spi"))
+        # XSYNC SPI Bus:
+        xsync_spi_pads      = platform.request("xsync_spi")
+        xsync_spi_pads.miso = Signal() # SPI is 3-wire, add fake MISO. Will only allow writes, not reads.
+        self.submodules.xsync_spi = SPIMaster(
+            pads         = xsync_spi_pads,
+            data_width   = 32,
+            sys_clk_freq = sys_clk_freq,
+            spi_clk_freq = 1e6
+        )
 
         # PMIC-FPGA:
         # Buck0: 1.0V VCCINT + 1.0V MGTAVCC.
