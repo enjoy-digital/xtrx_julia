@@ -420,7 +420,9 @@ int SoapyXTRX::readStream(
     if (stream != RX_STREAM)
         return SOAPY_SDR_NOT_SUPPORTED;
 
-    // determine how many samples (of I and Q for both channels) we can process
+    int num_chan_active = _rx_stream.channels.size();
+    // how many samples we need to get from the DMA buffer
+    // this is differnet form NumElems since NumElems is specified per channel
     size_t samples = std::min(numElems*2, getStreamMTU(stream)*2);
 
     // in the case of a split transaction, keep track of the amount of samples
