@@ -350,18 +350,27 @@ void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream */*stream*/, size_t handle,
 }
 
 void deinterleave(const void *src, size_t src_offset, void* const* dst, size_t dst_offset,
-                  size_t len, std::string format)
+                  size_t len, std::string format, size_t num_channels)
 {
     if (format == SOAPY_SDR_CS16) {
         int16_t *src_cs16 = (int16_t *)src + 4*src_offset;
         int16_t *dst_cs16_0 = (int16_t *)dst[0] + 2*dst_offset;
         int16_t *dst_cs16_1 = (int16_t *)dst[1] + 2*dst_offset;
-        for (uint32_t i = 0; i < len; i += 2)
-        {
-            dst_cs16_0[i]     = src_cs16[i*2];
-            dst_cs16_0[i + 1] = src_cs16[i*2 + 1];
-            dst_cs16_1[i]     = src_cs16[i*2 + 2];
-            dst_cs16_1[i + 1] = src_cs16[i*2 + 3];
+        if (num_channels == 2) {
+            for (uint32_t i = 0; i < len; i += 2)
+            {
+                dst_cs16_0[i]     = src_cs16[i*2];
+                dst_cs16_0[i + 1] = src_cs16[i*2 + 1];
+                dst_cs16_1[i]     = src_cs16[i*2 + 2];
+                dst_cs16_1[i + 1] = src_cs16[i*2 + 3];
+            }
+        }
+        else if (num_channels == 1) {
+            for (uint32_t i = 0; i < len; i += 2)
+            {
+                dst_cs16_0[i]     = src_cs16[i*2];
+                dst_cs16_0[i + 1] = src_cs16[i*2 + 1];
+            }
         }
     }
     else {
@@ -370,18 +379,29 @@ void deinterleave(const void *src, size_t src_offset, void* const* dst, size_t d
 }
 
 void interleave(const void* const* src, size_t src_offset, void *dst, size_t dst_offset,
-                size_t len, std::string format)
+                size_t len, std::string format, size_t num_channels)
 {
     if (format == SOAPY_SDR_CS16) {
         int16_t *src_cs16_0 = (int16_t *)src[0] + 2*src_offset;
         int16_t *src_cs16_1 = (int16_t *)src[1] + 2*src_offset;
         int16_t *dst_cs16 = (int16_t *)dst + 4*dst_offset;
-        for (uint32_t i = 0; i < len/2; i += 1)
-        {
-            dst_cs16[4*i]     = src_cs16_0[i*2];
-            dst_cs16[4*i + 1] = src_cs16_0[i*2 + 1];
-            dst_cs16[4*i + 2] = src_cs16_1[i*2];
-            dst_cs16[4*i + 3] = src_cs16_1[i*2 + 1];
+        if (num_channels == 2) {
+            for (uint32_t i = 0; i < len/2; i += 1)
+            {
+                dst_cs16[4*i]     = src_cs16_0[i*2];
+                dst_cs16[4*i + 1] = src_cs16_0[i*2 + 1];
+                dst_cs16[4*i + 2] = src_cs16_1[i*2];
+                dst_cs16[4*i + 3] = src_cs16_1[i*2 + 1];
+            }
+        }
+        else if (num_channels == 1) {
+            for (uint32_t i = 0; i < len/2; i += 1)
+            {
+                dst_cs16[4*i]     = src_cs16_0[i*2];
+                dst_cs16[4*i + 1] = src_cs16_0[i*2 + 1];
+                dst_cs16[4*i + 2] = src_cs16_1[i*2];
+                dst_cs16[4*i + 3] = src_cs16_1[i*2 + 1];
+            }
         }
     }
     else {
@@ -419,7 +439,7 @@ int SoapyXTRX::readStream(
 
         // unpack data
         deinterleave(_rx_stream.remainderBuff, _rx_stream.remainderOffset,
-                        buffs, 0, n, _rx_stream.format);
+                        buffs, 0, n, _rx_stream.format, _rx_stream.channels.size());
         _rx_stream.remainderSamps -= n;
         _rx_stream.remainderOffset += n;
 
@@ -450,7 +470,7 @@ int SoapyXTRX::readStream(
     // unpack data
     deinterleave(_rx_stream.remainderBuff, 0,
                     buffs, submitted_samples/2,
-                    n, _rx_stream.format);
+                    n, _rx_stream.format, _rx_stream.channels.size());
     _rx_stream.remainderSamps -= n;
     _rx_stream.remainderOffset += n;
 
@@ -493,10 +513,9 @@ int SoapyXTRX::writeStream(
         }
 
         // pack data
-        for (size_t i = 0; i < _tx_stream.channels.size(); i++)
-            interleave(buffs, 0,
-                       _tx_stream.remainderBuff, _tx_stream.remainderOffset/2,
-                       n, _tx_stream.format);
+        interleave(buffs, 0,
+                    _tx_stream.remainderBuff, _tx_stream.remainderOffset/2,
+                    n, _tx_stream.format, _tx_stream.channels.size());
         _tx_stream.remainderSamps -= n;
         _tx_stream.remainderOffset += n;
 
@@ -528,7 +547,7 @@ int SoapyXTRX::writeStream(
     // pack data
     interleave(buffs, submitted_samples/2,
                 _tx_stream.remainderBuff, 0,
-                n, _tx_stream.format);
+                n, _tx_stream.format, _tx_stream.channels.size());
     _tx_stream.remainderSamps -= n;
     _tx_stream.remainderOffset += n;
 
