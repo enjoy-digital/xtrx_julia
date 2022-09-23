@@ -154,8 +154,8 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     LMS7002M_ldo_enable(_lms, true, LMS7002M_LDO_ALL);
     LMS7002M_xbuf_share_tx(_lms, true);
 
-    // turn the clocks on (tested frequencies: 61.44MHZ, 122.88MHZ)
-    this->setMasterClockRate(122.88e6);
+    // turn the clocks on (tested frequencies: 61.44MHz, 80MHz, 122.88MHz)
+    this->setMasterClockRate(80.0e6);
 
     // some defaults to avoid throwing
     _cachedSampleRates[SOAPY_SDR_RX] = 1e6;
@@ -1024,6 +1024,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         LMS7002M_tbb_enable(_lms, LMS_CHAB, value == "TRUE");
     else if (key == "TRF_ENABLE_LOOPBACK")
         LMS7002M_trf_enable_loopback(_lms, LMS_CHAB, value == "TRUE");
+    else if (key == "CGEN")
+        LMS7002M_set_data_clock(_lms, _refClockRate, std::stod(value)*1e6, &_masterClockRate);
     else if (key == "RXTSP_TSG_CONST") {
         const int ampl = std::stoi(value);
         LMS7002M_rxtsp_tsg_const(_lms, LMS_CHAB, ampl, 0);
