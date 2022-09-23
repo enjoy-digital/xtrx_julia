@@ -1,5 +1,7 @@
 
-rxtools: $(SOAPYSDR_LIB)
+
+
+rxtools: $(SOAPYSDR_LIB) $(SOAPYSDR_XTRX_LIB)
 	rm -rf rx_tools/_build
 	mkdir -p rx_tools/_build
 	cmake -DCMAKE_PREFIX_PATH=$(SOAPYSDR_PREFIX) \
