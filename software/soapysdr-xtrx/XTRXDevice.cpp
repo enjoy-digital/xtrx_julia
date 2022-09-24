@@ -796,6 +796,7 @@ std::vector<std::string> SoapyXTRX::listClockSources(void) const {
     std::vector<std::string> sources;
     sources.push_back("internal");
     sources.push_back("external");
+    sources.push_back("external+pps");
     return sources;
 }
 
@@ -807,12 +808,26 @@ void SoapyXTRX::setClockSource(const std::string &source) {
     int control = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR);
     control &= ~(1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
 
-    if (source == "external") {
+    if (source == "external" || source == "external+pps") {
         control |= 1 << CSR_VCTCXO_CONTROL_SEL_OFFSET;
     } else if (source != "internal") {
         throw std::runtime_error("setClockSource(" + source + ") invalid");
     }
+
     litepcie_writel(_fd, CSR_VCTCXO_CONTROL_ADDR, control);
+    litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 1);
+
+    if (source == "external+pps") {
+        litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 0);
+        //litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 1);
+    } else {
+        litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 1);
+    }
+
+    litepcie_writel(_fd, CSR_PCIE_DMA0_WRITER_TABLE_RESET_ADDR, 1);
+    litepcie_writel(_fd, CSR_PCIE_DMA0_READER_TABLE_RESET_ADDR, 1);
+
+    _clockSource = source;
 }
 
 /*!
@@ -820,8 +835,7 @@ void SoapyXTRX::setClockSource(const std::string &source) {
  * \return the name of a clock source
  */
 std::string SoapyXTRX::getClockSource(void) const {
-    int source = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR) & (1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
-    return source ? "external" : "internal";
+    return _clockSource;
 }
 
 /*******************************************************************
