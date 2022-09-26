@@ -2,10 +2,6 @@
 	path = software/rx_tools
 	url = https://github.com/JuliaComputing/rx_tools
 	shallow = true
-[submodule "software/fpga-source"]
-	path = software/fpga-source
-	url = https://github.com/xtrx-sdr/fpga-source.git
-	shallow = true
 [submodule "software/LMS7002M-driver"]
 	path = software/LMS7002M-driver
 	url = https://github.com/JuliaComputing/LMS7002M-driver
