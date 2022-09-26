@@ -102,6 +102,9 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         0 * (1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET)
     );
 
+    //Enable DMA Synchronizer
+    litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 1);
+
     // reset other FPGA peripherals
     writeSetting("FPGA_DMA_LOOPBACK_ENABLE", "FALSE");
     writeSetting("FPGA_TX_PATTERN", "0");
@@ -815,17 +818,12 @@ void SoapyXTRX::setClockSource(const std::string &source) {
     }
 
     litepcie_writel(_fd, CSR_VCTCXO_CONTROL_ADDR, control);
-    litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 1);
 
     if (source == "external+pps") {
         litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 0);
-        //litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 1);
     } else {
         litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 1);
     }
-
-    litepcie_writel(_fd, CSR_PCIE_DMA0_WRITER_TABLE_RESET_ADDR, 1);
-    litepcie_writel(_fd, CSR_PCIE_DMA0_READER_TABLE_RESET_ADDR, 1);
 
     _clockSource = source;
 }
