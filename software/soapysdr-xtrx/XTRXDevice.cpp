@@ -558,7 +558,7 @@ void SoapyXTRX::setFrequency(const int direction, const size_t channel,
     }
 
     if (name == "BB") {
-        const double baseRate = this->getTSPRate(direction);
+        const double baseRate = this->getTSPRate();
         if (direction == SOAPY_SDR_RX)
             LMS7002M_rxtsp_set_freq(_lms, ch2LMS(channel),
                                     frequency / baseRate);
@@ -590,7 +590,7 @@ SoapyXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
         ranges.push_back(SoapySDR::Range(100e3, 3.8e9));
     }
     if (name == "BB") {
-        const double rate = this->getTSPRate(direction);
+        const double rate = this->getTSPRate();
         ranges.push_back(SoapySDR::Range(-rate / 2, rate / 2));
     }
     return ranges;
@@ -603,39 +603,48 @@ SoapyXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
 
 void SoapyXTRX::setSampleRate(const int direction, const size_t,
                               const double rate) {
-    std::lock_guard<std::mutex> lock(_mutex);
+    /*
+     * Because the LMS7002M chip uses a single source clock for the TSP units,
+     * we are going to simplify life and just not allow users to have separate
+     * sampling rates for Tx and Rx.  The LimeSDR does something similar [0],
+     * where CGEN is always set when you ask for Rx or Tx to operate at a
+     * specific sampling rate, so if you attempt to set a mismatched rate, you
+     * will end up simply clobbering the last CGEN rate that was set.
+     *
+     * [0]: https://github.com/myriadrf/LimeSuite/blob/a45e482dad28508d8787e0fdc5168d45ac877ab5/src/API/LimeSDR.cpp#L44-L52
+     */
 
-    const double baseRate = this->getTSPRate(direction);
-    const double factor = baseRate / rate;
+    // We are just going to set CGEN to 8x requested rate, knowing that we have
+    // configured the clock dividers to set our `Tx/Rx` clocks the same, and we
+    // have a 4x clock divider applied on both the Tx/Rx clock distribution
+    // branches, AND we want the ADC/DAC to do 2x interpolation down below:
+    if (this->getTSPRate() != rate*2) {
+        this->setMasterClockRate(rate*8);
+    }
     SoapySDR::logf(
         SOAPY_SDR_DEBUG,
-        "SoapyXTRX::setSampleRate(%s, %f MHz), baseRate %f MHz, factor %f",
-        dir2Str(direction), rate / 1e6, baseRate / 1e6, factor);
-    if (factor < 2.0)
-        throw std::runtime_error("SoapyXTRX::setSampleRate() -- rate too high");
-    int intFactor = 1 << int((std::log(factor) / std::log(2.0)) + 0.5);
-    if (intFactor > 32)
-        throw std::runtime_error("SoapyXTRX::setSampleRate() -- rate too low");
+        "SoapyXTRX::setSampleRate(%s, %f MHz), CGEN %f MHz",
+        dir2Str(direction), rate / 1e6, this->getTSPRate() / 1e6);
 
-    if (std::abs(factor - intFactor) > 0.01)
-        SoapySDR::logf(SOAPY_SDR_WARNING,
-                       "SoapyXTRX::setSampleRate(): not a power of two factor: "
-                       "TSP Rate = %f MHZ, Requested rate = %f MHz",
-                       baseRate / 1e6, rate / 1e6);
+    // New scope to prevent the lock from being taken before we call `setMasterClockRate()`,
+    // Since this lock is not recursion-safe.
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
 
-    // apply the settings, both the interp/decim has to be matched with the lml
-    // interface divider the lml interface needs a clock rate 2x the sample rate
-    // for DDR TRX IQ mode
-    if (direction == SOAPY_SDR_RX) {
-        LMS7002M_rxtsp_set_decim(_lms, LMS_CHAB, intFactor);
-        LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, intFactor / 2);
+        // apply the settings, both the interp/decim has to be matched with the lml
+        // interface divider the lml interface needs a clock rate 2x the sample rate
+        // for DDR TRX IQ mode
+        if (direction == SOAPY_SDR_RX) {
+            LMS7002M_rxtsp_set_decim(_lms, LMS_CHAB, 2);
+            LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, 1);
+        }
+        if (direction == SOAPY_SDR_TX) {
+            LMS7002M_txtsp_set_interp(_lms, LMS_CHAB, 2);
+            LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
+        }
+
+        _cachedSampleRates[direction] = rate;
     }
-    if (direction == SOAPY_SDR_TX) {
-        LMS7002M_txtsp_set_interp(_lms, LMS_CHAB, intFactor);
-        LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, intFactor / 2);
-    }
-
-    _cachedSampleRates[direction] = baseRate / intFactor;
 }
 
 double SoapyXTRX::getSampleRate(const int direction, const size_t) const {
@@ -644,7 +653,7 @@ double SoapyXTRX::getSampleRate(const int direction, const size_t) const {
 
 std::vector<double> SoapyXTRX::listSampleRates(const int direction,
                                                const size_t) const {
-    const double baseRate = this->getTSPRate(direction);
+    const double baseRate = this->getTSPRate();
     std::vector<double> rates;
     // from baseRate/32 to baseRate/2
     for (int i = 5; i >= 1; i--) {
@@ -732,9 +741,8 @@ std::vector<double> SoapyXTRX::listBandwidths(const int direction,
  * Clocking API
  ******************************************************************/
 
-double SoapyXTRX::getTSPRate(const int direction) const {
-    return (direction == SOAPY_SDR_TX) ? _masterClockRate
-                                       : _masterClockRate / 4;
+double SoapyXTRX::getTSPRate() const {
+    return _masterClockRate / 4;
 }
 
 void SoapyXTRX::setMasterClockRate(const double rate) {

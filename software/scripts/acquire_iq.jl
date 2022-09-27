@@ -69,8 +69,7 @@ function do_txrx(mode::Symbol;
         fullscale = dev.tx[1].fullscale
 
         frequency = 1575.00u"MHz"
-        #sample_rate = 6u"MHz"
-        sample_rate = 30.720000u"MHz"/4 # The TSP likes this in power of two factors
+        sample_rate = 8u"MHz"
 
         # Setup transmission/recieve parameters
         for (c_idx, cr) in enumerate(dev.rx)
