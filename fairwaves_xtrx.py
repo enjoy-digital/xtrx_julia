@@ -103,7 +103,7 @@ class BaseSoC(SoCCore):
             integrated_rom_size      = 0x8000 if with_cpu else 0,
             integrated_sram_ram_size = 0x1000 if with_cpu else 0,
             integrated_main_ram_size = 0x4000 if with_cpu else 0,
-            integrated_main_ram_init = [] if cpu_firmware is None else get_mem_data(cpu_firmware, "little"),
+            integrated_main_ram_init = [] if cpu_firmware is None else get_mem_data(cpu_firmware, endianness="little"),
             uart_name                = "crossover",
         )
         # Automatically jump to pre-initialized firmware.
