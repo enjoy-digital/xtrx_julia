@@ -22,7 +22,6 @@
 #include "liblitepcie.h"
 
 #define DLL_EXPORT __attribute__ ((visibility ("default")))
-#define BYTES_PER_SAMPLE 2 // TODO validate this
 
 /* I2C0 frequency defaults to a safe value in range 10-100 kHz to be compatible with SMBus */
 #ifndef I2C0_FREQ_HZ
@@ -40,6 +39,10 @@
 #define I2C1_ADDR_WR(addr) ((addr) << 1)
 #define I2C1_ADDR_RD(addr) (((addr) << 1) | 1u)
 
+#define TMP108_I2C_ADDR  0x4a
+#define LP8758_I2C_ADDR  0x60
+#define MCP4725_I2C_ADDR 0x62 /* Rev4 */
+#define DAC60501_I2C_ADDR 0x4b /* Rev5 */
 
 enum class TargetDevice { CPU, GPU };
 
@@ -380,6 +383,13 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     bool i2c0_poll(unsigned char slave_addr);
     void i2c0_scan(void);
 
+    void i2c1_oe_scl_sda(bool, bool, bool);
+    void i2c1_start(void);
+    void i2c1_stop(void);
+    void i2c1_transmit_bit(int);
+    int i2c1_receive_bit(void);
+    bool i2c1_transmit_byte(unsigned char);
+    unsigned char i2c1_receive_byte(bool);
     void i2c1_reset(void);
     bool i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len);
     bool i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop);
