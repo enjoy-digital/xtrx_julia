@@ -1280,7 +1280,7 @@ int SoapyXTRX::i2c0_receive_bit(void)
 	i2c0_oe_scl_sda(0, 1, 0);
 	I2C0_DELAY(1);
 	// read in the middle of SCL high
-	value = litepcie_readl(_fd, CSR_I2C1_R_ADDR) & 1;
+	value = litepcie_readl(_fd, CSR_I2C0_R_ADDR) & 1;
 	I2C0_DELAY(1);
 	i2c0_oe_scl_sda(0, 0, 0);
 	I2C0_DELAY(1);
@@ -1443,6 +1443,7 @@ void SoapyXTRX::i2c0_scan(void)
 	}
 	printf("\n");
 }
+
 
 
 void SoapyXTRX::writeI2C(const int addr, const std::string &data){
