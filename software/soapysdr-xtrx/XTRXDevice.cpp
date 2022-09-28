@@ -862,6 +862,7 @@ std::vector<std::string> SoapyXTRX::listSensors(void) const {
     sensors.push_back("xadc_vccaux");
     sensors.push_back("xadc_vccbram");
 #endif
+    sensors.push_back("tmp108_temp");
     return sensors;
 }
 
@@ -940,6 +941,19 @@ std::string SoapyXTRX::readSensor(const std::string &key) const {
                 sensorValue = std::to_string(
                     (double)litepcie_readl(_fd, CSR_XADC_VCCBRAM_ADDR) / 4096 *
                     3);
+            } else {
+                throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+                                         ") unknown sensor");
+            }
+            return sensorValue;
+        } else if (deviceStr == "tmp108") {
+            if (sensorStr == "temp") {
+                unsigned int temp;
+                unsigned char dat[2];
+                i2c1_read(TMP108_I2C_ADDR, 0x00, dat, 2, true);
+                temp = (dat[0] << 4) | (dat[1] >> 4);
+                temp = (62500*temp)/1000000; /* 0.0625°C/count */
+                sensorValue = std::to_string(temp);
             } else {
                 throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
                                          ") unknown sensor");

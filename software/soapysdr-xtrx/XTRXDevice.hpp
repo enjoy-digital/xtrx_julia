@@ -370,31 +370,31 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
         return (direction == SOAPY_SDR_RX) ? "RX" : "TX";
     }
 
-    void i2c0_oe_scl_sda(bool, bool, bool);
-    void i2c0_start(void);
-    void i2c0_stop(void);
-    void i2c0_transmit_bit(int);
-    int i2c0_receive_bit(void);
-    bool i2c0_transmit_byte(unsigned char);
-    unsigned char i2c0_receive_byte(bool);
-    void i2c0_reset(void);
-    bool i2c0_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len);
-    bool i2c0_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop);
-    bool i2c0_poll(unsigned char slave_addr);
-    void i2c0_scan(void);
+    void i2c0_oe_scl_sda(bool, bool, bool) const;
+    void i2c0_start(void) const;
+    void i2c0_stop(void) const;
+    void i2c0_transmit_bit(int) const;
+    int i2c0_receive_bit(void) const;
+    bool i2c0_transmit_byte(unsigned char) const;
+    unsigned char i2c0_receive_byte(bool) const;
+    void i2c0_reset(void) const;
+    bool i2c0_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len) const;
+    bool i2c0_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop) const;
+    bool i2c0_poll(unsigned char slave_addr) const;
+    void i2c0_scan(void) const;
 
-    void i2c1_oe_scl_sda(bool, bool, bool);
-    void i2c1_start(void);
-    void i2c1_stop(void);
-    void i2c1_transmit_bit(int);
-    int i2c1_receive_bit(void);
-    bool i2c1_transmit_byte(unsigned char);
-    unsigned char i2c1_receive_byte(bool);
-    void i2c1_reset(void);
-    bool i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len);
-    bool i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop);
-    bool i2c1_poll(unsigned char slave_addr);
-    void i2c1_scan(void);
+    void i2c1_oe_scl_sda(bool, bool, bool) const;
+    void i2c1_start(void) const;
+    void i2c1_stop(void) const;
+    void i2c1_transmit_bit(int) const;
+    int i2c1_receive_bit(void) const;
+    bool i2c1_transmit_byte(unsigned char) const;
+    unsigned char i2c1_receive_byte(bool) const;
+    void i2c1_reset(void) const;
+    bool i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len) const;
+    bool i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop) const;
+    bool i2c1_poll(unsigned char slave_addr) const;
+    void i2c1_scan(void) const;
 
     int _fd;
     LMS7002M_t *_lms;

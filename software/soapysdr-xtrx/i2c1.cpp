@@ -13,7 +13,7 @@ inline void cdelay(int i)
 	}
 }
 
-inline void SoapyXTRX::i2c1_oe_scl_sda(bool oe, bool scl, bool sda)
+inline void SoapyXTRX::i2c1_oe_scl_sda(bool oe, bool scl, bool sda) const
 {
 	litepcie_writel(_fd, CSR_I2C1_W_ADDR,
 		((oe & 1)  << CSR_I2C1_W_OE_OFFSET)	|
@@ -23,7 +23,7 @@ inline void SoapyXTRX::i2c1_oe_scl_sda(bool oe, bool scl, bool sda)
 }
 
 // START condition: 1-to-0 transition of SDA when SCL is 1
-void SoapyXTRX::i2c1_start(void)
+void SoapyXTRX::i2c1_start(void) const
 {
 	i2c1_oe_scl_sda(1, 1, 1);
 	I2C1_DELAY(1);
@@ -34,7 +34,7 @@ void SoapyXTRX::i2c1_start(void)
 }
 
 // STOP condition: 0-to-1 transition of SDA when SCL is 1
-void SoapyXTRX::i2c1_stop(void)
+void SoapyXTRX::i2c1_stop(void) const
 {
 	i2c1_oe_scl_sda(1, 0, 0);
 	I2C1_DELAY(1);
@@ -46,7 +46,7 @@ void SoapyXTRX::i2c1_stop(void)
 }
 
 // Call when in the middle of SCL low, advances one clk period
-void SoapyXTRX::i2c1_transmit_bit(int value)
+void SoapyXTRX::i2c1_transmit_bit(int value) const
 {
 	i2c1_oe_scl_sda(1, 0, value);
 	I2C1_DELAY(1);
@@ -58,7 +58,7 @@ void SoapyXTRX::i2c1_transmit_bit(int value)
 }
 
 // Call when in the middle of SCL low, advances one clk period
-int SoapyXTRX::i2c1_receive_bit(void)
+int SoapyXTRX::i2c1_receive_bit(void) const
 {
 	int value;
 	i2c1_oe_scl_sda(0, 0, 0);
@@ -74,7 +74,7 @@ int SoapyXTRX::i2c1_receive_bit(void)
 }
 
 // Send data byte and return 1 if slave sends ACK
-bool SoapyXTRX::i2c1_transmit_byte(unsigned char data)
+bool SoapyXTRX::i2c1_transmit_byte(unsigned char data) const
 {
 	int i;
 	int ack;
@@ -93,7 +93,7 @@ bool SoapyXTRX::i2c1_transmit_byte(unsigned char data)
 }
 
 // Read data byte and send ACK if ack=1
-unsigned char SoapyXTRX::i2c1_receive_byte(bool ack)
+unsigned char SoapyXTRX::i2c1_receive_byte(bool ack) const
 {
 	int i;
 	unsigned char data = 0;
@@ -108,7 +108,7 @@ unsigned char SoapyXTRX::i2c1_receive_byte(bool ack)
 }
 
 // Reset line state
-void SoapyXTRX::i2c1_reset(void)
+void SoapyXTRX::i2c1_reset(void) const
 {
 	int i;
 	i2c1_oe_scl_sda(1, 1, 1);
@@ -134,7 +134,7 @@ void SoapyXTRX::i2c1_reset(void)
  * Some chips require that after transmiting the address, there will be no STOP in between:
  *   START WR(slaveaddr) WR(addr) START WR(slaveaddr) RD(data) RD(data) ... STOP
  */
-bool SoapyXTRX::i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop)
+bool SoapyXTRX::i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop) const
 {
 	int i;
 
@@ -173,7 +173,7 @@ bool SoapyXTRX::i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned
  * First writes the memory starting address, then writes the data:
  *   START WR(slaveaddr) WR(addr) WR(data) WR(data) ... STOP
  */
-bool SoapyXTRX::i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len)
+bool SoapyXTRX::i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len) const
 {
 	int i;
 
@@ -199,7 +199,7 @@ bool SoapyXTRX::i2c1_write(unsigned char slave_addr, unsigned char addr, const u
 	return true;
 }
 
-bool SoapyXTRX::i2c1_poll(unsigned char slave_addr)
+bool SoapyXTRX::i2c1_poll(unsigned char slave_addr) const
 {
     bool result;
 
@@ -212,7 +212,7 @@ bool SoapyXTRX::i2c1_poll(unsigned char slave_addr)
 }
 
 
-void SoapyXTRX::i2c1_scan(void)
+void SoapyXTRX::i2c1_scan(void) const
 {
 	int slave_addr;
 
