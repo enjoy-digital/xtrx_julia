@@ -103,7 +103,9 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     );
 
     //Enable DMA Synchronizer
-    litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 1);
+    #ifdef CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR
+    litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 0b10);
+    #endif
 
     // reset other FPGA peripherals
     writeSetting("FPGA_DMA_LOOPBACK_ENABLE", "FALSE");
