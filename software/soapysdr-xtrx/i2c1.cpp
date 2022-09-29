@@ -136,7 +136,7 @@ void SoapyXTRX::i2c1_reset(void) const
  */
 bool SoapyXTRX::i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop) const
 {
-	int i;
+	unsigned int i;
 
 	i2c1_start();
 
@@ -175,7 +175,7 @@ bool SoapyXTRX::i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned
  */
 bool SoapyXTRX::i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len) const
 {
-	int i;
+	unsigned int i;
 
 	i2c1_start();
 

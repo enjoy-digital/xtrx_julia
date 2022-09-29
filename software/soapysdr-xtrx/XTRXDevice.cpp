@@ -595,7 +595,7 @@ std::vector<std::string> SoapyXTRX::listFrequencies(const int /*direction*/,
 }
 
 SoapySDR::RangeList
-SoapyXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
+SoapyXTRX::getFrequencyRange(const int /*direction*/, const size_t /*channel*/,
                              const std::string &name) const {
     SoapySDR::RangeList ranges;
     if (name == "RF") {
@@ -663,7 +663,7 @@ double SoapyXTRX::getSampleRate(const int direction, const size_t) const {
     return _cachedSampleRates.at(direction);
 }
 
-std::vector<double> SoapyXTRX::listSampleRates(const int direction,
+std::vector<double> SoapyXTRX::listSampleRates(const int /*direction*/,
                                                const size_t) const {
     const double baseRate = this->getTSPRate();
     std::vector<double> rates;
