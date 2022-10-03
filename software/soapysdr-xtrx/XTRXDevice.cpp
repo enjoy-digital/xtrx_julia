@@ -242,8 +242,6 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         }
     }
 
-    i2c0_scan();
-    i2c1_scan();
     SoapySDR::log(SOAPY_SDR_INFO, "SoapyXTRX initialization complete");
 }
 
