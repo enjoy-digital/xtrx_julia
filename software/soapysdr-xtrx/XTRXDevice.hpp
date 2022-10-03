@@ -279,7 +279,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     //  - RXTSP_ENABLE(TRUE/FALSE) - initialize the RX TSP chain
     //
     //  - TXTSP_ENABLE(TRUE/FALSE) - initialize the TX TSP chain
-    std::string readSetting(const std::string &key) const;
+    std::string readSetting(const std::string &key) const override;
     void writeSetting(const std::string &key,
                       const std::string &value) override;
 
@@ -289,7 +289,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
         const size_t numElems,
         int &flags,
         long long &timeNs,
-        const long timeoutUs = 100000 );
+        const long timeoutUs = 100000 ) override;
 
 
     int writeStream(
@@ -298,12 +298,16 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
             const size_t numElems,
             int &flags,
             const long long timeNs = 0,
-            const long timeoutUs = 100000);
+            const long timeoutUs = 100000) override;
 
 
-    void writeI2C(const int addr, const std::string &data);
+    void writeI2C(const int addr, const std::string &data) override;
 
-    std::string readI2C(const int addr, const size_t numBytes);
+    std::string readI2C(const int addr, const size_t numBytes) override;
+
+    std::vector<std::string> listUARTs(void) const override;
+    void writeUART(const std::string &which, const std::string &data) override;
+    std::string readUART(const std::string &which, const long timeoutUs) const override;
 
   private:
     SoapySDR::Stream *const TX_STREAM = (SoapySDR::Stream *)0x1;
