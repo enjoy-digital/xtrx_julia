@@ -69,7 +69,7 @@ void dma_set_loopback(int fd, bool loopback_enable) {
 }
 
 SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
-    : _fd(-1), _lms(NULL), _masterClockRate(1.0e6), _refClockRate(26e6) {
+    : _fd(-1), _lms(NULL), _masterClockRate(80.0e6), _refClockRate(26e6) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
     SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
@@ -128,8 +128,13 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
                    LMS7002M_regs(_lms)->reg_0x002f_rev,
                    LMS7002M_regs(_lms)->reg_0x002f_ver);
 
-    // set clock to Internal Reference Clock
-    this->setClockSource("internal");
+    // set clock to Reference Clock Source
+    if (args.count("clock") == 0) {
+        this->setClockSource("internal");
+    } else {
+        std::string clock = args.at("clock");
+        this->setClockSource(clock);
+    }
 
     // configure data port directions and data clock rates
     LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
@@ -815,7 +820,10 @@ void SoapyXTRX::setClockSource(const std::string &source) {
 
     if (source == "external" || source == "external+pps") {
         control |= 1 << CSR_VCTCXO_CONTROL_SEL_OFFSET;
-    } else if (source != "internal") {
+        setReferenceClockRate(19.2e6);
+    } else if (source == "internal") {
+        setReferenceClockRate(26e6);
+    } else {
         throw std::runtime_error("setClockSource(" + source + ") invalid");
     }
 
