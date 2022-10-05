@@ -2,9 +2,9 @@
 # and try receiving that pattern using the LMS7002M RF IC.
 # the pattern is just a counter, so the array should contain increasing numbers.
 
-using SoapySDR, Unitful, Test
+using SoapySDR, Unitful, Test, LibSigflow
+import LibSigflow: un_sign_extend!
 
-include("./libsigflow.jl")
 include("./xtrx_debugging.jl")
 
 if Threads.nthreads() < 2

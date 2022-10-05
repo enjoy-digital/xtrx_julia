@@ -5,8 +5,7 @@
 ENV["GKSwstype"] = "100"
 #ENV["SOAPY_SDR_LOG_LEVEL"] = "DEBUG"
 
-using SoapySDR, Printf, Unitful, DSP
-include("./libsigflow.jl")
+using SoapySDR, Printf, Unitful, DSP, LibSigflow
 include("./xtrx_debugging.jl")
 
 if Threads.nthreads() < 2
