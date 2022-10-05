@@ -6,6 +6,8 @@ using SoapySDR
 using Test
 using Unitful
 
+include("libsigflow.jl")
+
 #SoapySDR.register_log_handler()
 
 function dma_test(dev_args;lfsr_mode=false, show_mismatch=false)
@@ -47,12 +49,15 @@ function dma_test(dev_args;lfsr_mode=false, show_mismatch=false)
             read!(stream, bufs; timeout=1u"s")
         end
 
+        # "un-sign-extend" to get back to the counters we know and love
+        un_sign_extend!(bufs[1])
+        un_sign_extend!(bufs[2])
+
         @info "Data read rate: $(Base.format_bytes(total_bytes / time_rd))/s, Total Bytes: $(Base.format_bytes(total_bytes))"
 
         error_count = 0
 
         time_validation = @elapsed begin
-
             counter = Int32(real(bufs[1][1])) & 0xfff | ((Int32(imag(bufs[1][1])) & 0xfff) << 12)
 
             for j in 1:length(bufs[1])

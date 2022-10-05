@@ -570,6 +570,8 @@ function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
 end
 
 
+# We used to do this in Julia, but now we do it in the soapysdr-xtrx driver.
+# Eventually we may do it in the FPGA, or even transmit 24-bit IQ clusters.
 function sign_extend!(x::AbstractArray{Complex{Int16}})
     xi = reinterpret(Int16, x)
     for idx in 1:length(xi)

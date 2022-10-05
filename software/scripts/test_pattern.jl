@@ -9,9 +9,81 @@ using TimerOutputs
 
 const to = TimerOutput()
 
+# Bring this in just for un_sign_extend!()
+include("libsigflow.jl")
+
 device!(0)  # SoapySDR needs CUDA to be initialized
 
 #SoapySDR.register_log_handler()
+
+function verify_lfsr_buffer(buff::AbstractArray{Complex{Int16}}, buff_idx::Int; show_mismatch::Bool = false)
+    error_count = 0
+    for j in eachindex(buff)
+        # Ensure that the LFSR output has real/imaginary parts that are bit-flips of eachother
+        re = UInt16(real(buff[j]))
+        im = UInt16(imag(buff[j]))
+        if re != (~im & 0x0fff)
+            error_count += 1
+            if show_mismatch
+                @warn("LFSR bitflip failure", j, re, im, buff_idx)
+            end
+        end
+    end
+    return error_count
+end
+
+# Helper functions to do the FPGA's 24-bit counter <-> 24-bit I/Q tuple conversion
+function counter_to_iq(counter::Integer)
+    return Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
+end
+function iq_to_counter(iq::Complex{<:Integer})
+    return Int32(real(iq)) & 0xfff |
+         ((Int32(imag(iq)) & 0xfff) << 12)
+end
+
+# State to track the FPGA pattern counter from buffer to buffer
+const _counter = Ref{Int32}(0)
+function verify_fpga_pattern_buffer(buff::AbstractArray{Complex{Int16}}, buff_idx::Int; show_mismatch::Bool = false, show_sync::Bool = true, step::Int = 1)
+    counter = _counter[]
+    error_count = 0
+
+    # If we're not synchronized, then sync up and notify the user:
+    if counter_to_iq(counter) != buff[1]
+        if show_sync
+            @info("FPGA pattern synchronizing", counter, iq_to_counter(buff[1]), counter_to_iq(counter), buff[1], buff_idx)
+        end
+        counter = iq_to_counter(buff[1])
+        if buff_idx > 0
+            error_count += 1
+        end
+    end
+
+    # Sweep through and check all the other samples
+    for idx in 1:step:length(buff)
+        if buff[idx] != counter_to_iq(counter)
+            if show_mismatch
+                @warn("FPGA pattern skip", received=buff[idx], counter_to_iq(counter), buff_idx)
+            end
+            error_count += 1
+        end
+        counter = mod(counter + step, 2^24)
+    end
+
+    # Store our state
+    _counter[] = counter
+    return error_count
+end
+
+function verify_buffer(buff::AbstractArray{Complex{Int16}}, buff_idx::Int, lfsr_mode::Bool; show_mismatch::Bool = false, show_sync::Bool = true)
+    # un-sign-extend since the soapysdr-xtrx is doing sign extension within itself
+    un_sign_extend!(buff)
+
+    if lfsr_mode
+        return verify_lfsr_buffer(buff, buff_idx; show_mismatch)
+    else
+        return verify_fpga_pattern_buffer(buff, buff_idx; show_mismatch, show_sync)
+    end
+end
 
 function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
     # GPU: set the DMA target
@@ -21,8 +93,6 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
     Device(dev_args) do dev
         # get the RX channel
         chan = dev.rx[1]
-
-        lfsr_mode && use_gpu && error("LFSR test mode cannot be verified with GPU")
 
         #SoapySDR.SoapySDRDevice_writeSetting(dev, "RESET_RX_FIFO", "")
 
@@ -44,14 +114,12 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
 
         # open RX stream
         stream = SoapySDR.Stream(ComplexF32, [chan])
-
         mtu = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream)
-        num_channels = Int(length(dev.tx))
+        num_channels = Int(length(dev.rx))
 
         wr_nbufs = SoapySDR.SoapySDRDevice_getNumDirectAccessBuffers(dev, stream)
         @info "Number of DMA buffers: $wr_nbufs"
         @info "MTU: $mtu"
-
         if use_gpu
             @info "Using GPU"
         else
@@ -59,23 +127,17 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
         end
 
         # acquire buffers using the low-level API
-        buffs = Ptr{UInt32}[C_NULL]
-        bytes = mtu*num_channels*4
+        buffs = Ptr{Complex{Int16}}[C_NULL]
         total_bytes = 0
-
-        counter = Int32(0)
-
-        comp = Vector{Complex{Int16}}(undef, mtu*num_channels)
-
-        overflow_events = 0
-
-        initialized_count = false
-
-        test_mode = lfsr_mode ? "LFSR" : "pattern"
-
         error_count = 0
         errored_buffer_count = 0
-        @info "Receiving data using $dma_mode with $test_mode..."
+        total_buffer_count = 0
+        overflow_events = 0
+
+        # When running on GPU, we need to copy over to CPU for verification
+        cpu_buff = Vector{Complex{Int16}}(undef, mtu*num_channels)
+
+        @info "Receiving data using $dma_mode with $(lfsr_mode ? "LFSR" : "pattern")..."
         SoapySDR.activate!(stream) do
             time = @elapsed for i in 1:5000
                 @timeit to "acquire" err, handle, flags, timeNs = SoapySDR.SoapySDRDevice_acquireReadBuffer(dev, stream, buffs)
@@ -102,76 +164,14 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
                     # we also shouldn't wait for the GPU to finish processing the data,
                     # but that requires more careful design that's out of scope here.
 
-                    arr = unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
-                    if !initialized_count
-                        #setup arrays for comparison
-                        CUDA.@allowscalar counter = Int32(real(arr[1])) & 0xfff | ((Int32(imag(arr[1])) & 0xfff) << 12)
-                        initialized_count = true
-                    end
-
                     # copy the array over to the CPU for validation
-                    copyto!(comp, arr)
+                    copyto!(cpu_buff, unsafe_wrap(CuArray{Complex{Int16}, 1}, reinterpret(CuPtr{Complex{Int16}}, buffs[1]), Int(length(cpu_buff))))
 
-                    # check the data
-                    # XXX: this loop does not stay within the 60us time budget
-                    step = 8
-                    for j in 1:step:length(comp)
-                        z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
-                        if comp[j] != z
-                            error_count = error_count + 1
-                        end
-                        counter = counter + step
-                    end
-
-                    #arr .= 1        # to verify we can actually do something with this
+                    error_count += verify_buffer(cpu_buff, total_buffer_count, lfsr_mode)
                     synchronize()   # data without running into overflows
                 else
-                    # if we have an overflow conditions we can just use the MTU
-
-                    if lfsr_mode
-                        buf = unsafe_wrap(Array{UInt16}, reinterpret(Ptr{UInt16}, buffs[1]), Int(mtu*num_channels*2))
-
-                        # LFSR data check
-                        for j in 1:2:length(buf)-1
-                            z = (~buf[j+1]) & 0x0fff
-                            if buf[j] != z
-                                show_mismatch && @warn("Error", received=buf[j], expected=z)
-                                error_count = error_count + 1
-                            end
-                        end
-                    else
-                        buf = unsafe_wrap(Array{Complex{Int16}}, reinterpret(Ptr{Complex{Int16}}, buffs[1]), Int(mtu*num_channels))
-
-                        # sync the counter on start
-                        if !initialized_count
-                            counter = Int32(real(buf[1])) & 0xfff | ((Int32(imag(buf[1])) & 0xfff) << 12)
-                            initialized_count = true
-                        end
-
-                        # check the data
-                        # XXX: this loop does not stay within the 60us time budget
-                        # So we can just check the first element and assume the rest are correct
-                        # by setting the flag below
-                        trust_first = false
-                        if !trust_first
-                            every_other = 8
-                            for j in 1:every_other:length(buf)
-                                z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
-                                if buf[j] != z
-                                    show_mismatch && @warn("Error", received=buf[j], expected=z)
-                                    error_count = error_count + 1
-                                end
-                                counter = counter + every_other
-                            end
-                        else
-                            z = Complex{Int16}(counter & 0xfff, (counter >> 12) & 0xfff)
-                            if buf[1] != z
-                                show_mismatch && @warn("Error", received=buf[j], expected=z)
-                                error_count = error_count + 1
-                            end
-                            counter = counter + length(buf)
-                        end
-                    end
+                    buff = unsafe_wrap(Array{Complex{Int16}}, buffs[1], Int(mtu*num_channels))
+                    error_count += verify_buffer(buff, total_buffer_count, lfsr_mode)
                 end
 
                 if prev_error_count != error_count
@@ -179,7 +179,8 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
                 end
 
                 @timeit to "release" SoapySDR.SoapySDRDevice_releaseReadBuffer(dev, stream, handle)
-                total_bytes += bytes
+                total_bytes += mtu*num_channels*sizeof(Complex{Int16})
+                total_buffer_count += 1
             end
             show(to)
             println()
@@ -187,7 +188,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
             @info "Data rate: $(Base.format_bytes(total_bytes / time))/s"
             @info "Overflow events: $overflow_events"
             if error_count > 0
-                @warn "Errored buffer count: $errored_buffer_count"
+                @warn "Errored buffer count: ($errored_buffer_count/$total_buffer_count)"
                 @warn "Total error count: $error_count"
             end
         end
@@ -200,6 +201,7 @@ function main()
         try
             dma_test(dev_args; use_gpu=false, lfsr_mode=true)
             dma_test(dev_args; use_gpu=false, lfsr_mode=false)
+            dma_test(dev_args; use_gpu=true,  lfsr_mode=true)
             dma_test(dev_args; use_gpu=true,  lfsr_mode=false)
         catch e
             @error "Test failed" path=dev_args["path"] serial=dev_args["serial"] exception=(e, catch_backtrace())
