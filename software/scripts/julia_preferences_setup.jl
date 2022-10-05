@@ -7,9 +7,7 @@ REPO_ROOT = dirname(dirname(@__DIR__))
 preferences_toml_path = joinpath(REPO_ROOT, "JuliaLocalPreferences.toml")
 
 libsoapysdr_path = joinpath(REPO_ROOT, "build", "lib", "libSoapySDR.so")
-libLMS7Support_path = joinpath(REPO_ROOT, "build", "lib", "SoapySDR", "modules0.8", "libLMS7Support.so")
-libLimeSuite_path = joinpath(REPO_ROOT, "build", "lib", "libLimeSuite.so.20.10.0")
-if !all(isfile.((libsoapysdr_path, libLMS7Support_path, libLimeSuite_path)))
+if !isfile(libsoapysdr_path)
     error("Must run `make -C software limesuite` first!")
 end
 
@@ -21,11 +19,16 @@ set_preferences!(
     force=true,
 )
 
-# Next, set paths for `libLMS7Support` and `libLimeSuite`:
-set_preferences!(
-    preferences_toml_path,
-    "SoapyLMS7_jll",
-    "libLMS7Support_path" => libLMS7Support_path,
-    "libLimeSuite_path" => libLimeSuite_path;
-    force=true,
-)
+# If we've installed limesuite, update the preferences for this as well
+libLMS7Support_path = joinpath(REPO_ROOT, "build", "lib", "SoapySDR", "modules0.8", "libLMS7Support.so")
+libLimeSuite_path = joinpath(REPO_ROOT, "build", "lib", "libLimeSuite.so.20.10.0")
+if any(isfile.((libLMS7Support_path,libLimeSuite_path)))
+    # Next, set paths for `libLMS7Support` and `libLimeSuite`:
+    set_preferences!(
+        preferences_toml_path,
+        "SoapyLMS7_jll",
+        "libLMS7Support_path" => libLMS7Support_path,
+        "libLimeSuite_path" => libLimeSuite_path;
+        force=true,
+    )
+end
