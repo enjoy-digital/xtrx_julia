@@ -18,7 +18,7 @@ _num_underflows = Ref{Int64}(0)
 Use this convenience wrapper to invoke `f(out_channel)` on a separate thread, closing
 `out_channel` when `f()` finishes.
 """
-function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_flight::Int = 0) where {T_in}
+function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_flight::Int = 0)
     out = Channel{Matrix{T}}(buffers_in_flight)
     Base.errormonitor(Threads.@spawn begin
         try
