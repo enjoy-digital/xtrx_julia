@@ -102,6 +102,11 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         0 * (1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET)
     );
 
+    //Enable DMA Synchronizer
+    #ifdef CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR
+    litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_ENABLE_ADDR, 0b10);
+    #endif
+
     // reset other FPGA peripherals
     writeSetting("FPGA_DMA_LOOPBACK_ENABLE", "FALSE");
     writeSetting("FPGA_TX_PATTERN", "0");
@@ -796,6 +801,7 @@ std::vector<std::string> SoapyXTRX::listClockSources(void) const {
     std::vector<std::string> sources;
     sources.push_back("internal");
     sources.push_back("external");
+    sources.push_back("external+pps");
     return sources;
 }
 
@@ -807,12 +813,21 @@ void SoapyXTRX::setClockSource(const std::string &source) {
     int control = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR);
     control &= ~(1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
 
-    if (source == "external") {
+    if (source == "external" || source == "external+pps") {
         control |= 1 << CSR_VCTCXO_CONTROL_SEL_OFFSET;
     } else if (source != "internal") {
         throw std::runtime_error("setClockSource(" + source + ") invalid");
     }
+
     litepcie_writel(_fd, CSR_VCTCXO_CONTROL_ADDR, control);
+
+    if (source == "external+pps") {
+        litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 0);
+    } else {
+        litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 1);
+    }
+
+    _clockSource = source;
 }
 
 /*!
@@ -820,8 +835,7 @@ void SoapyXTRX::setClockSource(const std::string &source) {
  * \return the name of a clock source
  */
 std::string SoapyXTRX::getClockSource(void) const {
-    int source = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR) & (1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
-    return source ? "external" : "internal";
+    return _clockSource;
 }
 
 /*******************************************************************

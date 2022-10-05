@@ -349,6 +349,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     LMS7002M_t *_lms;
     double _masterClockRate;
     double _refClockRate;
+    std::string _clockSource;
 
     // calibration data
     std::vector<std::map<std::string, std::string>> _calData;

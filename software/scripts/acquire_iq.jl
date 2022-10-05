@@ -3,7 +3,7 @@
 
 # Don't let GR segfault
 ENV["GKSwstype"] = "100"
-ENV["SOAPY_SDR_LOG_LEVEL"] = "DEBUG"
+#ENV["SOAPY_SDR_LOG_LEVEL"] = "DEBUG"
 
 using SoapySDR, Printf, Unitful, DSP
 include("./libsigflow.jl")

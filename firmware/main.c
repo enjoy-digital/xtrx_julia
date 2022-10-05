@@ -133,6 +133,7 @@ static void help(void)
 	puts("xtrx_init          - Initialize XTRX");
 	puts("pmic_dump          - Dump PMIC Registers");
 	puts("dac_dump           - Dump DAC Registers");
+	puts("xsync_spi_test     - Test XSYNC SPI Bus");
 }
 
 /*-----------------------------------------------------------------------*/
@@ -478,6 +479,30 @@ static int xtrx_init(void)
 }
 
 /*-----------------------------------------------------------------------*/
+/* XSYNC Test                                                            */
+/*-----------------------------------------------------------------------*/
+
+#define SPI_CS_HIGH (0 << 0)
+#define SPI_CS_LOW  (1 << 0)
+#define SPI_START   (1 << 0)
+#define SPI_DONE    (1 << 0)
+#define SPI_LENGTH  (1 << 8)
+
+static void xsync_spi_xfer(uint32_t word) {
+    /* Write word on MOSI */
+    xsync_spi_mosi_write(word);
+    /* Initiate SPI Xfer */
+    xsync_spi_control_write(32*SPI_LENGTH | SPI_START);
+    /* Wait SPI Xfer to be done */
+    while(xsync_spi_status_read() != SPI_DONE);
+}
+
+static void xsync_test(void)
+{
+	xsync_spi_xfer(0x5aa55aa5); /* FIXME: Add ADF4355 init sequence */
+}
+
+/*-----------------------------------------------------------------------*/
 /* Console service / Main                                                */
 /*-----------------------------------------------------------------------*/
 
@@ -507,6 +532,8 @@ static void console_service(void)
 		pmic_dump();
 	else if(strcmp(token, "dac_dump") == 0)
 		dac_dump();
+	else if(strcmp(token, "xsync_test") == 0)
+		xsync_test();
 	prompt();
 }
 

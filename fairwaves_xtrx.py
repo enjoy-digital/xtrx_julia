@@ -27,6 +27,7 @@ from litex.soc.cores.icap import ICAP
 from litex.soc.cores.gpio import GPIOOut
 from litex.soc.cores.spi_flash import S7SPIFlash
 from litex.soc.cores.bitbang import I2CMaster
+from litex.soc.cores.spi import SPIMaster
 from litex.soc.cores.xadc import XADC
 from litex.soc.cores.dna  import DNA
 
@@ -38,6 +39,7 @@ from gateware.gpio import GPIO
 from gateware.aux import AUX
 from gateware.gps import GPS
 from gateware.vctcxo import VCTCXO
+from gateware.synchro import Synchro
 from gateware.rf_switches import RFSwitches
 from gateware.lms7002m import LMS7002M
 
@@ -87,6 +89,8 @@ class BaseSoC(SoCCore):
         "vctcxo"      : 24,
         "rf_switches" : 25,
         "lms7002m"    : 26,
+        "xsync_spi"   : 27,
+        "synchro"     : 28,
     }
     def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False):
         platform = fairwaves_xtrx.Platform()
@@ -153,6 +157,7 @@ class BaseSoC(SoCCore):
         self.add_pcie(phy=self.pcie_phy, address_width=64, ndmas=1,
             with_dma_buffering = True, dma_buffering_depth=16384,
             with_dma_loopback  = True,
+            with_synchronizer  = True,
             with_msi           = True
         )
 
@@ -160,11 +165,21 @@ class BaseSoC(SoCCore):
         # - Temperature Sensor (TMP108  @ 0x4a).
         # - PMIC-LMS           (LP8758  @ 0x60).
         # - VCTCXO DAC         Rev4: (MCP4725 @ 0x62) Rev5: (DAC60501 @ 0x4b).
-        self.submodules.i2c0 = I2CMaster(platform.request("i2c", 0))
+        self.submodules.i2c0 = I2CMaster(pads=platform.request("i2c", 0))
 
         # I2C Bus1:
         # PMIC-FPGA (LP8758 @ 0x60).
-        self.submodules.i2c1 = I2CMaster(platform.request("i2c", 1))
+        self.submodules.i2c1 = I2CMaster(pads=platform.request("i2c", 1))
+
+        # XSYNC SPI Bus:
+        xsync_spi_pads      = platform.request("xsync_spi")
+        xsync_spi_pads.miso = Signal() # SPI is 3-wire, add fake MISO. Will only allow writes, not reads.
+        self.submodules.xsync_spi = SPIMaster(
+            pads         = xsync_spi_pads,
+            data_width   = 32,
+            sys_clk_freq = sys_clk_freq,
+            spi_clk_freq = 1e6
+        )
 
         # PMIC-FPGA:
         # Buck0: 1.0V VCCINT + 1.0V MGTAVCC.
@@ -182,15 +197,20 @@ class BaseSoC(SoCCore):
         self.submodules.aux = AUX(platform.request("aux"))
 
         # GPIO -------------------------------------------------------------------------------------
-        self.submodules.gpio = GPIO(platform.request("gpio"))
+        #self.submodules.gpio = GPIO(platform.request("gpio"))
 
         # GPS --------------------------------------------------------------------------------------
         self.submodules.gps = GPS(platform.request("gps"), sys_clk_freq, baudrate=9600)
 
-        # VCTCXO ------------------------------------------------------------------------------------
+        # VCTCXO -----------------------------------------------------------------------------------
         vctcxo_pads = platform.request("vctcxo")
         self.submodules.vctcxo = VCTCXO(vctcxo_pads)
         platform.add_period_constraint(vctcxo_pads.clk, 20)
+
+        # Synchro ----------------------------------------------------------------------------------
+        self.submodules.synchro = Synchro(platform.request("synchro"))
+        self.comb += self.synchro.pps_gps.eq(self.gps.pps)
+        self.comb += self.pcie_dma0.synchronizer.pps.eq(self.synchro.pps)
 
         # RF Switches ------------------------------------------------------------------------------
         self.submodules.rf_switches = RFSwitches(platform.request("rf_switches"))
