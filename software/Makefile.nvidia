@@ -47,13 +47,13 @@ endif
 NVCC = $(PREFIX)/bin/nvcc
 $(NVCC): $(CUDA_PREFIX)/bin/nvcc
 	mkdir -p $(dir $@)
-	ln -s $(CUDA_PREFIX)/bin/nvcc $@
+	ln -fs $(CUDA_PREFIX)/bin/nvcc $@
 
 # If there's no system-wide libcuda.so.1, build a symlink to it in our `build/` directory
 ifeq ($(shell ldconfig -p | grep libcuda.so.1),)
 $(PREFIX)/lib/libcuda.so.1: $(CUDA_PREFIX)/bin/nvcc
 	mkdir -p $(dir $@)
-	ln -s $(CUDA_PREFIX)/lib64/stubs/libcuda.so $@
+	ln -fs $(CUDA_PREFIX)/lib64/stubs/libcuda.so $@
 $(NVCC): $(PREFIX)/lib/libcuda.so.1
 endif
 nvidia-cuda: $(NVCC)

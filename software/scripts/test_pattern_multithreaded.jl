@@ -22,7 +22,6 @@ function dma_test(dev_args)
         # Setup transmission/recieve parameters
         # Try increasing `sample_rate`
         sample_rate = 1u"MHz"
-        set_cgen_freq(dev, 16*sample_rate)
         for cr in dev.rx
             cr.sample_rate = sample_rate
         end
@@ -34,8 +33,6 @@ function dma_test(dev_args)
         SoapySDR.SoapySDRDevice_writeSetting(dev, "RESET_RX_FIFO", "")
         SoapySDR.SoapySDRDevice_writeSetting(dev, "FPGA_TX_PATTERN", "1")
         SoapySDR.SoapySDRDevice_writeSetting(dev, "LOOPBACK_ENABLE", "TRUE")
-
-        SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "test_pattern_multithreaded.ini")
 
         # open MIMO RX stream
         stream = SoapySDR.Stream(dev.rx[1].native_stream_format, dev.rx)
@@ -52,7 +49,7 @@ function dma_test(dev_args)
         last_print = time()
         errors = Int64(0)
 
-        c = stream_data(stream, mtu*wr_nbufs*2000; auto_sign_extend=false, leadin_buffers=0)
+        c = stream_data(stream, mtu*wr_nbufs*2000; leadin_buffers=0)
         c = membuffer(c)
 
         # Log out information about data rate and such
@@ -63,6 +60,9 @@ function dma_test(dev_args)
             # let's un-permute to get back to the native ordering, which
             # is better for this test.
             pbuff = permutedims(buff)
+
+            # We also don't really want the sign extension that the XTRX driver does, so let's undo that:
+            un_sign_extend!(pbuff)
 
             # Pick up wherever we are in the sequence
             if !initialized_count

@@ -18,7 +18,7 @@ _num_underflows = Ref{Int64}(0)
 Use this convenience wrapper to invoke `f(out_channel)` on a separate thread, closing
 `out_channel` when `f()` finishes.
 """
-function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_flight::Int = 0) where {T_in}
+function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_flight::Int = 0)
     out = Channel{Matrix{T}}(buffers_in_flight)
     Base.errormonitor(Threads.@spawn begin
         try
@@ -72,13 +72,9 @@ end
 
 # Because the XTRX does not support the Soapy Streaming API yet,
 # we polyfill it here:
-function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity, auto_sign_extend::Bool = true) where {T}
+function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity) where {T}
     # The high-level streaming API makes this a tad bit easier
     read!(s, split_matrix(buff); timeout)
-
-    if auto_sign_extend
-        sign_extend!(buff)
-    end
     return true
 end
 
@@ -96,7 +92,6 @@ number of samples are read, or the given `Event` is notified.
 """
 function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base.Event};
                      leadin_buffers::Integer = 16,
-                     auto_sign_extend::Bool = true,
                      kwargs...) where {T}
     # Wrapper to activate/deactivate `s_rx`
     wrapper = (f) -> begin
@@ -104,7 +99,7 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             # Let the stream come online for a bit
             buff = Matrix{T}(undef, s_rx.mtu, s_rx.nchannels)
             while leadin_buffers > 0
-                if soapy_read!(s_rx, buff; auto_sign_extend)
+                if soapy_read!(s_rx, buff)
                     leadin_buffers -= 1
                 end
             end
@@ -128,7 +123,7 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             end
         end
 
-        while !soapy_read!(s_rx, buff; auto_sign_extend)
+        while !soapy_read!(s_rx, buff)
         end
 
         buff_idx += 1
@@ -580,6 +575,17 @@ function sign_extend!(x::AbstractArray{Complex{Int16}})
     for idx in 1:length(xi)
         if xi[idx] >= (1 << 11)
             xi[idx] -= (1 << 12)
+        end
+    end
+    return x
+end
+
+# This is basically only useful for `test_pattern`
+function un_sign_extend!(x::AbstractArray{Complex{Int16}})
+    xi = reinterpret(Int16, x)
+    for idx in 1:length(xi)
+        if xi[idx] < 0
+            xi[idx] += (1 << 12)
         end
     end
     return x
