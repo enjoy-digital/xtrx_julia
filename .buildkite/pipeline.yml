@@ -10,8 +10,8 @@ steps:
           rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/litex_builder-2022-07-14.x86_64.tar.gz"
           rootfs_treehash: "a50c2e8710fa0bbd1564ccfab01443ec86355d9e"
           workspaces:
-            # Include `/cache/repos` so that we can `git diff`
-            - "/cache/repos:/cache/repos"
+            # Include `/cache` so that we can `git diff`, and access `julia`
+            - "/cache:/cache"
     commands: |
       echo "--- Patch faulty rootfs"
       rm -f /usr/local/bin/vivado
@@ -32,6 +32,12 @@ steps:
       echo "--- Build LiteX project"
       python3 fairwaves_xtrx.py --build
 
+      echo "--- Generate XTRX.jl/CSRs.jl"
+      pushd software/XTRX.jl/gen
+      julia --project -e 'import Pkg; Pkg.instantiate()'
+      julia --project gen.jl
+      popd
+
       echo "--- Bundle gateware"
       tar -czf litex-gateware.tar.gz -C build/fairwaves_xtrx_platform/gateware fairwaves_xtrx_platform.bin fairwaves_xtrx_platform.bit
 
@@ -41,8 +47,9 @@ steps:
       echo "--- Bundle generated headers"
       tar -czf litex-headers.tar.gz -C build/fairwaves_xtrx_platform/software/include/generated .
 
-      echo "--- Test generated headers didn't change"
+      echo "--- Test generated headers (and XTRX.jl's CSRs.jl) didn't change"
       git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/litepcie-kernel-module
+      git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/XTRX.jl
     artifact_paths:
       - "litex-gateware.tar.gz"
       - "litex-firmware.tar.gz"
