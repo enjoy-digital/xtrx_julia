@@ -1225,10 +1225,10 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
     } else if (key == "GPS_ENABLE") {
         if (value == "TRUE") {
             SoapySDR::log(SOAPY_SDR_DEBUG, "Enabling GPS");
-            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
+            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 0 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
         } else if (value == "FALSE") {
             SoapySDR::log(SOAPY_SDR_DEBUG, "Disabling GPS");
-            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 0 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
+            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
         } else {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
