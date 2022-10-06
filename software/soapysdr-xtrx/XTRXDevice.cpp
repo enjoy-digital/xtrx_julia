@@ -1233,15 +1233,6 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         }
-    } else if (key == "GPS_DUMP") {
-        litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
-        // Argument is the number of seconds
-        int iters = std::stoi(value)*100000;
-        for (int i = 0; i < iters; i++) {
-            if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0)
-                SoapySDR::logf(SOAPY_SDR_INFO, "%c", litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR));
-            usleep(10);
-        }
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
