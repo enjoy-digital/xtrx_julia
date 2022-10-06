@@ -22,7 +22,27 @@
 #include "liblitepcie.h"
 
 #define DLL_EXPORT __attribute__ ((visibility ("default")))
-#define BYTES_PER_SAMPLE 2 // TODO validate this
+
+/* I2C0 frequency defaults to a safe value in range 10-100 kHz to be compatible with SMBus */
+#ifndef I2C0_FREQ_HZ
+#define I2C0_FREQ_HZ  50000
+#endif
+
+#define I2C0_ADDR_WR(addr) ((addr) << 1)
+#define I2C0_ADDR_RD(addr) (((addr) << 1) | 1u)
+
+/* I2C1 frequency defaults to a safe value in range 10-100 kHz to be compatible with SMBus */
+#ifndef I2C1_FREQ_HZ
+#define I2C1_FREQ_HZ  50000
+#endif
+
+#define I2C1_ADDR_WR(addr) ((addr) << 1)
+#define I2C1_ADDR_RD(addr) (((addr) << 1) | 1u)
+
+#define TMP108_I2C_ADDR  0x4a
+#define LP8758_I2C_ADDR  0x60
+#define MCP4725_I2C_ADDR 0x62 /* Rev4 */
+#define DAC60501_I2C_ADDR 0x4b /* Rev5 */
 
 enum class TargetDevice { CPU, GPU };
 
@@ -259,7 +279,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     //  - RXTSP_ENABLE(TRUE/FALSE) - initialize the RX TSP chain
     //
     //  - TXTSP_ENABLE(TRUE/FALSE) - initialize the TX TSP chain
-    std::string readSetting(const std::string &key) const;
+    std::string readSetting(const std::string &key) const override;
     void writeSetting(const std::string &key,
                       const std::string &value) override;
 
@@ -269,7 +289,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
         const size_t numElems,
         int &flags,
         long long &timeNs,
-        const long timeoutUs = 100000 );
+        const long timeoutUs = 100000 ) override;
 
 
     int writeStream(
@@ -278,7 +298,16 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
             const size_t numElems,
             int &flags,
             const long long timeNs = 0,
-            const long timeoutUs = 100000);
+            const long timeoutUs = 100000) override;
+
+
+    void writeI2C(const int addr, const std::string &data) override;
+
+    std::string readI2C(const int addr, const size_t numBytes) override;
+
+    std::vector<std::string> listUARTs(void) const override;
+    void writeUART(const std::string &which, const std::string &data) override;
+    std::string readUART(const std::string &which, const long timeoutUs) const override;
 
   private:
     SoapySDR::Stream *const TX_STREAM = (SoapySDR::Stream *)0x1;
@@ -344,6 +373,32 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     const char *dir2Str(const int direction) const {
         return (direction == SOAPY_SDR_RX) ? "RX" : "TX";
     }
+
+    void i2c0_oe_scl_sda(bool, bool, bool) const;
+    void i2c0_start(void) const;
+    void i2c0_stop(void) const;
+    void i2c0_transmit_bit(int) const;
+    int i2c0_receive_bit(void) const;
+    bool i2c0_transmit_byte(unsigned char) const;
+    unsigned char i2c0_receive_byte(bool) const;
+    void i2c0_reset(void) const;
+    bool i2c0_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len) const;
+    bool i2c0_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop) const;
+    bool i2c0_poll(unsigned char slave_addr) const;
+    void i2c0_scan(void) const;
+
+    void i2c1_oe_scl_sda(bool, bool, bool) const;
+    void i2c1_start(void) const;
+    void i2c1_stop(void) const;
+    void i2c1_transmit_bit(int) const;
+    int i2c1_receive_bit(void) const;
+    bool i2c1_transmit_byte(unsigned char) const;
+    unsigned char i2c1_receive_byte(bool) const;
+    void i2c1_reset(void) const;
+    bool i2c1_write(unsigned char slave_addr, unsigned char addr, const unsigned char *data, unsigned int len) const;
+    bool i2c1_read(unsigned char slave_addr, unsigned char addr, unsigned char *data, unsigned int len, bool send_stop) const;
+    bool i2c1_poll(unsigned char slave_addr) const;
+    void i2c1_scan(void) const;
 
     int _fd;
     LMS7002M_t *_lms;

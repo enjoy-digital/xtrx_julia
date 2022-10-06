@@ -74,7 +74,7 @@ find_package(SoapySDR "0.2.1" REQUIRED)
 
 SOAPY_SDR_MODULE_UTIL(
     TARGET SoapyXTRX
-    SOURCES XTRXDevice.cpp Streaming.cpp
+    SOURCES XTRXDevice.cpp Streaming.cpp i2c0.cpp i2c1.cpp
     LIBRARIES ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} CUDA::cuda_driver m
 )
 

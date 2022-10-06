@@ -24,6 +24,7 @@
 #include <SoapySDR/Registry.hpp>
 #include <SoapySDR/Logger.hpp>
 #include <LMS7002M/LMS7002M_logger.h>
+#include <chrono>
 #include <fstream>
 #include <sys/mman.h>
 
@@ -593,7 +594,7 @@ std::vector<std::string> SoapyXTRX::listFrequencies(const int /*direction*/,
 }
 
 SoapySDR::RangeList
-SoapyXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
+SoapyXTRX::getFrequencyRange(const int /*direction*/, const size_t /*channel*/,
                              const std::string &name) const {
     SoapySDR::RangeList ranges;
     if (name == "RF") {
@@ -661,7 +662,7 @@ double SoapyXTRX::getSampleRate(const int direction, const size_t) const {
     return _cachedSampleRates.at(direction);
 }
 
-std::vector<double> SoapyXTRX::listSampleRates(const int direction,
+std::vector<double> SoapyXTRX::listSampleRates(const int /*direction*/,
                                                const size_t) const {
     const double baseRate = this->getTSPRate();
     std::vector<double> rates;
@@ -829,11 +830,13 @@ void SoapyXTRX::setClockSource(const std::string &source) {
 
     litepcie_writel(_fd, CSR_VCTCXO_CONTROL_ADDR, control);
 
+    #ifdef CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR
     if (source == "external+pps") {
         litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 0);
     } else {
         litepcie_writel(_fd, CSR_PCIE_DMA0_SYNCHRONIZER_BYPASS_ADDR, 1);
     }
+    #endif
 
     _clockSource = source;
 }
@@ -858,6 +861,7 @@ std::vector<std::string> SoapyXTRX::listSensors(void) const {
     sensors.push_back("xadc_vccaux");
     sensors.push_back("xadc_vccbram");
 #endif
+    sensors.push_back("tmp108_temp");
     return sensors;
 }
 
@@ -936,6 +940,19 @@ std::string SoapyXTRX::readSensor(const std::string &key) const {
                 sensorValue = std::to_string(
                     (double)litepcie_readl(_fd, CSR_XADC_VCCBRAM_ADDR) / 4096 *
                     3);
+            } else {
+                throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+                                         ") unknown sensor");
+            }
+            return sensorValue;
+        } else if (deviceStr == "tmp108") {
+            if (sensorStr == "temp") {
+                unsigned int temp;
+                unsigned char dat[2];
+                i2c1_read(TMP108_I2C_ADDR, 0x00, dat, 2, true);
+                temp = (dat[0] << 4) | (dat[1] >> 4);
+                temp = (62500*temp)/1000000; /* 0.0625°C/count */
+                sensorValue = std::to_string(temp);
             } else {
                 throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
                                          ") unknown sensor");
@@ -1205,11 +1222,70 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         LMS7002M_rxtsp_enable(_lms, LMS_CHAB, value == "TRUE");
     } else if (key == "TXTSP_ENABLE") {
         LMS7002M_txtsp_enable(_lms, LMS_CHAB, value == "TRUE");
+    } else if (key == "GPS_ENABLE") {
+        if (value == "TRUE") {
+            SoapySDR::log(SOAPY_SDR_DEBUG, "Enabling GPS");
+            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
+        } else if (value == "FALSE") {
+            SoapySDR::log(SOAPY_SDR_DEBUG, "Disabling GPS");
+            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 0 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
+        } else {
+            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+                                     value + ") unknown value");
+        }
+    } else if (key == "GPS_DUMP") {
+        litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
+        // Argument is the number of seconds
+        int iters = std::stoi(value)*100000;
+        for (int i = 0; i < iters; i++) {
+            if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0)
+                SoapySDR::logf(SOAPY_SDR_INFO, "%c", litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR));
+            usleep(10);
+        }
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
 }
 
+
+
+void SoapyXTRX::writeI2C(const int addr, const std::string &data){
+
+
+}
+
+std::string SoapyXTRX::readI2C(const int addr, const size_t numBytes){
+    unsigned char data[numBytes];
+    i2c0_read(addr&0xff, addr, data, numBytes, true);
+    return std::string((char*)data, numBytes);
+}
+
+
+std::vector<std::string> SoapyXTRX::listUARTs(void) const {
+    std::vector<std::string> interfaces;
+    interfaces.push_back("GPS");
+    interfaces.push_back("LiteX");
+    return interfaces;
+}
+
+void SoapyXTRX::writeUART(const std::string &which, const std::string &data) {}
+
+std::string SoapyXTRX::readUART(const std::string &which, const long timeoutUs = 100000) const {
+    std::string ret_str = "";
+    if (which == "GPS") {
+        auto ts = std::chrono::microseconds();
+        while (true) {
+            char c;
+            if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0) {
+                c = litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR);
+                ret_str.push_back(c);
+            }
+            if (std::chrono::microseconds() - ts > std::chrono::microseconds(timeoutUs) || c == '\n')
+                break;
+        }
+        return ret_str;
+    }
+}
 
 /***********************************************************************
  * Find available devices
