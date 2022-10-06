@@ -1264,15 +1264,18 @@ void SoapyXTRX::writeUART(const std::string &which, const std::string &data) {}
 std::string SoapyXTRX::readUART(const std::string &which, const long timeoutUs = 100000) const {
     std::string ret_str = "";
     if (which == "GPS") {
-        auto ts = std::chrono::microseconds();
+        auto tstart = std::chrono::high_resolution_clock::now();
         while (true) {
             char c;
             if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0) {
                 c = litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR);
                 ret_str.push_back(c);
             }
-            if (std::chrono::microseconds() - ts > std::chrono::microseconds(timeoutUs) || c == '\n')
+            auto elapsed = std::chrono::high_resolution_clock::now() - tstart;
+            long long elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+            if (elapsedUs > timeoutUs || c == '\n' || c == '\r') {
                 break;
+            }
         }
         return ret_str;
     }
