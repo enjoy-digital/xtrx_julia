@@ -2,8 +2,8 @@
 
 [general]
 library_name = "xtrx"
-output_file_path = "../src/XTRX.jl"
+output_file_path = "../src/CSRs.jl"
 extract_c_comment_style = "raw"
 wrap_variadic_function = true
 print_using_CEnum = false
-module_name = "XTRX"
+module_name = "CSRs"
