@@ -1,9 +1,15 @@
-# Some useful utilities for dealing with flowing signals
+module LibSigflow
 
 using SoapySDR, Printf, DSP, FFTW, Statistics
 
+export generate_stream, stream_data, membuffer, tee, flowgate, tripwire, rechunk,
+       generate_chirp, stft, absshift, reduce, log_stream_xfer, collect_buffers,
+       collect_psd, consume_channel
+
 # Helper for turning a matrix into a tuple of views, for use with the SoapySDR API.
-split_matrix(m::AbstractArray{T,2}) where {T} = tuple(collect(view(m, :, idx) for idx in 1:size(m,2))...)
+function split_matrix(m::Matrix{T}) where {T <: Number}
+    return tuple(collect(view(m, :, idx) for idx in 1:size(m,2))...)
+end
 
 _default_verbosity = false
 function set_libsigflow_verbose(verbose::Bool)
@@ -37,7 +43,7 @@ end
 
 Provide some buffering for realtime applications.
 """
-function membuffer(in::Channel{Matrix{T}}, max_size::Int = 16) where {T}
+function membuffer(in::Channel{Matrix{T}}, max_size::Int = 16) where {T <: Number}
     spawn_channel_thread(;T, buffers_in_flight=max_size) do out
         consume_channel(in) do buff
             put!(out, buff)
@@ -66,21 +72,8 @@ function generate_stream(gen_buff!::Function, buff_size::Integer, num_channels::
         end
     end
 end
-function generate_stream(f::Function, s::SoapySDR.Stream{T}; kwargs...) where {T}
+function generate_stream(f::Function, s::SoapySDR.Stream{T}; kwargs...) where {T <: Number}
     return generate_stream(f, s.mtu, s.nchannels; T, kwargs...)
-end
-
-# Because the XTRX does not support the Soapy Streaming API yet,
-# we polyfill it here:
-function soapy_read!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 1u"s", verbose::Bool = _default_verbosity) where {T}
-    # The high-level streaming API makes this a tad bit easier
-    read!(s, split_matrix(buff); timeout)
-    return true
-end
-
-function soapy_write!(s::SoapySDR.Stream{T}, buff::Matrix{T}; timeout = 0.1u"s", verbose::Bool = _default_verbosity) where {T}
-    # SoapySDR high-level streaming API.  So convenient.  So pure.
-    write(s, split_matrix(buff); timeout)
 end
 
 """
@@ -92,14 +85,14 @@ number of samples are read, or the given `Event` is notified.
 """
 function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base.Event};
                      leadin_buffers::Integer = 16,
-                     kwargs...) where {T}
+                     kwargs...) where {T <: Number}
     # Wrapper to activate/deactivate `s_rx`
     wrapper = (f) -> begin
         SoapySDR.activate!(s_rx) do
             # Let the stream come online for a bit
             buff = Matrix{T}(undef, s_rx.mtu, s_rx.nchannels)
             while leadin_buffers > 0
-                if soapy_read!(s_rx, buff)
+                if read!(s_rx, split_matrix(buff))
                     leadin_buffers -= 1
                 end
             end
@@ -123,8 +116,7 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             end
         end
 
-        while !soapy_read!(s_rx, buff)
-        end
+        read!(s_rx, split_matrix(buff))
 
         buff_idx += 1
         return true
@@ -138,12 +130,12 @@ Feed data from a `Channel` out onto the airwaves via a given `SoapySDR.Stream`.
 We suggest using `rechunk()` to convert to `s_tx.mtu`-sized buffers for maximum
 efficiency.
 """
-function stream_data(s_tx::SoapySDR.Stream{T}, in::Channel{Matrix{T}}) where {T}
+function stream_data(s_tx::SoapySDR.Stream{T}, in::Channel{Matrix{T}}) where {T <: Number}
     Base.errormonitor(Threads.@spawn begin
         SoapySDR.activate!(s_tx) do
             # Consume channel and spit out into `s_tx`
-            consume_channel(in) do data
-                soapy_write!(s_tx, data; timeout=0.1u"s")
+            consume_channel(in) do buff
+                write(s_tx, split_matrix(buff); timeout=0.1u"s")
             end
 
             # We need to `sleep()` until we're done transmitting,
@@ -168,7 +160,7 @@ is a succinct way to tell the user the of nature of the data contents, the
 date of capture, the frequency, sampling rate, gain, channel and format.
 The number of paths given must match the number of channels streaming in.
 """
-function stream_data(paths::Vector{<:AbstractString}, in::Channel{Matrix{T}}) where {T}
+function stream_data(paths::Vector{<:AbstractString}, in::Channel{Matrix{T}}) where {T <: Number}
     fds = [open(path, write=true) for path in paths]
 
     return Base.errormonitor(Threads.@spawn begin
@@ -206,7 +198,7 @@ function stream_data(paths::Vector{<:AbstractString}, T::DataType;
         finally
             close.(fds)
         end
-    end
+    end 
 
     return generate_stream(chunk_size, length(paths); T) do buff
         for (idx, fd) in enumerate(fds)
@@ -295,9 +287,9 @@ end
 
 Returns two channels that synchronously output what comes in from `in`.
 """
-function tee(in::Channel{T}) where {T}
-    out1 = Channel{T}()
-    out2 = Channel{T}()
+function tee(in::Channel{Matrix{T}}) where {T <: Number}
+    out1 = Channel{Matrix{T}}()
+    out2 = Channel{Matrix{T}}()
     Base.errormonitor(Threads.@spawn begin
         consume_channel(in) do data
             put!(out1, data)
@@ -314,7 +306,7 @@ end
 
 Converts a stream of chunks with size A to a stream of chunks with size B.
 """
-function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T}
+function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T <: Number}
     return spawn_channel_thread(;T) do out
         chunk_filled = 0
         chunk_idx = 1
@@ -375,7 +367,7 @@ input to force a time window size.  Combine with `reduce` to perform
 grouping/reductions across time.
 """
 function stft(in::Channel{Matrix{T}};
-              window_function::Function = DSP.hanning) where {T}
+              window_function::Function = DSP.hanning) where {T <: Number}
     BUFF = Matrix{T}(undef, 1, 1)
     fft_plan = FFTW.plan_fft(BUFF)
     win = T.([0])
@@ -401,7 +393,7 @@ function stft(in::Channel{Matrix{T}};
     return out
 end
 
-function absshift(in::Channel{Matrix{T}}) where {T}
+function absshift(in::Channel{Matrix{T}}) where {T <: Number}
     # Note this coerces to Float32
     spawn_channel_thread(; T=Float32) do out
         consume_channel(in) do buff
@@ -417,7 +409,7 @@ end
 Buffers `reduction_factor` buffers together into a vector, then calls
 `reductor(buffs)`, pushing the result out onto a `Channel`.
 """
-function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_factor::Integer; verbose::Bool = _default_verbosity) where {T}
+function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_factor::Integer; verbose::Bool = _default_verbosity) where {T <: Number}
     spawn_channel_thread(;T) do out
         buff_idx = 1
         acc = Array{T,3}(undef, 0, 0, 0)
@@ -449,7 +441,7 @@ into a giant array.  Automatically caps the number of buffers
 that can be slapped together at 4000, due to the inefficient
 implementation of `cat()` in Julia v1.8 and earlier.
 """
-function collect_buffers(in::Channel{Matrix{T}}; max_buffers::Int = 4000) where {T}
+function collect_buffers(in::Channel{Matrix{T}}; max_buffers::Int = 4000) where {T <: Number}
     buffs = Matrix{T}[]
     consume_channel(in) do buff
         if size(buffs, 1) < max_buffers
@@ -459,7 +451,7 @@ function collect_buffers(in::Channel{Matrix{T}}; max_buffers::Int = 4000) where 
     return cat(buffs...; dims=1)
 end
 
-function collect_psd(in::Channel{Matrix{T}}, freq_size::Integer, buff_size::Integer; accumulation = :max) where {T}
+function collect_psd(in::Channel{Matrix{T}}, freq_size::Integer, buff_size::Integer; accumulation = :max) where {T <: Number}
     # Precaculate our reduction parameters
     reduction_factor = div(buff_size, freq_size)
     if accumulation == :max
@@ -489,7 +481,7 @@ end
 
 Logs messages summarizing our data transfer to stdout.
 """
-function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7, extra_values::Function = () -> (;)) where {T}
+function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7, extra_values::Function = () -> (;)) where {T <: Number}
     spawn_channel_thread(;T) do out
         start_time = time()
         last_print = start_time
@@ -535,7 +527,7 @@ end
 Waits upon `ctl` before passing buffers through; useful for synchronization.
 """
 function flowgate(in::Channel{Matrix{T}}, ctl::Base.Event;
-                  name::String = "flowgate", verbose::Bool = _default_verbosity) where {T}
+                  name::String = "flowgate", verbose::Bool = _default_verbosity) where {T <: Number}
     spawn_channel_thread(;T) do out
         already_printed = false
         consume_channel(in) do buff
@@ -555,7 +547,7 @@ end
 Notifies `ctl` when a buffer passes through.
 """
 function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
-                  name::String = "tripwire", verbose::Bool = _default_verbosity) where {T}
+                  name::String = "tripwire", verbose::Bool = _default_verbosity) where {T <: Number}
     spawn_channel_thread(;T) do out
         already_printed = false
         consume_channel(in) do buff
@@ -568,7 +560,6 @@ function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
         end
     end
 end
-
 
 # We used to do this in Julia, but now we do it in the soapysdr-xtrx driver.
 # Eventually we may do it in the FPGA, or even transmit 24-bit IQ clusters.
@@ -592,3 +583,5 @@ function un_sign_extend!(x::AbstractArray{Complex{Int16}})
     end
     return x
 end
+
+end # module LibSigflow

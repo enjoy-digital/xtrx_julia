@@ -454,6 +454,12 @@ deps = ["Artifacts", "Libdl", "MbedTLS_jll"]
 uuid = "29816b5a-b9ab-546f-933c-edad1886dfa8"
 version = "1.10.2+0"
 
+[[LibSigflow]]
+deps = ["DSP", "FFTW", "Printf", "SoapySDR", "Statistics"]
+path = "software/LibSigflow.jl"
+uuid = "21776f6c-6667-6973-6269-6c2d78727478"
+version = "0.0.0"
+
 [[Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 

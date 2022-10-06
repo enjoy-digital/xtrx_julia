@@ -184,7 +184,7 @@ steps:
   #     julia --project -e 'import Pkg; Pkg.precompile()'
 
   #     echo "--- Run libsigflow tests"
-  #     julia --project software/scripts/libsigflow_tests.jl
+  #     julia -t 3 --project -e 'import Pkg; Pkg.test("LibSigflow")'
 
   #     echo "--- Run Julia read example"
   #     julia --project software/scripts/limesdr_tests/julia_rx_example.jl

@@ -1,5 +1,6 @@
-using Test, FFTW
-include("libsigflow.jl")
+using Test, LibSigflow, FFTW
+
+@info("LibSigflow.jl testing with $(Threads.nthreads()) threads")
 
 # Set ourselves to be verbose for the tests sometimes
 #set_libsigflow_verbose(true)
@@ -11,6 +12,7 @@ function verify_test_pattern_buffer(buff, idx, buff_size)
     @test all(real(buff[1, :]) .== buff_size*(idx-1) + 1)
 end
 
+import LibSigflow: generate_test_pattern
 @testset "generate_test_pattern" begin
     num_samples = 32
     c = generate_test_pattern(num_samples)
@@ -214,6 +216,7 @@ end
     end
 end
 
+import LibSigflow: sign_extend!, un_sign_extend!
 @testset "sign_extend" begin
     sig = vcat(
         [Complex{Int16}(idx,        4096 - idx) for idx in 1:2047],
@@ -227,6 +230,12 @@ end
     sig = [Complex{Int16}(0, 2048)]
     sign_extend!(sig)
     @test sig[1] == Complex{Int16}(0, -2048)
+
+    sig = [Complex{Int16}(idx, 0) for idx in 0:4095]
+    xsig = copy(sig)
+    sign_extend!(xsig)
+    un_sign_extend!(xsig)
+    @test all(sig .== xsig)
 end
 
 @testset "stream_data -> disk -> stream_data" begin
@@ -249,3 +258,8 @@ end
         @test !isopen(c)
     end
 end
+
+
+@info "Running JET..."
+using JET
+display(JET.report_package(LibSigflow))
