@@ -10,7 +10,7 @@ using TimerOutputs
 const to = TimerOutput()
 
 # Bring this in just for un_sign_extend!()
-include("libsigflow.jl")
+using LibSigflow: un_sign_extend!
 
 device!(0)  # SoapySDR needs CUDA to be initialized
 
