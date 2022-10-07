@@ -1225,22 +1225,13 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
     } else if (key == "GPS_ENABLE") {
         if (value == "TRUE") {
             SoapySDR::log(SOAPY_SDR_DEBUG, "Enabling GPS");
-            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
+            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 0 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
         } else if (value == "FALSE") {
             SoapySDR::log(SOAPY_SDR_DEBUG, "Disabling GPS");
-            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 0 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
+            litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
         } else {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
-        }
-    } else if (key == "GPS_DUMP") {
-        litepcie_writel(_fd, CSR_GPS_CONTROL_ADDR, 1 * (1 << CSR_GPS_CONTROL_ENABLE_OFFSET));
-        // Argument is the number of seconds
-        int iters = std::stoi(value)*100000;
-        for (int i = 0; i < iters; i++) {
-            if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0)
-                SoapySDR::logf(SOAPY_SDR_INFO, "%c", litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR));
-            usleep(10);
         }
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
@@ -1273,15 +1264,18 @@ void SoapyXTRX::writeUART(const std::string &which, const std::string &data) {}
 std::string SoapyXTRX::readUART(const std::string &which, const long timeoutUs = 100000) const {
     std::string ret_str = "";
     if (which == "GPS") {
-        auto ts = std::chrono::microseconds();
+        auto tstart = std::chrono::high_resolution_clock::now();
         while (true) {
             char c;
             if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0) {
                 c = litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR);
                 ret_str.push_back(c);
             }
-            if (std::chrono::microseconds() - ts > std::chrono::microseconds(timeoutUs) || c == '\n')
+            auto elapsed = std::chrono::high_resolution_clock::now() - tstart;
+            long long elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
+            if (elapsedUs > timeoutUs || c == '\n' || c == '\r') {
                 break;
+            }
         }
         return ret_str;
     }
