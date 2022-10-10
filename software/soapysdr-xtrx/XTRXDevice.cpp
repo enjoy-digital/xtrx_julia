@@ -1238,7 +1238,9 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         }
-    } else
+    } else if (key == "DAC_SET") {
+        vctcxo_dac_set(std::stoi(value));
+    }else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
 }
@@ -1334,7 +1336,7 @@ void SoapyXTRX::vctcxo_dac_set(int value) {
         cmd = 0x08;
         ret = i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
         if (!ret) {
-            printf("DAC write failed\n");
+            printf("DAC write failed, err: %d\n", ret);
         }
     }
 }
