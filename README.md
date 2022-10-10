@@ -30,6 +30,16 @@ Note that we currently carry [our own patch for resizing the addressable memory 
 [> Getting started
 ------------------
 
+### [> Initialize Git submodules:
+
+Git submodules are used to track various upstream software sources.
+From a clean clone, one can initialize by:
+
+```
+git submodule init
+git submodule update
+```
+
 ### [> Installing LiteX:
 
 LiteX can be installed by following the installation instructions from the LiteX
@@ -84,7 +94,7 @@ cd build/litepcie-user-library
 If anything goes wrong, reset the device with:
 
 ```
-sudo bash -c 'echo "1" > /sys/bus/pci/devices/0000\:02\:00.0/reset'
+sudo ./test/reset.sh
 ```
 
 
@@ -98,26 +108,27 @@ installed automatically when you compile the SoapySDR driver:
 
 ```
 make -C software soapysdr-xtrx -j$(nproc)
-export SOAPY_SDR_PLUGIN_PATH="$(make -sC software print-soapysdr-plugin-path)"
 ```
 
-The above snippet sets `SOAPY_SDR_PLUGIN_PATH` so that any SoapySDR application
-can find the XTRX driver. This can be used to execute the example Julia scripts
-in this repository:
+[> Julia Interfaces
+-------------------
+
+To use the SoapySDR driver with julia, you need to setup the preferences by running:
 
 ```
-make -C software SoapySDR.jl
-
-cd software/scripts
 julia --project -e 'using Pkg; Pkg.instantiate()'
+julia --project ./software/scripts/julia_preferences_setup.jl
+```
+
+The above snippet sets the Julia Pkg Preferences so that any SoapySDR.jl
+can find the XTRX driver.
+
+This can now be used to execute the example Julia scripts in this repository:
+
+```
+cd software/scripts
 julia --project test_pattern.jl
 ```
-
-**NOTE**: sometimes, the SoapySDR driver doesn't properly initialize the SDR
-(indicated by `test_pattern.jl` reading only zeros, or `test_loopback.jl` only
-reporting under/overflows). This can be worked around by launching
-`litepcie_test` (e.g. `litepcie_test record /dev/null 1024`). Afterwards, the
-chip should be in a good state.
 
 There is also a modified version of LimeSuite available that makes it possible
 to interactively configure the LMS7002M:
