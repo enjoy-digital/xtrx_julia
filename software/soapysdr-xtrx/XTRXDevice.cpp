@@ -87,6 +87,11 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         throw std::runtime_error("SoapyXTRX(): failed to open " + path);
 
     SoapySDR::logf(SOAPY_SDR_INFO, "Opened devnode %s, serial %s", path.c_str(), getXTRXSerial(_fd).c_str());
+
+    // Get board revision
+    this->board_revision = board_get_revision();
+     SoapySDR::logf(SOAPY_SDR_INFO, "Board revision: %d", this->board_revision);
+
     // reset the LMS7002M
     litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR,
         1 * (1 << CSR_LMS7002M_CONTROL_RESET_OFFSET)
@@ -1278,6 +1283,59 @@ std::string SoapyXTRX::readUART(const std::string &which, const long timeoutUs =
             }
         }
         return ret_str;
+    }
+}
+
+/*******************************************************************
+ * Device Utils
+ ******************************************************************/
+int SoapyXTRX::board_get_revision(void) {
+    /* Get board revision from SPI DACs:
+       - XTRX Rev4 is equipped with a MCP4725.
+       - XTRX Rev5 is equipped with a DAC60501.
+       The DAC60501 has the particularity of only accepting write commands,
+       so we detect MCP4725 presence (and thus Rev4 revision) by doing a
+       I2C read to the MCP4725 I2C address.
+    */
+
+    /* Check MCP4725 presence */
+    int has_mcp4725;
+    i2c1_start();
+    has_mcp4725 = i2c1_transmit_byte(I2C1_ADDR_RD(MCP4725_I2C_ADDR));
+    i2c1_stop();
+
+    if (has_mcp4725) {
+        dac_addr = MCP4725_I2C_ADDR;
+        return 4;
+    } else {
+        dac_addr = DAC60501_I2C_ADDR;
+        return 5;
+    }
+}
+
+void SoapyXTRX::vctcxo_dac_set(int value) {
+    unsigned char cmd;
+    unsigned char dat[2];
+    bool ret;
+
+    value = value & 0xfff; /* 12-bit full range clamp */
+
+    /* Rev4 is equipped with a MCP4725 */
+    if (board_revision == 4) {
+        cmd = (0b0000 << 4) | (value >> 8);
+        dat[0] = (value & 0xff);
+        i2c1_write(MCP4725_I2C_ADDR, cmd, dat, 1);
+        /* Rev5 is equipped with a DAC60501 */
+    } else {
+        // Bottom four bits are ignored on DAC60501
+        value <<= 4;
+        dat[0] = (value & 0xff00) >> 8;
+        dat[1] = value & 0xff;
+        cmd = 0x08;
+        ret = i2c1_write(DAC60501_I2C_ADDR, cmd, dat, 2);
+        if (!ret) {
+            printf("DAC write failed\n");
+        }
     }
 }
 

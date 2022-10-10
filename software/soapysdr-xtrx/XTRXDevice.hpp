@@ -400,6 +400,12 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     bool i2c1_poll(unsigned char slave_addr) const;
     void i2c1_scan(void) const;
 
+    int board_get_revision(void);
+    void vctcxo_dac_set(int value);
+
+    int board_revision;
+    int dac_addr;
+
     int _fd;
     LMS7002M_t *_lms;
     double _masterClockRate;
