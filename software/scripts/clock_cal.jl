@@ -16,7 +16,7 @@ for dev in Devices(driver="XTRX")
                 for _ in 1:trials
                     SoapySDR.SoapySDRDevice_writeRegister(d, "LitePCI", latch_addr, 1)
                     before = SoapySDR.SoapySDRDevice_readRegister(d, "LitePCI", cycles_addr)
-                    sleep(1)
+                    Base.Libc.systemsleep(1)
                     SoapySDR.SoapySDRDevice_writeRegister(d, "LitePCI", latch_addr, 1)
                     after = SoapySDR.SoapySDRDevice_readRegister(d, "LitePCI", cycles_addr)
                     println("VCTCXO clock for $clksrc:", after-before)
