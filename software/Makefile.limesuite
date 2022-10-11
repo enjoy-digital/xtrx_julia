@@ -25,8 +25,8 @@ get-limesuite: limesuite/.git
 
 SOAPYLMS7_LIB = $(SOAPYSDR_PREFIX)/lib/SoapySDR/modules$(SOAPYSDR_MAJMIN)/libLMS7Support.so
 $(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC) limesuite/.git
-	rm -rf limesuite/_build
-	mkdir -p limesuite/_build
+	rm -rf limesuite/build/build
+	mkdir -p limesuite/build/build
 	-# We must provide a few helpful hints here; we redirect to our `libusb`, and
 	cmake -DCMAKE_PREFIX_PATH=$(SOAPYSDR_PREFIX) \
 		  -DLIBUSB_1_INCLUDE_DIRS=$(LIBUSB_PREFIX)/include/libusb-$(LIBUSB_MAJMIN) \
@@ -42,10 +42,10 @@ $(SOAPYLMS7_LIB): $(SOAPYSDR_LIB) $(LIBUSB_LIB) $(LITEPCIE_LIB) $(NVCC) limesuit
 		  -DCMAKE_BUILD_TYPE=Debug \
 		  -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
 		  -S limesuite \
-		  -B limesuite/_build
-	$(MAKE) -C limesuite/_build VERBOSE=1 install
+		  -B limesuite/build/build
+	$(MAKE) -C limesuite/build/build VERBOSE=1 install
 
 limesuite: $(SOAPYLMS7_LIB)
 clean-limesuite:
-	rm -rf limesuite/_build $(SOAPYLMS7_LIB)
+	rm -rf limesuite/build/build $(SOAPYLMS7_LIB)
 clean: clean-limesuite
