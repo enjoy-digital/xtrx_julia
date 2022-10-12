@@ -10,6 +10,7 @@ $(SOAPYSDR_LIB): soapysdr/.git
 	cmake -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_PREFIX) \
 	      -DCMAKE_INSTALL_RPATH='$$ORIGIN/../lib' \
 		  -DCMAKE_BUILD_TYPE=Debug \
+		  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 		  -S soapysdr \
 		  -B soapysdr/build
 	$(MAKE) -C soapysdr/build install
