@@ -10,6 +10,7 @@ $(LMS7002M_LIB): LMS7002M-driver/.git
 	mkdir -p LMS7002M-driver/build
 	cmake -DCMAKE_INSTALL_PREFIX=$(LMS7002M_PREFIX) \
 		  -DCMAKE_BUILD_TYPE=Debug \
+		  -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
 		  -S LMS7002M-driver \
 		  -B LMS7002M-driver/build
 	$(MAKE) -C LMS7002M-driver/build install
