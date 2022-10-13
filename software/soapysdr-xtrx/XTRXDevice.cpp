@@ -701,13 +701,13 @@ void SoapyXTRX::setBandwidth(const int direction, const size_t channel,
     double &actualBw = _cachedFilterBws[direction][channel];
     if (direction == SOAPY_SDR_RX) {
         //ret = LMS7002M_rbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
-        ret = LMS7002M_mcu_calibration_rx(_lms, _refClockRate, bw);
+        ret = LMS7002M_mcu_calibration_rx(_lms, ch2LMS(channel), _refClockRate, bw);
         if (ret == 0)
             actualBw = bw;
     }
     if (direction == SOAPY_SDR_TX) {
         //ret = LMS7002M_tbb_set_filter_bw(_lms, ch2LMS(channel), bw, &actualBw);
-        ret = LMS7002M_mcu_calibration_tx(_lms, _refClockRate, bw);
+        ret = LMS7002M_mcu_calibration_tx(_lms, ch2LMS(channel), _refClockRate, bw);
         if (ret == 0)
             actualBw = bw;
     }
