@@ -20,6 +20,7 @@
 //   what are we not properly initializing?
 
 #include "XTRXDevice.hpp"
+#include "csr.h"
 #include "litepcie_interface.h"
 #include <SoapySDR/Registry.hpp>
 #include <SoapySDR/Logger.hpp>
@@ -1240,7 +1241,9 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         }
     } else if (key == "DAC_SET") {
         vctcxo_dac_set(std::stoi(value));
-    }else
+    } else if (key == "LITEX_DUMP_INI") {
+        dump_litex_regs(value);
+    } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
 }
@@ -1340,6 +1343,41 @@ void SoapyXTRX::vctcxo_dac_set(int value) {
         }
     }
 }
+
+/*
+Dump the LiteX registers in an INI format similar to the one used by limesuite
+*/
+void SoapyXTRX::dump_litex_regs(std::string filename) {
+    FILE *f = fopen(filename.c_str(), "w");
+    if (!f) {
+        printf("Failed to open file %s)", filename.c_str());
+        return;
+    }
+    struct csr_block {
+        uint32_t addr;
+        std::string name;
+        uint32_t length;
+    };
+
+    std::vector<csr_block> reg_addrs = {
+        {CSR_VCTCXO_BASE, "VCTCXO", 0x08},
+        {CSR_RF_SWITCHES_BASE, "RF_SWITCHES", 0x04},
+        {CSR_LMS7002M_BASE, "LMS", 0x2c},
+    };
+    fprintf(f, "[FILE INFO]\ntype=litex csr configuration\nversion=1.0\n");
+
+    for (auto csr : reg_addrs)
+    {
+        fprintf(f, "[%s]\n", csr.name.c_str());
+        for (uint32_t i = 0; i < csr.length; i=i+4) {
+            uint32_t addr = csr.addr + i;
+            uint32_t val = litepcie_readl(_fd, addr);
+            fprintf(f, "0x%02x=0x%08x\n", addr, val);
+        }
+    }
+    fclose(f);
+}
+
 
 /***********************************************************************
  * Find available devices

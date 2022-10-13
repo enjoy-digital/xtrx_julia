@@ -406,6 +406,8 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     int board_revision;
     int dac_addr;
 
+    void dump_litex_regs(std::string ini);
+
     int _fd;
     LMS7002M_t *_lms;
     double _masterClockRate;
