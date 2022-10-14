@@ -71,7 +71,7 @@ void dma_set_loopback(int fd, bool loopback_enable) {
 }
 
 SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
-    : _fd(-1), _lms(NULL), _masterClockRate(80.0e6), _refClockRate(26e6) {
+    : _fd(-1), _lms(NULL), _masterClockRate(80.0e6), _refClockRate(26e6), _dcOffsetWindow(7) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
     SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
@@ -403,7 +403,7 @@ void SoapyXTRX::setDCOffsetMode(const int direction, const size_t channel,
 
     if (direction == SOAPY_SDR_RX) {
         LMS7002M_rxtsp_set_dc_correction(_lms, ch2LMS(channel), automatic,
-                                         7 /*max*/);
+                                         _dcOffsetWindow);
         _rxDCOffsetMode = automatic;
     } else {
         SoapySDR::Device::setDCOffsetMode(direction, channel, automatic);
@@ -1243,6 +1243,8 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         vctcxo_dac_set(std::stoi(value));
     } else if (key == "LITEX_DUMP_INI") {
         dump_litex_regs(value);
+    } else if (key == "DC_OFFSET_WINDOW") {
+        _dcOffsetWindow = std::stoi(value);
     } else
         throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
