@@ -17,13 +17,13 @@
 
 
 void litepcie_dma_set_loopback(int fd, uint8_t loopback_enable) {
-    struct litepcie_ioctl_dma m;
+    struct litepcie_ioctl_dma m = {0};
     m.loopback_enable = loopback_enable;
     checked_ioctl(fd, LITEPCIE_IOCTL_DMA, &m);
 }
 
 void litepcie_dma_writer(int fd, uint8_t enable, int64_t *hw_count, int64_t *sw_count) {
-    struct litepcie_ioctl_dma_writer m;
+    struct litepcie_ioctl_dma_writer m = {0};
     m.enable = enable;
     checked_ioctl(fd, LITEPCIE_IOCTL_DMA_WRITER, &m);
     *hw_count = m.hw_count;
@@ -31,7 +31,7 @@ void litepcie_dma_writer(int fd, uint8_t enable, int64_t *hw_count, int64_t *sw_
 }
 
 void litepcie_dma_reader(int fd, uint8_t enable, int64_t *hw_count, int64_t *sw_count) {
-    struct litepcie_ioctl_dma_reader m;
+    struct litepcie_ioctl_dma_reader m = {0};
     m.enable = enable;
     checked_ioctl(fd, LITEPCIE_IOCTL_DMA_READER, &m);
     *hw_count = m.hw_count;
@@ -41,7 +41,7 @@ void litepcie_dma_reader(int fd, uint8_t enable, int64_t *hw_count, int64_t *sw_
 /* lock */
 
 uint8_t litepcie_request_dma(int fd, uint8_t reader, uint8_t writer) {
-    struct litepcie_ioctl_lock m;
+    struct litepcie_ioctl_lock m = {0};
     m.dma_reader_request = reader > 0;
     m.dma_writer_request = writer > 0;
     m.dma_reader_release = 0;
@@ -51,7 +51,7 @@ uint8_t litepcie_request_dma(int fd, uint8_t reader, uint8_t writer) {
 }
 
 void litepcie_release_dma(int fd, uint8_t reader, uint8_t writer) {
-    struct litepcie_ioctl_lock m;
+    struct litepcie_ioctl_lock m = {0};
     m.dma_reader_request = 0;
     m.dma_writer_request = 0;
     m.dma_reader_release = reader > 0;
@@ -62,13 +62,13 @@ void litepcie_release_dma(int fd, uint8_t reader, uint8_t writer) {
 /* init */
 
 void litepcie_dma_init_cpu(int fd) {
-    struct litepcie_ioctl_dma_init m;
+    struct litepcie_ioctl_dma_init m = {0};
     m.use_gpu = 0;
     checked_ioctl(fd, LITEPCIE_IOCTL_DMA_INIT, &m);
 }
 
 void litepcie_dma_init_gpu(int fd, void* addr, size_t size) {
-    struct litepcie_ioctl_dma_init m;
+    struct litepcie_ioctl_dma_init m = {0};
     m.use_gpu = 1;
     m.gpu_addr = addr;
     m.gpu_size = size;

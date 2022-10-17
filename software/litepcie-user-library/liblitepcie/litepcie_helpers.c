@@ -24,7 +24,7 @@ int64_t get_time_ms(void)
 }
 
 uint32_t litepcie_readl(int fd, uint32_t addr) {
-    struct litepcie_ioctl_reg m;
+    struct litepcie_ioctl_reg m = {0};
     m.is_write = 0;
     m.addr = addr;
     checked_ioctl(fd, LITEPCIE_IOCTL_REG, &m);
@@ -32,7 +32,7 @@ uint32_t litepcie_readl(int fd, uint32_t addr) {
 }
 
 void litepcie_writel(int fd, uint32_t addr, uint32_t val) {
-    struct litepcie_ioctl_reg m;
+    struct litepcie_ioctl_reg m = {0};
     m.is_write = 1;
     m.addr = addr;
     m.val = val;
