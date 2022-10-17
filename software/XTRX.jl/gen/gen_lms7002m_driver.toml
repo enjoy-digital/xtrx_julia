@@ -1,0 +1,5 @@
+[general]
+library_name = "libSoapyXTRX"
+output_file_path = "../src/LMS7002Mdriver_gen.jl"
+extract_c_comment_style = "raw"
+wrap_variadic_function = true

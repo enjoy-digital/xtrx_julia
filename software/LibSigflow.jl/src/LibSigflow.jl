@@ -18,6 +18,18 @@ end
 _num_overflows = Ref{Int64}(0)
 _num_underflows = Ref{Int64}(0)
 
+function reset_xflow_stats()
+    _num_overflows[] = Int64(0)
+    _num_underflows[] = Int64(0)
+end
+
+function get_xflow_stats()
+    return Dict(
+        "overflows" => _num_overflows[],
+        "underflows" => _num_underflows[],
+    )
+end
+
 """
     spawn_channel_thread(f::Function)
 
@@ -88,13 +100,13 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
                      kwargs...) where {T <: Number}
     # Wrapper to activate/deactivate `s_rx`
     wrapper = (f) -> begin
+        buff = Matrix{T}(undef, s_rx.mtu, s_rx.nchannels)
+
+        # Let the stream come online for a bit
         SoapySDR.activate!(s_rx) do
-            # Let the stream come online for a bit
-            buff = Matrix{T}(undef, s_rx.mtu, s_rx.nchannels)
             while leadin_buffers > 0
-                if read!(s_rx, split_matrix(buff))
-                    leadin_buffers -= 1
-                end
+                read!(s_rx, split_matrix(buff))
+                leadin_buffers -= 1
             end
 
             # Invoke the rest of `generate_stream()`
@@ -116,7 +128,11 @@ function stream_data(s_rx::SoapySDR.Stream{T}, end_condition::Union{Integer,Base
             end
         end
 
-        read!(s_rx, split_matrix(buff))
+        flags = Ref{Int}(0)
+        read!(s_rx, split_matrix(buff); flags)
+        if flags[] & SoapySDR.SOAPY_SDR_OVERFLOW != 0
+            _num_overflows[] += 1
+        end
 
         buff_idx += 1
         return true
@@ -135,7 +151,14 @@ function stream_data(s_tx::SoapySDR.Stream{T}, in::Channel{Matrix{T}}) where {T 
         SoapySDR.activate!(s_tx) do
             # Consume channel and spit out into `s_tx`
             consume_channel(in) do buff
-                write(s_tx, split_matrix(buff); timeout=0.1u"s")
+                flags = Ref{Int}(0)
+                write(s_tx, split_matrix(buff); flags, timeout=0.1u"s")
+                if flags[] & SoapySDR.SOAPY_SDR_UNDERFLOW != 0
+                    _num_underflows[] += 1
+                end
+                if flags[] & SoapySDR.SOAPY_SDR_TIMEOUT != 0
+                    println("T")
+                end
             end
 
             # We need to `sleep()` until we're done transmitting,

@@ -1381,6 +1381,10 @@ void SoapyXTRX::dump_litex_regs(std::string filename) {
 }
 
 
+void * SoapyXTRX::getLMS7Handle() {
+    return this->_lms;
+}
+
 /***********************************************************************
  * Find available devices
  **********************************************************************/

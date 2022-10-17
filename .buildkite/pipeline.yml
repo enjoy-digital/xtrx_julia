@@ -32,10 +32,11 @@ steps:
       echo "--- Build LiteX project"
       python3 fairwaves_xtrx.py --build
 
-      echo "--- Generate XTRX.jl/CSRs.jl"
+      echo "--- Generate XTRX.jl constants"
       pushd software/XTRX.jl/gen
       julia --project -e 'import Pkg; Pkg.instantiate()'
-      julia --project gen.jl
+      julia --project gen_csrs.jl
+      julia --project gen_lms7002m_driver.jl
       popd
 
       echo "--- Bundle gateware"

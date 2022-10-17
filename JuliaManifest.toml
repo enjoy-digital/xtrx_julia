@@ -942,6 +942,7 @@ uuid = "aed1982a-8fda-507f-9586-7b0439959a61"
 version = "1.1.34+0"
 
 [[XTRX]]
+deps = ["CEnum", "LibSigflow", "Random", "SoapySDR", "Unitful"]
 path = "software/XTRX.jl"
 uuid = "3933273f-6cdb-4250-9272-8aed09f39780"
 version = "0.0.0"

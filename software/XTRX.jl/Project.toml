@@ -1,2 +1,9 @@
 name = "XTRX"
 uuid = "3933273f-6cdb-4250-9272-8aed09f39780"
+
+[deps]
+CEnum = "fa961155-64e5-5f13-b03f-caf6b980ea82"
+LibSigflow = "21776f6c-6667-6973-6269-6c2d78727478"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+SoapySDR = "4fa426e6-03fd-45b2-b2dd-25f726820c03"
+Unitful = "1986cc42-f94f-5a68-af5c-568840ba703d"
