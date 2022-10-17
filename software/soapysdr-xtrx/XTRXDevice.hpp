@@ -126,7 +126,8 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     std::complex<double> getIQBalance(const int direction,
                                       const size_t channel) const override;
 
-    bool _rxDCOffsetMode;
+    bool _rxDCOffsetMode[2];
+    int _rxDCOffsetWindow[2];
     std::complex<double> _txDCOffset;
     std::map<int, std::map<size_t, std::complex<double>>> _cachedIqBalValues;
 
@@ -282,6 +283,8 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     std::string readSetting(const std::string &key) const override;
     void writeSetting(const std::string &key,
                       const std::string &value) override;
+    void writeSetting(const int direction, const size_t channel, const std::string &key, const std::string &value) override;
+    std::string readSetting(const int direction, const size_t channel, const std::string &key) const override;
 
     int readStream(
         SoapySDR::Stream *stream,
@@ -413,7 +416,6 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     double _masterClockRate;
     double _refClockRate;
     std::string _clockSource;
-    int _dcOffsetWindow;
 
     // calibration data
     std::vector<std::map<std::string, std::string>> _calData;
