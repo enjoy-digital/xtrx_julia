@@ -118,7 +118,7 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
                      const std::complex<double> &offset) override;
     std::complex<double> getDCOffset(const int direction,
                                      const size_t channel) const override;
-    bool hasIQBalance(const int /*direction*/, const size_t /*channel*/) const {
+    bool hasIQBalance(const int /*direction*/, const size_t /*channel*/) const override {
         return true;
     }
     void setIQBalance(const int direction, const size_t channel,
