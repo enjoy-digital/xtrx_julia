@@ -27,6 +27,7 @@
 #include <LMS7002M/LMS7002M_logger.h>
 #include <chrono>
 #include <fstream>
+#include <string>
 #include <sys/mman.h>
 
 void customLogHandler(const LMS7_log_level_t level, const char *message) {
@@ -1252,6 +1253,8 @@ void SoapyXTRX::writeSetting(const int direction, const size_t channel, const st
     if (key == "DC_OFFSET_WINDOW") {
         _rxDCOffsetWindow[channel] = std::stoi(value);
         LMS7002M_rxtsp_set_dc_correction(_lms, ch2LMS(channel), _rxDCOffsetMode[channel], _rxDCOffsetWindow[channel]);
+    } else if (key == "CALIBRATE") {
+        LMS7002M_mcu_calibration_dc_rx(_lms, ch2LMS(channel), _refClockRate, _cachedFilterBws[direction][channel]);
     } else
         throw std::runtime_error("SoapyXTRX::writeChannelSetting(" + key + ", " +
                                  value + ") unknown key");
