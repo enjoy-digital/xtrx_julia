@@ -59,7 +59,7 @@ function do_txrx(mode::Symbol;
     device_kwargs = Dict{Symbol,Any}()
     if chomp(String(read(`hostname`))) == "pathfinder"
         device_kwargs[:driver] = "XTRX"
-        device_kwargs[:serial] = "134c5241b884854"
+        device_kwargs[:serial] = "18c5241b88485c"
     end
 
     Device(first(Devices(;device_kwargs...))) do dev
