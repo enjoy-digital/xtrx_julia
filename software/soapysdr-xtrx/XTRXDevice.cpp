@@ -72,7 +72,8 @@ void dma_set_loopback(int fd, bool loopback_enable) {
 }
 
 SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
-    : _fd(-1), _lms(NULL), _masterClockRate(80.0e6), _refClockRate(26e6),_rxDCOffsetMode({true,true}), _rxDCOffsetWindow({0,0}) {
+    : _rxDCOffsetMode({true, true}), _rxDCOffsetWindow({0, 0}), _fd(-1),
+      _lms(NULL), _masterClockRate(80.0e6), _refClockRate(26e6) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
     SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
@@ -1307,6 +1308,8 @@ std::string SoapyXTRX::readUART(const std::string &which, const long timeoutUs =
             }
         }
         return ret_str;
+    } else {
+        throw std::runtime_error("SoapyXTRX::readUART(" + which + ") unknown interface");
     }
 }
 
