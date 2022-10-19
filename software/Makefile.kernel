@@ -19,10 +19,15 @@ kernel/.git/HEAD:
 	git clone --depth=1 -b $(KERNEL_VERSION) $(KERNEL_URL) kernel
 get-kernel: kernel/.git/HEAD
 
+kernel/.config: linux-v5.16.config | kernel/.git/HEAD
+	cp $< $@
+	# We sometimes forget to take out the initramfs parts, so let's override them here:
+	echo "CONFIG_BLK_DEV_INITRD=n" >> $@
+	$(MAKE) -C kernel olddefconfig
+
 # Running `make kernel` builds this file
 KERNEL_IMAGE := $(PREFIX)/bzImage
-$(KERNEL_IMAGE): kernel/.git/HEAD
-	$(MAKE) -C kernel defconfig
+$(KERNEL_IMAGE): kernel/.git/HEAD kernel/.config
 	$(MAKE) -C kernel
 	mkdir -p $(dir $@)
 	cp -L kernel/arch/$(shell uname -m)/boot/bzImage $@

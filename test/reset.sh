@@ -14,8 +14,11 @@ if [ "${EUID}" -ne "0" ]; then
     exit 1
 fi
 
-echo "Resetting ${#XTRX_DEVICE_ADDRS[@]} XTRX device(s)"
+echo "Found ${#XTRX_DEVICE_ADDRS[@]} XTRX device(s)"
 for ADDR in "${XTRX_DEVICE_ADDRS[@]}"; do
-    echo "Resetting 0000:${ADDR}..."
-    echo "1" > /sys/bus/pci/devices/"0000:${ADDR}"/reset
+    echo "Removing'ing 0000:${ADDR}..."
+    # Bizarre addressing, to cause a removal of the entire root bus
+    (cd /sys/bus/pci/devices/"0000:${ADDR}"; echo 1 > ../remove) || true
 done
+echo "Rescanning..."
+echo 1 > /sys/bus/pci/rescan

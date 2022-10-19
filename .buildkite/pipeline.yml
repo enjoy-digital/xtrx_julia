@@ -203,42 +203,109 @@ steps:
   #     - "*.png"
 
 
-  - label: ":linux: :robot_face: Test loading kernel modules"
+  - label: ":linux: :robot_face: Run XTRX tests"
     depends_on:
       - kernel-modules
+      - gateware
+      - userspace-utilities
+    plugins:
+      - improbable-eng/metahook:
+          pre-exit: |
+            echo "--- dmesg output"
+            dmesg
+      - JuliaCI/julia#v1:
+          version: '1'
     commands: |
-      echo "--- Download kernel module bundles"
-      buildkite-agent artifact download --step kernel-modules *-kernel-modules.tar.gz .
+      echo "--- System info"
+      echo "uname -a"
+      uname -a
 
-      echo "--- Extract bundles"
-      MODDIR="/lib/modules/$$(uname -r)"
+      echo
+      echo "df -alh"
+      df -alh
+
+      # Add `sbin` to our `path` for `depmod`, `modprobe`, etc...
       export PATH=$$PATH:/sbin
+
+      echo "--- Get kernel modules"
+      buildkite-agent artifact download --step kernel-modules *-kernel-modules.tar.gz .
+      MODDIR="/lib/modules/$$(uname -r)"
       mkdir -p $${MODDIR}
 
-      mkdir /tmp/litepcie /tmp/nvidia
-      tar -C /tmp/litepcie -zxf litepcie-kernel-modules.tar.gz
-      tar -C /tmp/nvidia -zxf nvidia-kernel-modules.tar.gz
-      mv /tmp/litepcie/*.ko "$${MODDIR}"
-      mv /tmp/nvidia/*.ko "$${MODDIR}"
+      tar -C "$${MODDIR}" -zxvf litepcie-kernel-modules.tar.gz
+      tar -C "$${MODDIR}" -zxvf nvidia-kernel-modules.tar.gz
 
       # Depmod fails without these two files
       touch "$${MODDIR}/modules.builtin"
       touch "$${MODDIR}/modules.order"
       depmod -v
 
-      echo "+++ Load kernel modules"
+      echo "--- Get gateware bundle"
+      buildkite-agent artifact download --step gateware litex-gateware.tar.gz .
+      mkdir -p build
+      tar -C build -zxf litex-gateware.tar.gz
+
+      echo "--- Load bitstream on device"
+      echo "lspci -vv"
+      lspci -vv
+      echo
+      openocd -f gateware/openocd_ftdi232.cfg -c "init; pld load 0 {./build/fairwaves_xtrx_platform.bit}; exit"
+
+      echo "--- Reset device"
+      ./test/reset.sh
+
+      echo "--- Load kernel modules"
       echo -n "Load liteuart: "
       modprobe liteuart
       echo "✔"
 
-      echo SKIPPING NVIDIA AND LITEPCIE FOR NOW
-      #echo -n "Load nvidia: "
-      #modprobe nvidia
-      #echo "✔"
+      echo -n "Load nvidia: "
+      modprobe nvidia
+      echo "✔"
 
-      #echo -n "Load litepcie: "
-      #modprobe litepcie
-      #echo "✔"
+      echo -n "Load litepcie: "
+      modprobe litepcie
+      echo "✔"
+
+      echo "--- Get userspace utilities"
+      buildkite-agent artifact download --step userspace-utilities liblitepcie.tar.gz .
+      tar -C build -zxf liblitepcie.tar.gz
+
+      echo "--- Download CUDA toolkit"
+      make -C software nvidia-cuda
+      # Make sure that future steps can load `libcuda.so`.  Our build process symlinks `libcuda.so.1` here.
+      export "LD_LIBRARY_PATH=$${LD_LIBRARY_PATH}:$$(pwd)/build/lib"
+
+      echo "--- litepcie_util scratch_test"
+      ./build/bin/litepcie_util scratch_test
+
+      echo "--- Download SoapySDR/soapysdr-xtrx"
+      buildkite-agent artifact download --step userspace-utilities soapysdr.tar.gz .
+      tar -C build -zxf soapysdr.tar.gz
+      buildkite-agent artifact download --step userspace-utilities soapysdr-xtrx.tar.gz .
+      tar -C build -zxf soapysdr-xtrx.tar.gz
+
+      # Because we built these in silo'ed directories, we must override this value
+      export SOAPY_SDR_PLUGIN_PATH=$$(pwd)/build/lib/SoapySDR/modules0.8-2
+
+      echo "--- Instantiate project"
+      julia --project -e 'import Pkg; Pkg.instantiate()'
+      julia --project software/scripts/julia_preferences_setup.jl
+      julia --project -e 'import Pkg; Pkg.precompile()'
+
+      echo "--- SoapySDRUtil"
+      echo "SoapySDRUtil --info"
+      ./build/bin/SoapySDRUtil --info
+
+      echo
+      echo "SoapySDRUtil --find"
+      SOAPY_SDR_LOG_LEVEL=debug ./build/bin/SoapySDRUtil --find
+
+      echo "--- Run acquire_iq.jl --full"
+      julia -t3 --project software/scripts/acquire_iq.jl --full
+      for f in *.png; do
+        buildkite-agent artifact upload $${f}
+      done
     agents:
       os: "linux"
       queue: "triad"
