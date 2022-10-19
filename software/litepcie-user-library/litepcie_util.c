@@ -376,7 +376,7 @@ static int check_pn_data(const uint32_t *buf, int count, uint32_t *pseed, int da
 }
 #endif
 
-static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_width, int auto_rx_delay, int64_t total_duration_ms)
+static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_width, int auto_rx_delay, int64_t total_duration_ms, int64_t expected_buffers)
 {
     static struct litepcie_dma_ctrl dma = {.use_reader = 1, .use_writer = 1};
     dma.loopback = external_loopback ? 0 : 1;
@@ -513,14 +513,15 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
         if (run && ((curr_time - last_print_time) > 200)) {
             /* Print banner every 10 lines. */
             if (i % 10 == 0)
-                printf("\e[1mDMA_SPEED(Gbps)\tTX_BUFFERS\tRX_BUFFERS\tDIFF\tERRORS\e[0m\n");
+                printf("\e[1mDMA_SPEED(Gbps)\tTX_BUFFERS\tRX_BUFFERS\tLOADED\tRX_BUFFERS/SEC\tERRORS\e[0m\n");
             i++;
             /* Print statistics. */
-            printf("%14.2f\t%10" PRIu64 "\t%10" PRIu64 "\t%4" PRIu64 "\t%6u\n",
+            printf("%14.2f\t%10" PRIu64 "\t%10" PRIu64 "\t%4" PRIu64 "\t%.1f\t%6u\n",
                    (double)(dma.reader_sw_count - reader_sw_count_last) * DMA_BUFFER_SIZE * 8 * data_width / (get_next_pow2(data_width) * (double)(curr_time - last_print_time) * 1e6),
                    dma.reader_sw_count,
                    dma.writer_sw_count,
                    dma.reader_sw_count - dma.writer_sw_count,
+                   dma.writer_sw_count*1000.0/(curr_time - start_time),
                    errors);
             /* Update errors/time/count. */
             errors = 0;
@@ -534,10 +535,17 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
         }
     }
 
-
-    /* Cleanup DMA. */
+    float avg_buffers_per_second;
 end:
+    /* Cleanup DMA. */
+    avg_buffers_per_second = dma.reader_sw_count * 1000.0 / (get_time_ms() - start_time);
     litepcie_dma_cleanup(&dma);
+
+    /* If we have been given either an expected buffer count, fail the test if we have not transferred enough. */
+    if (expected_buffers > 0 && (dma.reader_sw_count < expected_buffers)) {
+        return 1;
+    }
+    return 0;
 }
 
 /* UART */
@@ -773,6 +781,7 @@ int main(int argc, char **argv)
     static int litepcie_data_width;
     static int litepcie_auto_rx_delay;
     static int64_t total_duration_ms;
+    static int64_t expected_buffer_count;
 
     litepcie_device_num = 0;
     litepcie_data_width = 16;
@@ -780,12 +789,13 @@ int main(int argc, char **argv)
     litepcie_device_zero_copy = 0;
     litepcie_device_external_loopback = 0;
     total_duration_ms = 0;
+    expected_buffer_count = 0;
 
     cuda_device_num = -1;
 
     /* Parameters. */
     for (;;) {
-        c = getopt(argc, argv, "hc:g:w:t:zea");
+        c = getopt(argc, argv, "hc:g:w:t:b:r:zea");
         if (c == -1)
             break;
         switch(c) {
@@ -812,6 +822,9 @@ int main(int argc, char **argv)
             break;
         case 'a':
             litepcie_auto_rx_delay = 1;
+            break;
+        case 'b':
+            expected_buffer_count = atoi(optarg);
             break;
         default:
             exit(1);
@@ -874,7 +887,8 @@ int main(int argc, char **argv)
             litepcie_device_external_loopback,
             litepcie_data_width,
             litepcie_auto_rx_delay,
-            total_duration_ms);
+            total_duration_ms,
+            expected_buffer_count);
     /* LMS7002M cmds. */
     else if (!strcmp(cmd, "lms_reset"))
         lms7002m_reset();
