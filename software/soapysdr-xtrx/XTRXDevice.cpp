@@ -45,7 +45,7 @@ void customLogHandler(const LMS7_log_level_t level, const char *message) {
 
 // Forward declaration for usage in constructor.
 std::string getXTRXSerial(int fd);
-
+std::string getXTRXIdentification(int fd);
 
 /***********************************************************************
  * Constructor
@@ -93,7 +93,8 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
 
     // Get board revision
     this->board_revision = board_get_revision();
-     SoapySDR::logf(SOAPY_SDR_INFO, "Board revision: %d", this->board_revision);
+    SoapySDR::logf(SOAPY_SDR_INFO, "Board revision: %d", this->board_revision);
+    SoapySDR::logf(SOAPY_SDR_INFO, getXTRXIdentification(_fd).c_str());
 
     // reset the LMS7002M
     litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR,
