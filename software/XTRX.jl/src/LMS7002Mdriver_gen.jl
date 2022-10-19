@@ -1739,7 +1739,7 @@ function LMS7002M_mcu_write_calibration_program(self)
 end
 
 """
-    LMS7002M_mcu_calibration_rx(self, clk, bw)
+    LMS7002M_mcu_calibration_rx(self, channel, clk, bw)
 
 Use the embedded microcontroller to calibrate the RX analog filter.
 \\param self an instance of the LMS7002M driver
@@ -1747,12 +1747,12 @@ Use the embedded microcontroller to calibrate the RX analog filter.
 \\param self the bandwidth to calibrate for
 \\return 0 for success otherwise failure
 """
-function LMS7002M_mcu_calibration_rx(self, clk, bw)
-    ccall((:LMS7002M_mcu_calibration_rx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, Cfloat, Cfloat), self, clk, bw)
+function LMS7002M_mcu_calibration_rx(self, channel, clk, bw)
+    ccall((:LMS7002M_mcu_calibration_rx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cfloat, Cfloat), self, channel, clk, bw)
 end
 
 """
-    LMS7002M_mcu_calibration_tx(self, clk, bw)
+    LMS7002M_mcu_calibration_tx(self, channel, clk, bw)
 
 Use the embedded microcontroller to calibrate the TX analog filter.
 \\param self an instance of the LMS7002M driver
@@ -1760,8 +1760,21 @@ Use the embedded microcontroller to calibrate the TX analog filter.
 \\param self the bandwidth to calibrate for
 \\return 0 for success otherwise failure
 """
-function LMS7002M_mcu_calibration_tx(self, clk, bw)
-    ccall((:LMS7002M_mcu_calibration_tx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, Cfloat, Cfloat), self, clk, bw)
+function LMS7002M_mcu_calibration_tx(self, channel, clk, bw)
+    ccall((:LMS7002M_mcu_calibration_tx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cfloat, Cfloat), self, channel, clk, bw)
+end
+
+"""
+    LMS7002M_mcu_calibration_dc_rx(self, channel, clk, bw)
+
+Use the embedded microcontroller to calibrate the RX dc offsets and iq imbalance.
+\\param self an instance of the LMS7002M driver
+\\param clk the reference clock
+\\param self the bandwidth to calibrate for
+\\return 0 for success otherwise failure
+"""
+function LMS7002M_mcu_calibration_dc_rx(self, channel, clk, bw)
+    ccall((:LMS7002M_mcu_calibration_dc_rx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cfloat, Cfloat), self, channel, clk, bw)
 end
 
 const REG_0X0020_MAC_NONE = 0
