@@ -136,6 +136,8 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
                                        const size_t channel) const override;
     void setGain(const int direction, const size_t channel,
                  const std::string &name, const double value) override;
+    void setGain(const int direction, const size_t channel,
+                 const double value) override;
     double getGain(const int direction, const size_t channel,
                    const std::string &name) const override;
     SoapySDR::Range getGainRange(const int direction, const size_t channel,
