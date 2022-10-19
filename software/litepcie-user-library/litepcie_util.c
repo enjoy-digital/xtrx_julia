@@ -376,7 +376,7 @@ static int check_pn_data(const uint32_t *buf, int count, uint32_t *pseed, int da
 }
 #endif
 
-static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_width, int auto_rx_delay)
+static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_width, int auto_rx_delay, int64_t total_duration_ms)
 {
     static struct litepcie_dma_ctrl dma = {.use_reader = 1, .use_writer = 1};
     dma.loopback = external_loopback ? 0 : 1;
@@ -389,7 +389,7 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
     /* Statistics */
     int i = 0;
     int64_t reader_sw_count_last = 0;
-    int64_t last_time;
+    int64_t start_time, last_print_time;
     uint32_t errors = 0;
 
 #ifdef DMA_CHECK_DATA
@@ -438,7 +438,8 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
 #endif
 
     /* Test loop. */
-    last_time = get_time_ms();
+    start_time = get_time_ms();
+    last_print_time = get_time_ms();
     for (;;) {
         /* Exit loop on CTRL+C. */
         if (!keep_running)
@@ -508,23 +509,28 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
 #endif
 
         /* Statistics every 200ms. */
-        int64_t duration = get_time_ms() - last_time;
-        if (run & (duration > 200)) {
+        int64_t curr_time = get_time_ms();
+        if (run && ((curr_time - last_print_time) > 200)) {
             /* Print banner every 10 lines. */
             if (i % 10 == 0)
                 printf("\e[1mDMA_SPEED(Gbps)\tTX_BUFFERS\tRX_BUFFERS\tDIFF\tERRORS\e[0m\n");
             i++;
             /* Print statistics. */
             printf("%14.2f\t%10" PRIu64 "\t%10" PRIu64 "\t%4" PRIu64 "\t%6u\n",
-                   (double)(dma.reader_sw_count - reader_sw_count_last) * DMA_BUFFER_SIZE * 8 * data_width / (get_next_pow2(data_width) * (double)duration * 1e6),
+                   (double)(dma.reader_sw_count - reader_sw_count_last) * DMA_BUFFER_SIZE * 8 * data_width / (get_next_pow2(data_width) * (double)(curr_time - last_print_time) * 1e6),
                    dma.reader_sw_count,
                    dma.writer_sw_count,
                    dma.reader_sw_count - dma.writer_sw_count,
                    errors);
             /* Update errors/time/count. */
             errors = 0;
-            last_time = get_time_ms();
+            last_print_time = curr_time;
             reader_sw_count_last = dma.reader_sw_count;
+        }
+
+        /* If we've been given a total duration, use it to set `keep_running` here.*/
+        if (run && (total_duration_ms > 0) && ((curr_time - start_time) > total_duration_ms)) {
+            keep_running = 0;
         }
     }
 
@@ -729,6 +735,7 @@ static void help(void)
            "-e                                Use external loopback (default = internal).\n"
            "-w data_width                     Width of data bus (default = 16).\n"
            "-a                                Automatic DMA RX-Delay calibration.\n"
+           "-t timeout                        Automatic timeout in milliseconds (default = 0).\n"
            "\n"
            "available commands:\n"
            "info                              Get Board information.\n"
@@ -765,18 +772,20 @@ int main(int argc, char **argv)
     static uint8_t litepcie_device_external_loopback;
     static int litepcie_data_width;
     static int litepcie_auto_rx_delay;
+    static int64_t total_duration_ms;
 
     litepcie_device_num = 0;
     litepcie_data_width = 16;
     litepcie_auto_rx_delay = 0;
     litepcie_device_zero_copy = 0;
     litepcie_device_external_loopback = 0;
+    total_duration_ms = 0;
 
     cuda_device_num = -1;
 
     /* Parameters. */
     for (;;) {
-        c = getopt(argc, argv, "hc:g:w:zea");
+        c = getopt(argc, argv, "hc:g:w:t:zea");
         if (c == -1)
             break;
         switch(c) {
@@ -788,6 +797,9 @@ int main(int argc, char **argv)
             break;
         case 'w':
             litepcie_data_width = atoi(optarg);
+            break;
+        case 't':
+            total_duration_ms = atoi(optarg);
             break;
         case 'z':
             litepcie_device_zero_copy = 1;
@@ -861,7 +873,8 @@ int main(int argc, char **argv)
             litepcie_device_zero_copy,
             litepcie_device_external_loopback,
             litepcie_data_width,
-            litepcie_auto_rx_delay);
+            litepcie_auto_rx_delay,
+            total_duration_ms);
     /* LMS7002M cmds. */
     else if (!strcmp(cmd, "lms_reset"))
         lms7002m_reset();

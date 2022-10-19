@@ -279,6 +279,9 @@ steps:
       echo "--- litepcie_util scratch_test"
       ./build/bin/litepcie_util scratch_test
 
+      echo "--- litepcie_util dma_test for 4s"
+      ./build/bin/litepcie_util dma_test -t 4000
+
       echo "--- Download SoapySDR/soapysdr-xtrx"
       buildkite-agent artifact download --step userspace-utilities soapysdr.tar.gz .
       tar -C build -zxf soapysdr.tar.gz
