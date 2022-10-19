@@ -106,7 +106,7 @@ static void info(void)
 /* Scratch */
 /*---------*/
 
-void scratch_test(void)
+int scratch_test(void)
 {
     int fd;
 
@@ -123,15 +123,22 @@ void scratch_test(void)
     /* Write to scratch register. */
     printf("Write 0x12345678 to Scratch register:\n");
     litepcie_writel(fd, CSR_CTRL_SCRATCH_ADDR, 0x12345678);
-    printf("Read: 0x%08x\n", litepcie_readl(fd, CSR_CTRL_SCRATCH_ADDR));
+    int ascending = litepcie_readl(fd, CSR_CTRL_SCRATCH_ADDR);
+    printf("Read: 0x%08x\n", ascending);
 
     /* Read from scratch register. */
     printf("Write 0xdeadbeef to Scratch register:\n");
     litepcie_writel(fd, CSR_CTRL_SCRATCH_ADDR, 0xdeadbeef);
-    printf("Read: 0x%08x\n", litepcie_readl(fd, CSR_CTRL_SCRATCH_ADDR));
+    int deadbeef = litepcie_readl(fd, CSR_CTRL_SCRATCH_ADDR);
+    printf("Read: 0x%08x\n", deadbeef);
 
     /* Close LitePCIe device. */
     close(fd);
+
+    /* Explicitly return exit codes for `main()` here */
+    if (ascending == 0x12345678 && deadbeef == 0xdeadbeef)
+        return 0;
+    return 1;
 }
 
 /* SPI Flash */
@@ -812,7 +819,7 @@ int main(int argc, char **argv)
         info();
     /* Scratch cmds. */
     else if (!strcmp(cmd, "scratch_test"))
-        scratch_test();
+        return scratch_test();
     /* UART cmds. */
 #ifdef CSR_UART_XOVER_RXTX_ADDR
     else if (!strcmp(cmd, "uart_test"))
