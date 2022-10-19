@@ -490,6 +490,88 @@ std::vector<std::string> SoapyXTRX::listGains(const int direction,
     return gains;
 }
 
+void SoapyXTRX::setGain(const int direction, const size_t channel, const double value) {
+
+    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyXTRX::setGain(%s, ch%d, %f dB)",
+                   dir2Str(direction), channel, value);
+
+    if (direction == SOAPY_SDR_TX)
+    {
+        // Setting the TX gain using a single value optimized for the LMS7002
+        // hasn't been implemented yet.
+        // Let's default to the standard SoapySDR version.
+        SoapySDR::Device::setGain(direction, channel, value);
+    }
+    else
+    {
+        std::lock_guard<std::mutex> lock(_mutex);
+#ifdef NEW_GAIN_BEHAVIOUR
+        const int maxGain = 62; // gain table size
+#else
+        const int maxGain = 74;
+#endif
+        auto value_offset = value + 12;           //pga offset
+        if (value_offset >= maxGain) //do not exceed gain table index
+            value_offset = maxGain-1;
+        else if (value_offset < 0)
+            value_offset = 0;
+        unsigned lna = 0, pga = 0, tia = 0;
+#ifdef NEW_GAIN_BEHAVIOUR
+        //LNA table
+        const unsigned lnaTbl[maxGain] = {
+            0,  0,  0,  1,  1,  1,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,
+            5,  5,  6,  6,  6,  7,  7,  7,  8,  9,  10, 11, 11, 11, 11, 11,
+            11, 11, 11, 11, 11, 11, 11, 11, 12, 13, 14, 14, 14, 14, 14, 14,
+            14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14
+        };
+        //PGA table
+        const unsigned pgaTbl[maxGain] = {
+            0,  1,  2,  0,  1,  2,  0,  1,  2,  0,  1,  2,  0,  1,  2,  0,
+            1,  2,  0,  1,  2,  0,  1,  2,  0,  0,  0,  0,  1,  2,  3,  4,
+            5,  6,  7,  8,  9,  10, 11, 12, 12, 12, 12, 13, 14, 15, 16, 17,
+            18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+        };
+#else
+        //LNA table
+        const unsigned lnaTbl[maxGain] = {
+            0,  0,  0,  1,  1,  1,  2,  2,  2,  3,  3,  3,  4,  4,  4,  5,
+            5,  5,  6,  6,  6,  7,  7,  7,  8,  9,  10, 11, 11, 11, 11, 11,
+            11, 11, 11, 11, 11, 11, 11, 11, 12, 13, 14, 14, 14, 14, 14, 14,
+            14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+            14, 14, 14, 14, 14, 14, 14, 14, 14, 14
+        };
+        //PGA table
+        const unsigned pgaTbl[maxGain] = {
+            0,  1,  2,  0,  1,  2,  0,  1,  2,  0,  1,  2,  0,  1,  2,  0,
+            1,  2,  0,  1,  2,  0,  1,  2,  0,  0,  0,  0,  1,  2,  3,  4,
+            5,  6,  7,  8,  9,  10, 11, 12, 12, 12, 12, 4,  5,  6,  7,  8,
+            9,  10, 11, 12, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+            22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+        };
+#endif
+        lna = lnaTbl[int(value_offset+0.5)];
+        pga = pgaTbl[int(value_offset+0.5)];
+
+#ifdef NEW_GAIN_BEHAVIOUR
+        if(value_offset > 0) tia = 1;
+#else
+        //TIA table
+        if (value_offset > 51) tia = 2;
+        else if (value_offset > 42) tia = 1;
+#endif
+
+        auto actualLNA = LMS7002M_rfe_set_lna_dist(_lms, ch2LMS(channel), lna+1);
+        auto actualTIA = LMS7002M_rfe_set_tia_dist(_lms, ch2LMS(channel), tia+1);
+        auto actualPGA = LMS7002M_rbb_set_pga_dist(_lms, ch2LMS(channel), pga);
+
+//        printf("Set gains: LNA: %f, TIA: %f, PGA: %f \n", actualLNA, actualTIA, actualPGA);
+
+        _cachedGainValues[direction][channel]["LNA"] = actualLNA;
+        _cachedGainValues[direction][channel]["TIA"] = actualTIA;
+        _cachedGainValues[direction][channel]["PGA"] = actualPGA;
+    }      
+}
+
 void SoapyXTRX::setGain(const int direction, const size_t channel,
                         const std::string &name, const double value) {
     std::lock_guard<std::mutex> lock(_mutex);
