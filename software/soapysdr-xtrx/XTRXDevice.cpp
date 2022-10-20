@@ -1372,17 +1372,33 @@ std::vector<std::string> SoapyXTRX::listUARTs(void) const {
     return interfaces;
 }
 
-void SoapyXTRX::writeUART(const std::string &which, const std::string &data) {}
+void SoapyXTRX::writeUART(const std::string &which, const std::string &data) {
+    if (which == "GPS") {
+        throw std::runtime_error("SoapyXTRX::writeUART(" + which + ") GPS does not support write");
+    } else if (which == "LiteX") {
+        for (size_t i = 0; i < data.length(); i++) {
+            litepcie_writel(_fd, CSR_UART_RXTX_ADDR, data[i]);
+        }
+    } else
+        throw std::runtime_error("SoapyXTRX::writeUART(" + which + ") unknown interface");
+}
 
 std::string SoapyXTRX::readUART(const std::string &which, const long timeoutUs = 100000) const {
     std::string ret_str = "";
-    if (which == "GPS") {
+    if (which == "GPS" || which == "LiteX") {
         auto tstart = std::chrono::high_resolution_clock::now();
         while (true) {
             char c;
-            if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0) {
-                c = litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR);
-                ret_str.push_back(c);
+            if (which == "GPS") {
+                if (litepcie_readl(_fd, CSR_GPS_UART_RXEMPTY_ADDR) == 0) {
+                    c = litepcie_readl(_fd, CSR_GPS_UART_RXTX_ADDR);
+                    ret_str.push_back(c);
+                }
+            } else { // which == "LiteX"
+                if (litepcie_readl(_fd, CSR_UART_RXEMPTY_ADDR) == 0) {
+                    c = litepcie_readl(_fd, CSR_UART_RXTX_ADDR);
+                    ret_str.push_back(c);
+                }
             }
             auto elapsed = std::chrono::high_resolution_clock::now() - tstart;
             long long elapsedUs = std::chrono::duration_cast<std::chrono::microseconds>(elapsed).count();
