@@ -10,8 +10,10 @@
 
 #include "XTRXDevice.hpp"
 
+#include <SoapySDR/Formats.h>
 #include <chrono>
 #include <cassert>
+#include <stdexcept>
 #include <thread>
 #include <sys/mman.h>
 
@@ -20,6 +22,10 @@ SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
                                          const std::vector<size_t> &channels,
                                          const SoapySDR::Kwargs &/*args*/) {
     std::lock_guard<std::mutex> lock(_mutex);
+
+    if (format != SOAPY_SDR_CS16) {
+        throw std::runtime_error("XTRXDevice::setupStream(format=" + format + ") -- Only CS16 is supported!");
+    }
 
     if (direction == SOAPY_SDR_RX) {
         if (_rx_stream.opened)
