@@ -4,7 +4,7 @@ using SoapySDR, Printf, DSP, FFTW, Statistics
 
 export generate_stream, stream_data, membuffer, tee, flowgate, tripwire, rechunk,
        generate_chirp, stft, absshift, reduce, log_stream_xfer, collect_buffers,
-       collect_psd, consume_channel
+       collect_psd, consume_channel, spawn_channel_thread, streaming_filter
 
 # Helper for turning a matrix into a tuple of views, for use with the SoapySDR API.
 function split_matrix(m::Matrix{T}) where {T <: Number}
@@ -605,6 +605,29 @@ function un_sign_extend!(x::AbstractArray{Complex{Int16}})
         end
     end
     return x
+end
+
+function streaming_filter(in::Channel{Matrix{T}}, filter_coeffs::Vector{K}) where {T, K <: AbstractFloat}
+    spawn_channel_thread(;T=promote_type(T,K)) do out
+        # Create N different filter state objects,
+        # one for each channel we're filtering
+        filters = FIRFilter[]
+        function make_filters!(buff)
+            if length(filters) != size(buff,2)
+                filters = [FIRFilter(filter_coeffs) for _ in 1:size(buff,2)]
+            end
+        end
+        consume_channel(in) do buff
+            make_filters!(buff)
+            out_buff = Matrix{promote_type(T,K)}(undef, size(buff)...)
+            for ch_idx in 1:size(buff,2)
+                buff_slice = view(buff, :, ch_idx)
+                out_buff_slice = view(out_buff, :, ch_idx)
+                filt!(out_buff_slice, filters[ch_idx], buff_slice)
+            end
+            put!(out, out_buff)
+        end
+    end
 end
 
 end # module LibSigflow
