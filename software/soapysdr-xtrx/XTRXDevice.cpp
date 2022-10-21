@@ -1499,8 +1499,11 @@ void SoapyXTRX::dump_litex_regs(std::string filename) {
     fclose(f);
 }
 
+void * SoapyXTRX::getNativeDeviceHandle(void) const {
+    return getLMS7Handle();
+}
 
-void * SoapyXTRX::getLMS7Handle() {
+void * SoapyXTRX::getLMS7Handle() const {
     return this->_lms;
 }
 

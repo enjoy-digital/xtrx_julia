@@ -314,9 +314,11 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     void writeUART(const std::string &which, const std::string &data) override;
     std::string readUART(const std::string &which, const long timeoutUs) const override;
 
+    void * getNativeDeviceHandle() const override;
+
     // Return the internal LMS7 device handle, allowing the caller to bypass us and
     // directly call LMS7002M-driver code.
-    void * getLMS7Handle();
+    void * getLMS7Handle() const;
 
   private:
     SoapySDR::Stream *const TX_STREAM = (SoapySDR::Stream *)0x1;
