@@ -251,8 +251,8 @@ steps:
       echo
       openocd -f gateware/openocd_ftdi232.cfg -c "init; pld load 0 {./build/fairwaves_xtrx_platform.bit}; exit"
 
-      echo "--- Reset device"
-      ./test/reset.sh
+      echo "--- Reset device (via remove + rescan)"
+      ./test/reset.sh -r
 
       echo "--- Load kernel modules"
       echo -n "Load liteuart: "

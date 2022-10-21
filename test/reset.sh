@@ -16,11 +16,11 @@ fi
 
 echo "Found ${#XTRX_DEVICE_ADDRS[@]} XTRX device(s)"
 
-RESET=0
+RESET=1
 
 while getopts "r" arg; do
   case $arg in
-    r) RESET=1;;
+    r) RESET=0;;
   esac
 done
 
