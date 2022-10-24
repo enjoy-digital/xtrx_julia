@@ -6,6 +6,7 @@ ENV["SOAPY_SDR_LOG_LEVEL"] = "DEBUG"
 using SoapySDR, Printf, Unitful, DSP, Dates
 using LibSigflow
 using XTRX
+include("../../scripts/xtrx_debugging.jl")
 
 # Let's see if we ever over/underflow.
 #set_libsigflow_verbose(true)

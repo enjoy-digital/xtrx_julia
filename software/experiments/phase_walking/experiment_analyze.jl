@@ -2,8 +2,8 @@
 ENV["GKSwstype"] = "100"
 
 using Plots, DSP, FFTW, Unitful
-include("../../scripts/libsigflow.jl")
-
+using LibSigflow
+using Statistics
 
 # Plot out received signals
 function make_time_plots(iq_data, names, sample_rate; title="experiment")
@@ -226,13 +226,6 @@ function sinusoidal_tracking(in::Channel{Matrix{T}}, sample_rate::Unitful.Freque
     end
 end
 
-function sign_extend_channel(in::Channel{Matrix{T}}) where {T}
-    return spawn_channel_thread(;T) do out
-        consume_channel(in) do buff
-            put!(out, sign_extend!(buff))
-        end
-    end
-end
 
 function main()
     # Load up the latest capture
