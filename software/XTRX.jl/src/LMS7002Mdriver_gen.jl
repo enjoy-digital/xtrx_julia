@@ -1765,16 +1765,29 @@ function LMS7002M_mcu_calibration_tx(self, channel, clk, bw)
 end
 
 """
-    LMS7002M_mcu_calibration_dc_rx(self, channel, clk, bw)
+LMS7002M_mcu_calibration_dc_offset_iq_imbalance_rx(self, channel, clk, bw)
 
-Use the embedded microcontroller to calibrate the RX dc offsets and iq imbalance.
+Use the embedded microcontroller to calibrate the RX DC offsets and IQ imbalance.
 \\param self an instance of the LMS7002M driver
 \\param clk the reference clock
 \\param self the bandwidth to calibrate for
 \\return 0 for success otherwise failure
 """
-function LMS7002M_mcu_calibration_dc_rx(self, channel, clk, bw)
-    ccall((:LMS7002M_mcu_calibration_dc_rx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cfloat, Cfloat), self, channel, clk, bw)
+function LMS7002M_mcu_calibration_dc_offset_iq_imbalance_rx(self, channel, clk, bw)
+    ccall((:LMS7002M_mcu_calibration_dc_offset_iq_imbalance_rx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cfloat, Cfloat), self, channel, clk, bw)
+end
+
+"""
+LMS7002M_mcu_calibration_dc_offset_iq_imbalance_tx(self, channel, clk, bw)
+
+Use the embedded microcontroller to calibrate the TX DC offsets and IQ imbalance.
+\\param self an instance of the LMS7002M driver
+\\param clk the reference clock
+\\param self the bandwidth to calibrate for
+\\return 0 for success otherwise failure
+"""
+function LMS7002M_mcu_calibration_dc_offset_iq_imbalance_tx(self, channel, clk, bw)
+    ccall((:LMS7002M_mcu_calibration_dc_offset_iq_imbalance_tx, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cfloat, Cfloat), self, channel, clk, bw)
 end
 
 const REG_0X0020_MAC_NONE = 0
