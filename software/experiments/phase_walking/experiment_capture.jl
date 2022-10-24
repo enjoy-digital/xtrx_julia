@@ -68,7 +68,7 @@ function run_experiment(; dump_inis::Bool = false,
     dev_tx = Device(first(filter(p -> p["serial"]=="12cc5241b88485c", devs)))
 
     # Open three Rx devices, identified by serial number
-    rx_serials = ["ce5241b884854", "121c444ea8c85c", "30c5241b884854"]
+    rx_serials = ["30c5241b884854", "121c444ea8c85c", "ce5241b884854"]
     rx_serials = rx_serials[1:2]
     #dev_rx = build_multi_device(rx_serials)
     devs_rx = Device.(filter(p -> p["serial"] in rx_serials, devs))
@@ -79,12 +79,10 @@ function run_experiment(; dump_inis::Bool = false,
 
     #frequency = 1575.00u"MHz"
     frequency = 600u"MHz"
-    sample_rate = 1u"MHz"
+    sample_rate = 2u"MHz"
 
     # Setup transmission/recieve parameters
     for dev_rx in devs_rx
-        # Set an integer multiple of our samplerate
-        set_cgen_freq(dev_rx, 16*sample_rate)
 
         for cr in dev_rx.rx
             @try_N_times 3 cr.frequency = frequency
