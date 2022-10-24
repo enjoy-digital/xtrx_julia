@@ -15,8 +15,8 @@ _default_verbosity = false
 function set_libsigflow_verbose(verbose::Bool)
     global _default_verbosity = verbose
 end
-_num_overflows = Ref{Int64}(0)
-_num_underflows = Ref{Int64}(0)
+const _num_overflows = Ref{Int64}(0)
+const _num_underflows = Ref{Int64}(0)
 
 function reset_xflow_stats()
     _num_overflows[] = Int64(0)
