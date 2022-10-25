@@ -113,7 +113,7 @@ function dma_test(dev_args;use_gpu=false, lfsr_mode=false, show_mismatch=false)
         #       but this also works with the FPGA's loopback
 
         # open RX stream
-        stream = SoapySDR.Stream(ComplexF32, [chan])
+        stream = SoapySDR.Stream([chan])
         mtu = SoapySDR.SoapySDRDevice_getStreamMTU(dev, stream)
         num_channels = Int(length(dev.rx))
 
