@@ -1579,6 +1579,19 @@ function LMS7002M_rbb_set_pga(self, channel, gain)
 end
 
 """
+    LMS7002M_rbb_set_pga_dist(self, channel, gain)
+
+Set the PGA gain for the RX baseband that is distributed.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\param gain the gain value in dB -12.0 to 19.0
+\\return the actual gain value in dB
+"""
+function LMS7002M_rbb_set_pga_dist(self, channel, gain)
+    ccall((:LMS7002M_rbb_set_pga_dist, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, gain)
+end
+
+"""
     LMS7002M_rbb_set_filter_bw(self, channel, bw, bwactual)
 
 Set the RX baseband filter bandwidth.
@@ -1631,6 +1644,19 @@ function LMS7002M_rfe_set_lna(self, channel, gain)
 end
 
 """
+    LMS7002M_rfe_set_lna_dist(self, channel, gain)
+
+Set the LNA gain for the RX RF frontend that is distributed.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\param gain the gain value in dB 0 to 30
+\\return the actual gain value in dB
+"""
+function LMS7002M_rfe_set_lna_dist(self, channel, gain)
+    ccall((:LMS7002M_rfe_set_lna_dist, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, gain)
+end
+
+"""
     LMS7002M_rfe_set_loopback_lna(self, channel, gain)
 
 Set the LNA gain for the RX RF frontend (in TX loopback mode).
@@ -1654,6 +1680,19 @@ Set the TIA gain for the RX RF frontend.
 """
 function LMS7002M_rfe_set_tia(self, channel, gain)
     ccall((:LMS7002M_rfe_set_tia, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, gain)
+end
+
+"""
+    LMS7002M_rfe_set_tia_dist(self, channel, gain)
+
+Set the TIA gain for the RX RF frontend that is distributed.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\param gain the gain value in dB 0 to 12
+\\return the actual gain value in dB
+"""
+function LMS7002M_rfe_set_tia_dist(self, channel, gain)
+    ccall((:LMS7002M_rfe_set_tia_dist, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, gain)
 end
 
 """
@@ -1765,9 +1804,9 @@ function LMS7002M_mcu_calibration_tx(self, channel, clk, bw)
 end
 
 """
-LMS7002M_mcu_calibration_dc_offset_iq_imbalance_rx(self, channel, clk, bw)
+    LMS7002M_mcu_calibration_dc_offset_iq_imbalance_rx(self, channel, clk, bw)
 
-Use the embedded microcontroller to calibrate the RX DC offsets and IQ imbalance.
+Use the embedded microcontroller to calibrate the RX dc offsets and IQ imbalance.
 \\param self an instance of the LMS7002M driver
 \\param clk the reference clock
 \\param self the bandwidth to calibrate for
@@ -1778,9 +1817,9 @@ function LMS7002M_mcu_calibration_dc_offset_iq_imbalance_rx(self, channel, clk, 
 end
 
 """
-LMS7002M_mcu_calibration_dc_offset_iq_imbalance_tx(self, channel, clk, bw)
+    LMS7002M_mcu_calibration_dc_offset_iq_imbalance_tx(self, channel, clk, bw)
 
-Use the embedded microcontroller to calibrate the TX DC offsets and IQ imbalance.
+Use the embedded microcontroller to calibrate the TX dc offsets and IQ imbalance.
 \\param self an instance of the LMS7002M driver
 \\param clk the reference clock
 \\param self the bandwidth to calibrate for
