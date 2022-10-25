@@ -37,7 +37,12 @@
 #include "csr.h"
 #include "config.h"
 #include "flags.h"
+
+#define NV_DMA
+
+#ifdef NV_DMA
 #include "nv-p2p.h"
+#endif
 
 //#define DEBUG_CSR
 //#define DEBUG_MSI
@@ -104,9 +109,11 @@ struct litepcie_device {
 	int channels;
 
 	enum DMASource dma_source;
+	#ifdef NV_DMA
 	uint64_t gpu_virt_start;	// start page address of the virtual memory
 	nvidia_p2p_page_table_t *gpu_page_table;
 	nvidia_p2p_dma_mapping_t *gpu_dma_mapping;
+	#endif
 };
 
 struct litepcie_chan_priv {
@@ -227,6 +234,8 @@ static int litepcie_dma_deinit_cpu(struct litepcie_device *s)
 	s->dma_source = None;
 	return 0;
 }
+
+#ifdef NV_DMA
 
 // NVIDIA GPUs use 64K pages
 #define GPU_PAGE_SHIFT		16
@@ -383,6 +392,8 @@ do_unlock_pages:
 do_exit:
 	return error;
 }
+
+#endif
 
 static int litepcie_dma_writer_start(struct litepcie_device *s, int chan_num)
 {
@@ -657,8 +668,10 @@ static int litepcie_release(struct inode *inode, struct file *file)
 	/* Free DMA sources */
 	if (chan->litepcie_dev->dma_source == CPU)
 		litepcie_dma_deinit_cpu(chan->litepcie_dev);
+	#ifdef NV_DMA
 	else if (chan->litepcie_dev->dma_source == GPU)
 		litepcie_dma_deinit_gpu(chan->litepcie_dev);
+	#endif
 
 	kfree(chan_priv);
 
@@ -975,10 +988,14 @@ static long litepcie_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		/* allocate all dma buffers */
+		#ifdef NV_DMA
 		if (m.use_gpu)
 			ret = litepcie_dma_init_gpu(chan->litepcie_dev, m.gpu_addr, m.gpu_size);
 		else
 			ret = litepcie_dma_init_cpu(chan->litepcie_dev);
+		#else
+		ret = litepcie_dma_init_cpu(chan->litepcie_dev);
+		#endif
 
 		break;
 	}
