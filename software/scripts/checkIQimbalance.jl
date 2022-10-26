@@ -72,15 +72,11 @@ function do_txrx(mode::Symbol;
 
         # Setup transmission/recieve parameters
         for (c_idx, cr) in enumerate(dev.rx)
-            cr.bandwidth = sample_rate
-            cr.frequency = frequency
-            cr.sample_rate = sample_rate
-
             if mode == :tbb_loopback
                 # For TBB loopback, we really don't need to be that loud
-                cr[SoapySDR.GainElement(:LNA)] = 0u"dB"
-                cr[SoapySDR.GainElement(:TIA)] = 0u"dB"
-                cr[SoapySDR.GainElement(:PGA)] = 0u"dB"
+#                cr[SoapySDR.GainElement(:LNA)] = 0u"dB"
+#                cr[SoapySDR.GainElement(:TIA)] = 0u"dB"
+                cr[SoapySDR.GainElement(:PGA)] = 5u"dB"
 #                cr.gain = 0u"dB"
             elseif mode == :trf_loopback
                 # For :trf_loopback, we need to be a little louder
@@ -112,12 +108,11 @@ function do_txrx(mode::Symbol;
             else
                 cr.antenna = :LB1
             end
+
+            cr.frequency = frequency
         end
 
         for ct in dev.tx
-            ct.bandwidth = sample_rate
-            ct.frequency = frequency
-            ct.sample_rate = sample_rate
 
             if mode ==:tx
                 # If we're actually TX'ing and RX'ing, juice it up
@@ -126,21 +121,21 @@ function do_txrx(mode::Symbol;
                 ct.gain = 40u"dB"
             else
                 # Otherwise, keep quiet
-                ct.gain = 40u"dB"
+                ct.gain = 30u"dB"
             end
+
+            ct.frequency = frequency
         end
 
         for (c_idx, cr) in enumerate(dev.rx)
-            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
+            cr.sample_rate = sample_rate
+            cr.bandwidth = sample_rate
         end
 
         for ct in dev.tx
-            ct[SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
+            ct.sample_rate = sample_rate
+            ct.bandwidth = sample_rate
         end
-
-#        for (c_idx, cr) in enumerate(dev.rx)
-#            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
-#        end
 
         # Do a quick FPGA loopback sanity check for these clocking values
         if !skip_sanity_check
@@ -177,9 +172,29 @@ function do_txrx(mode::Symbol;
             end
         end
 
+        #        dev.rx[1][SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
+        if dump_inis
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode)_before.ini")
+        end
+        for (c_idx, cr) in enumerate(dev.rx)
+            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
+        end
+        if dump_inis
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode)_midway.ini")
+        end
+
+#        dev.tx[1][SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
+        for ct in dev.tx
+            ct[SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
+        end
+
+#        for (c_idx, cr) in enumerate(dev.rx)
+#            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
+#        end
+
         # Dump an initial INI, showing how the registers are configured here
         if dump_inis
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode).ini")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode)_after.ini")
         end
 
         # Construct streams
@@ -192,7 +207,7 @@ function do_txrx(mode::Symbol;
             # as it takes a long time to plot randomness
             num_buffers = 4
         else
-            num_buffers = 32
+            num_buffers = 12
         end
 
         # prepare some data to send:
@@ -205,8 +220,8 @@ function do_txrx(mode::Symbol;
         sample_range = 0:samples - 1
 
         # Create some pretty patterns to plot
-        data_tx[:, 1] .= Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
-        data_tx[:, 2] .= Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
+        data_tx[:, 1] .= zeros(Complex{Int16}, samples)#Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
+        data_tx[:, 2] .= zeros(Complex{Int16}, samples)#Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
 
         # Simple flowgraph for TX: just transmit the same buffer over and over again
         tx_go = Base.Event()
@@ -245,8 +260,8 @@ using Plots
 function make_txrx_plots(iq_data, data_tx; name::String="data", sample_rate)
 #    data_part = 15000:size(iq_data, 1)#(15000:15100) .+ 120000
 #    data_part = 6001:6100
-    data_part = (15000:min(20000+15000, size(data_tx,1))) .+ 120000
-#    data_part = (20550:20600) .+ 4000
+#    data_part = (20000:min(20000+15000, size(data_tx,1)))# .+ 120000
+    data_part = (20550:20600) .+ 4000
     plt = plot(real.(data_tx[data_part, 1]); label="re(tx[1])", title="$(name) - Real")
     plot!(plt, real.(iq_data)[data_part, 1]; label="re(rx[1])")
     plot!(plt, real.(iq_data)[data_part, 2]; label="re(rx[2])")
@@ -257,7 +272,7 @@ function make_txrx_plots(iq_data, data_tx; name::String="data", sample_rate)
     plot!(plt, imag.(iq_data)[data_part, 2]; label="im(rx[2])")
     savefig(plt, "$(name)_im.png")
 
-    fft_data_part = (15000:min(20000+15000, size(data_tx,1))) .+ 120000
+    fft_data_part = (20000:min(20000+15000, size(data_tx,1)))# .+ 120000
 
     p = periodogram(data_tx[fft_data_part, 1], fs = upreferred(sample_rate / 1u"Hz"))
     plt = plot(fftshift(freq(p) / 1e6), fftshift(10 * log10.(power(p))); xlabel="Frequency (MHz)", ylabel = "Power (dB)", title="Periodogram $name transmitted")
