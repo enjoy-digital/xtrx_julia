@@ -172,9 +172,9 @@ function do_txrx(mode::Symbol;
             end
         end
 
-#        for ct in dev.tx
-#            ct[SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
-#        end
+        for ct in dev.tx
+            ct[SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
+        end
         #        dev.rx[1][SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
 #        for (c_idx, cr) in enumerate(dev.rx)
 #            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
@@ -183,9 +183,9 @@ function do_txrx(mode::Symbol;
 #        dev.tx[1][SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
         
 
-#        for (c_idx, cr) in enumerate(dev.rx)
-#            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
-#        end
+        for (c_idx, cr) in enumerate(dev.rx)
+            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
+        end
 
         # Dump an initial INI, showing how the registers are configured here
         if dump_inis
