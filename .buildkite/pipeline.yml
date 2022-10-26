@@ -1,69 +1,4 @@
 steps:
-  - label: ":electron: Build FPGA gateware and firmware"
-    key: gateware
-    plugins:
-      - JuliaCI/julia#v1:
-          version: '1'
-          # Set a depot hard size limit of 200GB, since we have artifacts in excess of 100GB here.
-          depot_hard_size_limit: '214748364800'
-      - staticfloat/sandbox#v1:
-          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/litex_builder-2022-07-14.x86_64.tar.gz"
-          rootfs_treehash: "a50c2e8710fa0bbd1564ccfab01443ec86355d9e"
-          workspaces:
-            # Include `/cache` so that we can `git diff`, and access `julia`
-            - "/cache:/cache"
-    commands: |
-      echo "--- Patch faulty rootfs"
-      rm -f /usr/local/bin/vivado
-      export PATH=$${PATH}:$$(echo /usr/local/vivado/Vivado/*/bin)
-
-      echo "--- Update LiteX"
-      pushd /usr/local/litex
-      # first update to latest master
-      curl -Lso litex_setup.py https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
-      python3 litex_setup.py --update
-      # then go back to a known state
-      while IFS="," read -r repo sha; do
-          git -C $$repo reset --hard $$sha || true
-      done < $$BUILDKITE_BUILD_CHECKOUT_PATH/LitexManifest
-      python3 ./litex/litex_setup.py --install
-      popd
-
-      echo "--- Build LiteX project"
-      python3 fairwaves_xtrx.py --build
-
-      echo "--- Generate XTRX.jl constants"
-      pushd software/XTRX.jl/gen
-      julia --project -e 'import Pkg; Pkg.instantiate()'
-      julia --project gen_csrs.jl
-      julia --project gen_lms7002m_driver.jl
-      popd
-
-      echo "--- Bundle gateware"
-      tar -czf litex-gateware.tar.gz -C build/fairwaves_xtrx_platform/gateware fairwaves_xtrx_platform.bin fairwaves_xtrx_platform.bit
-
-      echo "--- Bundle firmware"
-      tar -czf litex-firmware.tar.gz -C firmware firmware.bin
-
-      echo "--- Bundle generated headers"
-      tar -czf litex-headers.tar.gz -C build/fairwaves_xtrx_platform/software/include/generated .
-
-      echo "--- Test generated headers (and XTRX.jl's CSRs.jl) didn't change"
-      git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/litepcie-kernel-module
-      git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/XTRX.jl
-    artifact_paths:
-      - "litex-gateware.tar.gz"
-      - "litex-firmware.tar.gz"
-      - "litex-headers.tar.gz"
-    # We restrict to running on the `vivado` queue because the litex_builder rootfs is >100GB in size!
-    agents:
-      sandbox_capable: "true"
-      os: "linux"
-      arch: "x86_64"
-      queue: "vivado"
-    env:
-
-
   - label: ":linux: :corn: Build kernel modules"
     key: kernel-modules
     plugins:
@@ -164,44 +99,6 @@ steps:
       os: "linux"
       arch: "x86_64"
 
-  # - label: ":linux: :robot_face: :lemon: LimeSDR test suite"
-  #   plugins:
-  #    - JuliaCI/julia#v1:
-  #        version: '1'
-  #   commands: |
-  #     echo "--- Build limesuite and dependencies"
-  #     make -C software limesuite -j$$(nproc)
-
-  #     echo "--- List LimeSDR devices"
-  #     ./build/bin/SoapySDRUtil --find=driver=lime
-
-  #     echo "--- Check out SoapySDR.jl#main"
-  #     make -C software SoapySDR.jl
-
-  #     echo "--- Run C read example"
-  #     julia --project software/scripts/limesdr_tests/c_rx_example.jl
-
-  #     echo "--- Instantiate julia project"
-  #     julia --project -e 'import Pkg; Pkg.precompile()'
-
-  #     echo "--- Run libsigflow tests"
-  #     julia -t 3 --project -e 'import Pkg; Pkg.test("LibSigflow")'
-
-  #     echo "--- Run Julia read example"
-  #     julia --project software/scripts/limesdr_tests/julia_rx_example.jl
-
-  #     echo "--- Run spectrum scan (threads=2)"
-  #     julia -t 2 --project software/scripts/limesdr_tests/julia_psd.jl
-
-  #     echo "--- Run chirp MIMO loopback (threads=3)"
-  #     julia -t 3 --project software/scripts/limesdr_tests/julia_chirp_loopback_mimo.jl
-  #   agents:
-  #     os: "linux"
-  #     queue: "triad"
-  #     sdr_present: "lime"
-  #   artifact_paths:
-  #     - "*.png"
-
 
   - label: ":linux: :robot_face: Run XTRX tests"
     depends_on:
@@ -219,10 +116,6 @@ steps:
       echo "--- System info"
       echo "uname -a"
       uname -a
-
-      echo
-      echo "df -alh"
-      df -alh
 
       # Add `sbin` to our `path` for `depmod`, `modprobe`, etc...
       export PATH=$$PATH:/sbin

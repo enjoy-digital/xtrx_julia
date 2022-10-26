@@ -1,0 +1,85 @@
+# Storing this in a separate pipeline file since it uses cryptic to secure the S3 credentials
+steps:
+  - label: ":electron: Build FPGA gateware and firmware"
+    key: gateware
+    plugins:
+      - JuliaCI/julia#v1:
+          version: '1'
+          # Set a depot hard size limit of 200GB, since we have artifacts in excess of 100GB here.
+          depot_hard_size_limit: '214748364800'
+      - staticfloat/cryptic#v2:
+          variables:
+            - AWS_ACCESS_KEY_ID="U2FsdGVkX18MAdcMUW7fimVvFZGISaeau2oLgkEapZs4xgGwBKDmrtu5wBqijK6D"
+            - AWS_SECRET_ACCESS_KEY="U2FsdGVkX1/XWjO6oHRiCJqNhIGrhpvjk06oIiDxJO+yIJ0knl2g2TmwH1XDXoaRV7yfWRIz347zdblKBqkK8w=="
+      - staticfloat/coppermind#v2:
+          inputs:
+            # If any of these files change, we must re-run this step
+            - gateware/**
+            - fairwaves_xtrx*.py
+            - LitexManifest
+            # Because we parse these in our bindings check
+            - software/LMS7002M-driver/include/**
+          s3_prefix: s3://jc-buildkite-artifacts/xtrx_julia/gateware_cache
+      - staticfloat/sandbox#v1:
+          rootfs_url: "https://jc-rootfs-images.s3.amazonaws.com/litex_builder-2022-07-14.x86_64.tar.gz"
+          rootfs_treehash: "a50c2e8710fa0bbd1564ccfab01443ec86355d9e"
+          workspaces:
+            # Include `/cache` so that we can `git diff`, and access `julia`
+            - "/cache:/cache"
+      - improbable-eng/metahook:
+          # In lieu of the eventual JLL-downloading plugin, we'll just roll our own:
+          pre-command: |
+            cd /usr/local
+            curl -L https://github.com/JuliaBinaryWrappers/Zstd_jll.jl/releases/download/Zstd-v1.5.2%2B0/Zstd.v1.5.2.x86_64-linux-gnu.tar.gz | tar -zx
+            zstd --version
+    commands: |
+      echo "--- Patch faulty rootfs"
+      rm -f /usr/local/bin/vivado
+      export PATH=$${PATH}:$$(echo /usr/local/vivado/Vivado/*/bin)
+
+      echo "--- Update LiteX"
+      pushd /usr/local/litex
+      # first update to latest master
+      curl -Lso litex_setup.py https://raw.githubusercontent.com/enjoy-digital/litex/master/litex_setup.py
+      python3 litex_setup.py --update
+      # then go back to a known state
+      while IFS="," read -r repo sha; do
+          git -C $$repo reset --hard $$sha || true
+      done < $$BUILDKITE_BUILD_CHECKOUT_PATH/LitexManifest
+      python3 ./litex/litex_setup.py --install
+      popd
+
+      echo "--- Build LiteX project"
+      python3 fairwaves_xtrx.py --build
+
+      echo "--- Generate XTRX.jl constants"
+      pushd software/XTRX.jl/gen
+      julia --project -e 'import Pkg; Pkg.instantiate()'
+      julia --project gen_csrs.jl
+      julia --project gen_lms7002m_driver.jl
+      popd
+
+      echo "--- Bundle gateware"
+      tar -czf litex-gateware.tar.gz -C build/fairwaves_xtrx_platform/gateware fairwaves_xtrx_platform.bin fairwaves_xtrx_platform.bit
+
+      echo "--- Bundle firmware"
+      tar -czf litex-firmware.tar.gz -C firmware firmware.bin
+
+      echo "--- Bundle generated headers"
+      tar -czf litex-headers.tar.gz -C build/fairwaves_xtrx_platform/software/include/generated .
+
+      echo "--- Test generated headers (and XTRX.jl's CSRs.jl) didn't change"
+      git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/litepcie-kernel-module
+      git diff --exit-code -w -G'(^[^\*# /])|(^#\w)|(^\s+[^\*#/])' software/XTRX.jl
+    artifact_paths:
+      - "litex-gateware.tar.gz"
+      - "litex-firmware.tar.gz"
+      - "litex-headers.tar.gz"
+    # We restrict to running on the `vivado` queue because the litex_builder rootfs is >100GB in size!
+    agents:
+      sandbox_capable: "true"
+      os: "linux"
+      arch: "x86_64"
+      queue: "vivado"
+    env:
+      BUILDKITE_PLUGIN_CRYPTIC_BASE64_SIGNED_JOB_ID_SECRET: ${BUILDKITE_PLUGIN_CRYPTIC_BASE64_SIGNED_JOB_ID_SECRET?}
