@@ -76,8 +76,8 @@ function do_txrx(mode::Symbol;
                 # For TBB loopback, we really don't need to be that loud
 #                cr[SoapySDR.GainElement(:LNA)] = 0u"dB"
 #                cr[SoapySDR.GainElement(:TIA)] = 0u"dB"
-                cr[SoapySDR.GainElement(:PGA)] = 5u"dB"
-#                cr.gain = 0u"dB"
+#                cr[SoapySDR.GainElement(:PGA)] = 0u"dB"
+                cr.gain = 0u"dB"
             elseif mode == :trf_loopback
                 # For :trf_loopback, we need to be a little louder
                 cr[SoapySDR.GainElement(:LNA)] = 0u"dB"
@@ -172,21 +172,16 @@ function do_txrx(mode::Symbol;
             end
         end
 
+#        for ct in dev.tx
+#            ct[SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
+#        end
         #        dev.rx[1][SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
-        if dump_inis
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode)_before.ini")
-        end
-        for (c_idx, cr) in enumerate(dev.rx)
-            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
-        end
-        if dump_inis
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode)_midway.ini")
-        end
+#        for (c_idx, cr) in enumerate(dev.rx)
+#            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
+#        end
 
 #        dev.tx[1][SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
-        for ct in dev.tx
-            ct[SoapySDR.Setting("CALIBRATE_TX")] = "TRUE"
-        end
+        
 
 #        for (c_idx, cr) in enumerate(dev.rx)
 #            cr[SoapySDR.Setting("CALIBRATE_RX")] = "TRUE"
@@ -194,7 +189,7 @@ function do_txrx(mode::Symbol;
 
         # Dump an initial INI, showing how the registers are configured here
         if dump_inis
-            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode)_after.ini")
+            SoapySDR.SoapySDRDevice_writeSetting(dev, "DUMP_INI", "$(mode).ini")
         end
 
         # Construct streams
@@ -220,8 +215,8 @@ function do_txrx(mode::Symbol;
         sample_range = 0:samples - 1
 
         # Create some pretty patterns to plot
-        data_tx[:, 1] .= zeros(Complex{Int16}, samples)#Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
-        data_tx[:, 2] .= zeros(Complex{Int16}, samples)#Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
+        data_tx[:, 1] .= Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
+        data_tx[:, 2] .= Complex{Int16}.(round.(cis.(2π .* sample_range .* signal_frequency ./ sample_rate) .* (fullscale/3)))
 
         # Simple flowgraph for TX: just transmit the same buffer over and over again
         tx_go = Base.Event()
