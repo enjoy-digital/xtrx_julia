@@ -443,7 +443,6 @@ void SoapyXTRX::setDCOffset(const int direction, const size_t channel,
     if (direction == SOAPY_SDR_TX) {
         LMS7002M_txtsp_set_dc_correction(_lms, ch2LMS(channel), offset.real(),
                                          offset.imag());
-        _txDCOffset = offset;
     } else {
         SoapySDR::Device::setDCOffset(direction, channel, offset);
     }
@@ -452,7 +451,11 @@ void SoapyXTRX::setDCOffset(const int direction, const size_t channel,
 std::complex<double> SoapyXTRX::getDCOffset(const int direction,
                                             const size_t channel) const {
     if (direction == SOAPY_SDR_TX) {
-        return _txDCOffset;
+        double i;
+        double q;
+        LMS7002M_txtsp_get_dc_correction(_lms, ch2LMS(channel),
+                                            &i, &q);
+        return std::complex<double>(i, q);
     } else {
         return SoapySDR::Device::getDCOffset(direction, channel);
     }

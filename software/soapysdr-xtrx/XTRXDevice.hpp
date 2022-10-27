@@ -128,7 +128,6 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
 
     bool _rxDCOffsetMode[2];
     int _rxDCOffsetWindow[2];
-    std::complex<double> _txDCOffset;
     std::map<int, std::map<size_t, std::complex<double>>> _cachedIqBalValues;
 
     // Gain API
