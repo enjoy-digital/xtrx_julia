@@ -1358,7 +1358,7 @@ void SoapyXTRX::writeSetting(const int direction, const size_t channel, const st
 }
 
 std::string SoapyXTRX::readSetting(const int direction, const size_t channel, const std::string &key) const {
-    if (key == "DC_OFFSET_WINDOW") {
+    if (key == "DC_OFFSET_WINDOW" && direction == SOAPY_SDR_RX) {
         return std::to_string(_rxDCOffsetWindow[channel]);
     } else
         throw std::runtime_error("SoapyXTRX::readChannelSetting(" + key + ") unknown key");
