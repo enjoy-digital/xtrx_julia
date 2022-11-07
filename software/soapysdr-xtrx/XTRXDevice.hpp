@@ -126,8 +126,6 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     std::complex<double> getIQBalance(const int direction,
                                       const size_t channel) const override;
 
-    bool _rxDCOffsetMode[2];
-    int _rxDCOffsetWindow[2];
     std::map<int, std::map<size_t, std::complex<double>>> _cachedIqBalValues;
 
     // Gain API

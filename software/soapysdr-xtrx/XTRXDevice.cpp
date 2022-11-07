@@ -72,8 +72,7 @@ void dma_set_loopback(int fd, bool loopback_enable) {
 }
 
 SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
-    : _rxDCOffsetMode({true, true}), _rxDCOffsetWindow({0, 0}), _fd(-1),
-      _lms(NULL), _masterClockRate(80.0e6), _refClockRate(26e6) {
+    : _fd(-1), _lms(NULL), _masterClockRate(80.0e6), _refClockRate(26e6) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
     SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
@@ -409,9 +408,7 @@ void SoapyXTRX::setDCOffsetMode(const int direction, const size_t channel,
     std::lock_guard<std::mutex> lock(_mutex);
 
     if (direction == SOAPY_SDR_RX) {
-        LMS7002M_rxtsp_set_dc_correction(_lms, ch2LMS(channel), automatic,
-                                         _rxDCOffsetWindow[channel]);
-        _rxDCOffsetMode[channel] = automatic;
+        LMS7002M_rxtsp_set_dc_correction(_lms, ch2LMS(channel), automatic);
     } else {
         SoapySDR::Device::setDCOffsetMode(direction, channel, automatic);
     }
@@ -420,7 +417,7 @@ void SoapyXTRX::setDCOffsetMode(const int direction, const size_t channel,
 bool SoapyXTRX::getDCOffsetMode(const int direction,
                                 const size_t channel) const {
     if (direction == SOAPY_SDR_RX) {
-        return _rxDCOffsetMode[channel];
+        return LMS7002M_rxtsp_get_dc_correction(_lms, ch2LMS(channel));
     } else {
         return SoapySDR::Device::getDCOffsetMode(direction, channel);
     }
@@ -1349,8 +1346,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
 
 void SoapyXTRX::writeSetting(const int direction, const size_t channel, const std::string &key, const std::string &value) {
     if (key == "DC_OFFSET_WINDOW") {
-        _rxDCOffsetWindow[channel] = std::stoi(value);
-        LMS7002M_rxtsp_set_dc_correction(_lms, ch2LMS(channel), _rxDCOffsetMode[channel], _rxDCOffsetWindow[channel]);
+        LMS7002M_rxtsp_set_dc_correction_window(_lms, ch2LMS(channel), std::stoi(value));
     } else if (key == "CALIBRATE") {
         LMS7002M_mcu_calibration_dc_offset_iq_imbalance(_lms, dir2LMS(direction), ch2LMS(channel), _refClockRate, _cachedFilterBws[direction][channel], 0);
     } else if (key == "CALIBRATE_EXTERNAL") {
@@ -1362,7 +1358,7 @@ void SoapyXTRX::writeSetting(const int direction, const size_t channel, const st
 
 std::string SoapyXTRX::readSetting(const int direction, const size_t channel, const std::string &key) const {
     if (key == "DC_OFFSET_WINDOW" && direction == SOAPY_SDR_RX) {
-        return std::to_string(_rxDCOffsetWindow[channel]);
+        return std::to_string(LMS7002M_rxtsp_get_dc_correction_window(_lms, ch2LMS(channel)));
     } else
         throw std::runtime_error("SoapyXTRX::readChannelSetting(" + key + ") unknown key");
 }
