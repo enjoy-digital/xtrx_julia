@@ -17,11 +17,14 @@ RANLIB=ranlib
 
 CFLAGS += -I./liblitepcie
 CFLAGS += -I../litepcie-kernel-module
-CFLAGS += -I$(CUDA_PREFIX)/include
 
 LDFLAGS += $(LIBLITEPCIE)
-LDFLAGS += -L$(CUDA_PREFIX)/lib -L$(CUDA_PREFIX)/lib64 -L$(CUDA_PREFIX)/lib64/stubs  -lcuda
 LDFLAGS += -L./liblitepcie -llitepcie
+
+ifeq ($(USE_CUDA),true)
+	LDFLAGS += -L$(CUDA_PREFIX)/lib -L$(CUDA_PREFIX)/lib64 -L$(CUDA_PREFIX)/lib64/stubs  -lcuda
+	CFLAGS += -I$(CUDA_PREFIX)/include -DCUDA
+endif
 
 $(LIBLITEPCIE): liblitepcie/litepcie_dma.o liblitepcie/litepcie_flash.o liblitepcie/litepcie_helpers.o
 	$(AR) rcs $@ $+

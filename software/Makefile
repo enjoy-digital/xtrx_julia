@@ -4,6 +4,8 @@ REPO_DIR ?= $(shell dirname $(shell dirname $(realpath $(firstword $(MAKEFILE_LI
 # then we need to download the right kernel and use it when compiling the kernel modules.
 USE_LIVE_KERNEL ?= true
 
+USE_CUDA ?= true
+
 # By default we'll try to see if CUDA is installed locally, and use that installation.
 # Otherwise, or when requested, we'll download the CUDA toolkit ourselves.
 NVCC_PATH := $(shell which nvcc 2>/dev/null)

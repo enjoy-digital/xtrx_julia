@@ -26,7 +26,7 @@ litepcie-kernel-module-install: $(LITEPCIE_INSTALLED_KO)
 LITEPCIE_PREFIX ?= $(PREFIX)
 LITEPCIE_LIB = $(LITEPCIE_PREFIX)/lib/liblitepcie.a
 $(LITEPCIE_LIB): $(NVCC)
-	$(MAKE) -C litepcie-user-library CUDA_PREFIX=$(CUDA_PREFIX) prefix=$(LITEPCIE_PREFIX) install
+	$(MAKE) -C litepcie-user-library USE_CUDA=$(USE_CUDA) CUDA_PREFIX=$(CUDA_PREFIX) prefix=$(LITEPCIE_PREFIX) install
 litepcie-user-library: $(LITEPCIE_LIB)
 clean-litepcie-user-library:
 	$(MAKE) -C litepcie-user-library clean

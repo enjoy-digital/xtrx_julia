@@ -76,7 +76,7 @@ static void info(void)
            (double)litepcie_readl(fd, CSR_XADC_VCCBRAM_ADDR) / 4096 * 3);
 #endif
     close(fd);
-
+#ifdef CUDA
     if (cuda_device_num >= 0) {
         checked_cuda_call(cuInit(0));
 
@@ -101,6 +101,7 @@ static void info(void)
         if (global_mem > (unsigned long long)4 * 1024 * 1024 * 1024L)
             fprintf(stderr, "GPU 64-bit memory address support\n");
     }
+#endif
 }
 
 /* Scratch */
@@ -398,6 +399,7 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
     uint8_t  run = (auto_rx_delay == 0);
 #endif
 
+#ifdef CUDA
     CUdevice gpu_dev;
     CUcontext gpu_ctx;
     if (cuda_device_num >= 0) {
@@ -405,6 +407,7 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
         checked_cuda_call(cuDeviceGet(&gpu_dev, cuda_device_num));
         checked_cuda_call(cuCtxCreate(&gpu_ctx, 0, gpu_dev));
     }
+#endif
 
     signal(SIGINT, intHandler);
 
@@ -414,7 +417,7 @@ static void dma_test(uint8_t zero_copy, uint8_t external_loopback, int data_widt
     if (litepcie_dma_init(&dma, litepcie_device, zero_copy, cuda_device_num >= 0))
         exit(1);
 
-#ifdef DMA_CHECK_DATA
+#if defined(DMA_CHECK_DATA) && defined(CUDA)
     if (cuda_device_num >= 0) {
         write_pn_data((uint32_t *) dma.buf_wr, DMA_BUFFER_TOTAL_SIZE/4, &seed_wr, data_width);
 

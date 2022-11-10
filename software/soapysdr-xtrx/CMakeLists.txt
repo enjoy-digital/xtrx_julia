@@ -52,7 +52,7 @@ include_directories(${LMS7002M_INCLUDE_DIR})
 ## CUDA discovery
 ########################################################################
 
-find_package(CUDAToolkit REQUIRED)
+find_package(CUDAToolkit)
 
 include_directories(${CUDAToolkit_INCLUDE_DIRS})
 

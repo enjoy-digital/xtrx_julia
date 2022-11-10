@@ -15,7 +15,9 @@
 #include <fcntl.h>
 #include <math.h>
 #include <signal.h>
+#ifdef CUDA
 #include <cuda.h>
+#endif
 #include "liblitepcie.h"
 
 /* Variables */
@@ -27,6 +29,7 @@ void intHandler(int dummy) {
     keep_running = 0;
 }
 
+#ifdef CUDA
 #define checkError(status) { __checkError((status), __FILE__, __LINE__); }
 void __checkError(CUresult status, const char *file, int line) {
     if (status != CUDA_SUCCESS) {
@@ -42,6 +45,7 @@ void __checkError(CUresult status, const char *file, int line) {
         exit(1);
     }
 }
+#endif
 
 /* Initialization */
 /*----------------*/
@@ -287,6 +291,7 @@ int main(int argc, char **argv)
     /* Select device. */
     snprintf(litepcie_device, sizeof(litepcie_device), "/dev/litepcie%d", litepcie_device_num);
 
+    #ifdef CUDA
     CUdevice gpu_dev;
     CUcontext gpu_ctx;
     if (cuda_device_num >= 0) {
@@ -294,6 +299,7 @@ int main(int argc, char **argv)
         checkError(cuDeviceGet(&gpu_dev, cuda_device_num));
         checkError(cuCtxCreate(&gpu_ctx, 0, gpu_dev));
     }
+    #endif
 
     cmd = argv[optind++];
 

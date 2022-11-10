@@ -53,6 +53,7 @@ void _check_ioctl(int status, const char *file, int line) {
     }
 }
 
+#ifdef CUDA
 void _check_cuda_call(CUresult status, const char *file, int line) {
     if (status != CUDA_SUCCESS) {
         const char *perrstr = 0;
@@ -67,3 +68,4 @@ void _check_cuda_call(CUresult status, const char *file, int line) {
         abort();
     }
 }
+#endif

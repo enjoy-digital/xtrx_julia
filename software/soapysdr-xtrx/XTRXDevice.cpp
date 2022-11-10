@@ -226,6 +226,7 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
         _dma_buf = NULL;
         break;
     case TargetDevice::GPU:
+#ifdef CUDA
         size_t dma_buffer_total_size =
             _dma_mmap_info.dma_tx_buf_count * _dma_mmap_info.dma_tx_buf_size +
             _dma_mmap_info.dma_rx_buf_count * _dma_mmap_info.dma_rx_buf_size;
@@ -237,6 +238,9 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
             &flag, CU_POINTER_ATTRIBUTE_SYNC_MEMOPS, (CUdeviceptr)_dma_buf));
 
         dma_init_gpu(_fd, _dma_buf, dma_buffer_total_size);
+#else
+        throw std::runtime_error("GPU DMA not supported");
+#endif
     }
 
     // NOTE: if initialization misses a setting/register, try experimenting in

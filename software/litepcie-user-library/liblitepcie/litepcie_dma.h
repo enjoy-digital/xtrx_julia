@@ -12,7 +12,9 @@
 
 #include <stdint.h>
 #include <poll.h>
+#ifdef CUDA
 #include <cuda.h>
+#endif
 #include "litepcie.h"
 
 struct litepcie_dma_ctrl {
@@ -25,7 +27,9 @@ struct litepcie_dma_ctrl {
     unsigned usr_read_buf_offset, usr_write_buf_offset;
     struct litepcie_ioctl_mmap_dma_info mmap_dma_info;
     struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
+    #ifdef CUDA
     CUdeviceptr gpu_buf;
+    #endif
 };
 
 void litepcie_dma_set_loopback(int fd, uint8_t loopback_enable);
