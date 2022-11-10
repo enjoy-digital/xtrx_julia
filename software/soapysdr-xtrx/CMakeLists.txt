@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.17)
 project(SoapySDRXTRX CXX C)
 
+option(USE_CUDA "Use CUDA for DMA" ON)
+
 
 ########################################################################
 ## LitePCIe discovery
@@ -56,6 +58,11 @@ find_package(CUDAToolkit)
 
 include_directories(${CUDAToolkit_INCLUDE_DIRS})
 
+
+if(USE_CUDA)
+    message(STATUS "Using CUDA")
+    add_compile_definitions(CUDA=true)
+endif()
 
 ########################################################################
 ## Test executable

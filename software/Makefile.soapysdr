@@ -26,6 +26,7 @@ $(SOAPYSDR_XTRX_LIB): $(SOAPYSDR_LIB) $(LITEPCIE_LIB) $(LMS7002M_LIB)
 	$(RM) -r soapysdr-xtrx/build
 	mkdir -p soapysdr-xtrx/build
 	cmake -DCUDAToolkit_ROOT=$(CUDA_PREFIX) \
+		  -DUSE_CUDA=$(USE_CUDA) \
 		  -DSoapySDR_ROOT=$(SOAPYSDR_PREFIX) \
 		  -DLMS7002M_ROOT=$(LMS7002M_PREFIX) \
 		  -DCMAKE_INSTALL_PREFIX=$(SOAPYSDR_XTRX_PREFIX) \
