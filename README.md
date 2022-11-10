@@ -91,6 +91,12 @@ cd build/litepcie-user-library
 ./litepcie_util dma_test
 ```
 
+For builds without an NVIDIA GPU:
+
+```
+make -C software litepcie-user-library -j$(nproc) USE_CUDA=false
+```
+
 If anything goes wrong, reset the device with:
 
 ```
@@ -108,6 +114,12 @@ installed automatically when you compile the SoapySDR driver:
 
 ```
 make -C software soapysdr-xtrx -j$(nproc)
+```
+
+to omit CUDA use:
+
+```
+make -C software soapysdr-xtrx -j$(nproc) USE_CUDA=false
 ```
 
 [> Julia Interfaces
