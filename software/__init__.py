@@ -16,8 +16,14 @@ def generate_litepcie_software_headers(soc, dst):
 
 def generate_litepcie_software(soc, dst, use_litepcie_software=False):
     if use_litepcie_software:
+        gen_module_dir = os.path.join(dst, "kernel")
+        our_module_dir = os.path.join(dst, "litepcie-kernel-module")
+        gen_user_dir = os.path.join(dst, "user")
+        our_user_dir = os.path.join(dst, "litepcie-user-library")
         cdir = os.path.abspath(os.path.dirname(__file__))
         os.system(f"cp {cdir}/__init__.py {cdir}/__init__.py.orig")
         copy_litepcie_software(dst)
+        os.system(f"mv -f {gen_module_dir} {our_module_dir}")
+        os.system(f"mv -f {gen_user_dir} {our_user_dir}")
         os.system(f"cp {cdir}/__init__.py.orig {cdir}/__init__.py")
-    generate_litepcie_software_headers(soc, os.path.join(dst, "litepcie-kernel-module"))
+    generate_litepcie_software_headers(soc, our_module_dir)
