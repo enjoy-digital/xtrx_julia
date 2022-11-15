@@ -6,6 +6,7 @@ DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
 FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 SoapySDR = "4fa426e6-03fd-45b2-b2dd-25f726820c03"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [extras]
@@ -14,4 +15,3 @@ Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
 test = ["Test", "JET"]
-

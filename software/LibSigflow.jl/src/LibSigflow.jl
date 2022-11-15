@@ -1,13 +1,18 @@
 module LibSigflow
 
-using SoapySDR, Printf, DSP, FFTW, Statistics
+using SoapySDR, Printf, DSP, FFTW, Statistics, StaticArrays
 
 export generate_stream, stream_data, membuffer, tee, flowgate, tripwire, rechunk,
        generate_chirp, stft, absshift, reduce, log_stream_xfer, collect_buffers,
-       collect_psd, consume_channel, spawn_channel_thread, streaming_filter
+       collect_psd, consume_channel, spawn_channel_thread, streaming_filter,
+       write_to_file, stream_channel, calc_periodograms, self_downconvert,
+       append_vectors, complex2float, MatrixSizedChannel, VectorSizedChannel,
+       AbstractSizedChannel
+
+include("sized_channel.jl")
 
 # Helper for turning a matrix into a tuple of views, for use with the SoapySDR API.
-function split_matrix(m::Matrix{T}) where {T <: Number}
+function split_matrix(m::AbstractMatrix{T}) where {T <: Number}
     return tuple(collect(view(m, :, idx) for idx in 1:size(m,2))...)
 end
 
@@ -36,8 +41,10 @@ end
 Use this convenience wrapper to invoke `f(out_channel)` on a separate thread, closing
 `out_channel` when `f()` finishes.
 """
-function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_flight::Int = 0)
-    out = Channel{Matrix{T}}(buffers_in_flight)
+function spawn_channel_thread(f::Function; T::DataType = ComplexF32,
+                              num_samples = nothing, num_antenna_channels = nothing,
+                              buffers_in_flight::Int = 0)
+    out = select_appropriate_channel(num_samples, num_antenna_channels, T, buffers_in_flight)
     Base.errormonitor(Threads.@spawn begin
         try
             f(out)
@@ -48,6 +55,15 @@ function spawn_channel_thread(f::Function; T::DataType = ComplexF32, buffers_in_
     return out
 end
 
+function select_appropriate_channel(num_samples::Nothing, num_antenna_channels::Nothing, T::DataType, sz)
+    Channel{Matrix{T}}(sz)
+end
+function select_appropriate_channel(num_samples::Nothing, num_antenna_channels::Int, T::DataType, sz)
+    VectorSizedChannel{T}(num_antenna_channels, sz)
+end
+function select_appropriate_channel(num_samples, num_antenna_channels, T::DataType, sz)
+    MatrixSizedChannel{T}(num_samples, num_antenna_channels, sz)
+end
 
 
 """
@@ -55,8 +71,8 @@ end
 
 Provide some buffering for realtime applications.
 """
-function membuffer(in::Channel{Matrix{T}}, max_size::Int = 16) where {T <: Number}
-    spawn_channel_thread(;T, buffers_in_flight=max_size) do out
+function membuffer(in::MatrixSizedChannel{T}, max_size::Int = 16) where {T <: Number}
+    spawn_channel_thread(;T, in.num_samples, in.num_antenna_channels, buffers_in_flight=max_size) do out
         consume_channel(in) do buff
             put!(out, buff)
         end
@@ -69,13 +85,13 @@ end
 
 Returns a `Channel` that allows multiple buffers to be 
 """
-function generate_stream(gen_buff!::Function, buff_size::Integer, num_channels::Integer;
+function generate_stream(gen_buff!::Function, num_samples::Integer, num_antenna_channels::Integer;
                          wrapper::Function = (f) -> f(),
                          buffers_in_flight::Integer = 1,
                          T = ComplexF32)
-    return spawn_channel_thread(;T, buffers_in_flight) do c
+    return spawn_channel_thread(;T, num_samples, num_antenna_channels, buffers_in_flight) do c
         wrapper() do
-            buff = Matrix{T}(undef, buff_size, num_channels)
+            buff = Matrix{T}(undef, num_samples, num_antenna_channels)
 
             # Keep on generating buffers until `gen_buff!()` returns `false`.
             while gen_buff!(buff)
@@ -146,7 +162,7 @@ Feed data from a `Channel` out onto the airwaves via a given `SoapySDR.Stream`.
 We suggest using `rechunk()` to convert to `s_tx.mtu`-sized buffers for maximum
 efficiency.
 """
-function stream_data(s_tx::SoapySDR.Stream{T}, in::Channel{Matrix{T}}) where {T <: Number}
+function stream_data(s_tx::SoapySDR.Stream{T}, in::MatrixSizedChannel{T}) where {T <: Number}
     Base.errormonitor(Threads.@spawn begin
         SoapySDR.activate!(s_tx) do
             # Consume channel and spit out into `s_tx`
@@ -183,7 +199,7 @@ is a succinct way to tell the user the of nature of the data contents, the
 date of capture, the frequency, sampling rate, gain, channel and format.
 The number of paths given must match the number of channels streaming in.
 """
-function stream_data(paths::Vector{<:AbstractString}, in::Channel{Matrix{T}}) where {T <: Number}
+function stream_data(paths::Vector{<:AbstractString}, in::MatrixSizedChannel{T}) where {T <: Number}
     fds = [open(path, write=true) for path in paths]
 
     return Base.errormonitor(Threads.@spawn begin
@@ -290,7 +306,7 @@ end
 Consumes the given channel, calling `f(data, args...)` where `data` is what is
 taken from the given channel.  Returns when the channel closes.
 """
-function consume_channel(f::Function, c::Channel, args...)
+function consume_channel(f::Function, c::AbstractChannel, args...)
     while !isempty(c) || isopen(c)
         local data
         try
@@ -310,9 +326,9 @@ end
 
 Returns two channels that synchronously output what comes in from `in`.
 """
-function tee(in::Channel{Matrix{T}}) where {T <: Number}
-    out1 = Channel{Matrix{T}}()
-    out2 = Channel{Matrix{T}}()
+function tee(in::MatrixSizedChannel{T}) where {T <: Number}
+    out1 = MatrixSizedChannel{T}(in.num_samples, in.num_antenna_channels)
+    out2 = MatrixSizedChannel{T}(in.num_samples, in.num_antenna_channels)
     Base.errormonitor(Threads.@spawn begin
         consume_channel(in) do data
             put!(out1, data)
@@ -329,8 +345,8 @@ end
 
 Converts a stream of chunks with size A to a stream of chunks with size B.
 """
-function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T <: Number}
-    return spawn_channel_thread(;T) do out
+function rechunk(in::MatrixSizedChannel{T}, chunk_size::Integer) where {T <: Number}
+    return spawn_channel_thread(;T, num_samples = chunk_size, in.num_antenna_channels) do out
         chunk_filled = 0
         chunk_idx = 1
         # We'll alternate between filling up these three chunks, then sending
@@ -339,26 +355,16 @@ function rechunk(in::Channel{Matrix{T}}, chunk_size::Integer) where {T <: Number
         # - One that was sent out to a downstream,
         # - One that is being held by an intermediary
         chunks = [
-            Matrix{T}(undef, 0, 0),
-            Matrix{T}(undef, 0, 0),
-            Matrix{T}(undef, 0, 0),
+            Matrix{T}(undef, chunk_size, in.num_antenna_channels),
+            Matrix{T}(undef, chunk_size, in.num_antenna_channels),
+            Matrix{T}(undef, chunk_size, in.num_antenna_channels),
         ]
-        function make_chunks!(num_channels)
-            if size(chunks[1], 2) != num_channels
-                for idx in eachindex(chunks)
-                    chunks[idx] = Matrix{T}(undef, chunk_size, num_channels)
-                end
-                global chunk_filled = 0
-                global chunk_idx = 1
-            end
-        end
         consume_channel(in) do data
             # Make the loop type-stable
             data = view(data, 1:size(data, 1), :)
 
             # Generate chunks until this data is done
             while !isempty(data)
-                make_chunks!(size(data, 2))
 
                 # How many samples are we going to consume from this buffer?
                 samples_wanted = (chunk_size - chunk_filled)
@@ -389,24 +395,14 @@ Stream an FFT of the buffers coming in on `Channel`.  Use `rechunk()` on the
 input to force a time window size.  Combine with `reduce` to perform
 grouping/reductions across time.
 """
-function stft(in::Channel{Matrix{T}};
+function stft(in::MatrixSizedChannel{T};
               window_function::Function = DSP.hanning) where {T <: Number}
-    BUFF = Matrix{T}(undef, 1, 1)
-    fft_plan = FFTW.plan_fft(BUFF)
-    win = T.([0])
-    function resize_data!(buff)
-        if size(BUFF) != size(buff)
-            BUFF = Matrix{T}(undef, size(buff)...)
-            fft_plan = FFTW.plan_fft(BUFF, 1)
-            win = T.(window_function(size(buff, 1)))
-        end
-    end
+    BUFF = Matrix{T}(undef, in.num_samples, in.num_antenna_channels)
+    fft_plan = FFTW.plan_fft(BUFF, 1)
+    win = T.(window_function(in.num_samples))
     
-    return spawn_channel_thread(;T) do out
-        buff_idx = 1
+    return spawn_channel_thread(;T, in.num_samples, in.num_antenna_channels) do out
         consume_channel(in) do buff
-            # Prepare our lazily-initialized memory/planning structures
-            resize_data!(buff)
 
             # Perform the frequency transform
             FFTW.mul!(BUFF, fft_plan, buff .* win)
@@ -416,9 +412,9 @@ function stft(in::Channel{Matrix{T}};
     return out
 end
 
-function absshift(in::Channel{Matrix{T}}) where {T <: Number}
+function absshift(in::MatrixSizedChannel{T}) where {T <: Number}
     # Note this coerces to Float32
-    spawn_channel_thread(; T=Float32) do out
+    spawn_channel_thread(; T=Float32, in.num_samples, in.num_antenna_channels) do out
         consume_channel(in) do buff
             val = FFTW.fftshift(Float32.(abs.(buff)))
             put!(out, val)
@@ -432,26 +428,61 @@ end
 Buffers `reduction_factor` buffers together into a vector, then calls
 `reductor(buffs)`, pushing the result out onto a `Channel`.
 """
-function Base.reduce(reductor::Function, in::Channel{Matrix{T}}, reduction_factor::Integer; verbose::Bool = _default_verbosity) where {T <: Number}
-    spawn_channel_thread(;T) do out
+function Base.reduce(reductor::Function, in::MatrixSizedChannel{T}, reduction_factor::Integer; verbose::Bool = _default_verbosity) where {T <: Number}
+    spawn_channel_thread(;T, in.num_samples, in.num_antenna_channels) do out
         buff_idx = 1
-        acc = Array{T,3}(undef, 0, 0, 0)
-        function make_acc!(buff)
-            if size(acc,1) != size(buff, 1) || size(acc,2) != size(buff,2)
-                if verbose
-                    @info("make_acc!", buff_size=size(buff), acc_size=size(acc))
-                end
-                acc = Array{T,3}(undef, size(buff,1), size(buff,2), reduction_factor)
-            end
-        end
+        acc = Array{T,3}(undef, in.num_samples, in.num_antenna_channels, reduction_factor)
         consume_channel(in) do buff
-            make_acc!(buff)
             acc[:, :, buff_idx] .= buff
             buff_idx += 1
             if buff_idx > reduction_factor
                 put!(out, reductor(acc))
                 buff_idx = 1
             end
+        end
+    end
+end
+
+"""
+    reduce(reductor::Function, in::Channel)
+
+reduces input by `reductor` function.
+"""
+function Base.reduce(reductor::Function, in::MatrixSizedChannel{T}) where {T <: Number}
+    spawn_channel_thread(;T, in.num_antenna_channels) do out
+        consume_channel(in) do signals
+            reduced_signal = map(reductor, eachcol(signals))
+            push!(out, reduced_signal)
+        end
+    end
+end
+
+"""
+    complex2float(complex2float_function::Function, in::Channel)
+
+Converts complex number to float
+"""
+function complex2float(complex2float_function::Function, in::MatrixSizedChannel{Complex{T}}) where {T <: Real}
+    spawn_channel_thread(;T, in.num_samples, in.num_antenna_channels) do out
+        consume_channel(in) do signals
+            push!(out, complex2float_function.(signals))
+        end
+    end
+end
+
+"""
+    append_vectors(in::Channel)
+
+Concat vectors to matrix
+"""
+function append_vectors(in::VectorSizedChannel{T}) where {T <: Number}
+    spawn_channel_thread(;T = Vector{T}, in.num_antenna_channels) do out
+        buffs = [Vector{T}(undef, 0) for _ in 1:in.num_antenna_channels]
+        consume_channel(in) do signals
+            foreach(buffs, signals) do buff, signal
+                push!(buff, signal)
+            end
+            push!(out, buffs)
         end
     end
 end
@@ -474,7 +505,28 @@ function collect_buffers(in::Channel{Matrix{T}}; max_buffers::Int = 4000) where 
     return cat(buffs...; dims=1)
 end
 
-function collect_psd(in::Channel{Matrix{T}}, freq_size::Integer, buff_size::Integer; accumulation = :max) where {T <: Number}
+"""
+    write_to_file(in::Channel, file_path)
+
+Consume a channel and write to file(s). Multiple channels will
+be written to different files. The channel number is appended
+to the filename.
+"""
+function write_to_file(in::MatrixSizedChannel{T}, file_path::String) where {T <: Number}
+    type_string = string(T)
+    streams = [open("$file_path$type_string$i.dat", "w") for i in 1:in.num_antenna_channels]
+    try
+        consume_channel(in) do buffs
+            foreach(eachcol(buffs), streams) do buff, stream
+                write(stream, buff)
+            end
+        end
+    finally
+        close.(streams)
+    end
+end
+
+function collect_psd(in::MatrixSizedChannel{T}, freq_size::Integer, buff_size::Integer; accumulation = :max) where {T <: Number}
     # Precaculate our reduction parameters
     reduction_factor = div(buff_size, freq_size)
     if accumulation == :max
@@ -504,8 +556,8 @@ end
 
 Logs messages summarizing our data transfer to stdout.
 """
-function log_stream_xfer(in::Channel{Matrix{T}}; title = "Xfer", print_period = 1.0, α = 0.7, extra_values::Function = () -> (;)) where {T <: Number}
-    spawn_channel_thread(;T) do out
+function log_stream_xfer(in::MatrixSizedChannel{T}; title = "Xfer", print_period = 1.0, α = 0.7, extra_values::Function = () -> (;)) where {T <: Number}
+    spawn_channel_thread(;T, in.num_samples, in.num_antenna_channels) do out
         start_time = time()
         last_print = start_time
         total_samples = 0
@@ -549,9 +601,9 @@ end
 
 Waits upon `ctl` before passing buffers through; useful for synchronization.
 """
-function flowgate(in::Channel{Matrix{T}}, ctl::Base.Event;
+function flowgate(in::MatrixSizedChannel{T}, ctl::Base.Event;
                   name::String = "flowgate", verbose::Bool = _default_verbosity) where {T <: Number}
-    spawn_channel_thread(;T) do out
+    spawn_channel_thread(;T, in.num_samples, in.num_antenna_channels) do out
         already_printed = false
         consume_channel(in) do buff
             wait(ctl)
@@ -569,9 +621,9 @@ end
 
 Notifies `ctl` when a buffer passes through.
 """
-function tripwire(in::Channel{Matrix{T}}, ctl::Base.Event;
+function tripwire(in::MatrixSizedChannel{T}, ctl::Base.Event;
                   name::String = "tripwire", verbose::Bool = _default_verbosity) where {T <: Number}
-    spawn_channel_thread(;T) do out
+    spawn_channel_thread(;T, in.num_samples, in.num_antenna_channels) do out
         already_printed = false
         consume_channel(in) do buff
             notify(ctl)
@@ -607,23 +659,45 @@ function un_sign_extend!(x::AbstractArray{Complex{Int16}})
     return x
 end
 
-function streaming_filter(in::Channel{Matrix{T}}, filter_coeffs::Vector{K}) where {T, K <: AbstractFloat}
-    spawn_channel_thread(;T=promote_type(T,K)) do out
+function streaming_filter(in::MatrixSizedChannel{T}, filter_coeffs::Vector{K}) where {T, K <: Number}
+    spawn_channel_thread(;T=promote_type(T,K), in.num_samples, in.num_antenna_channels) do out
         # Create N different filter state objects,
         # one for each channel we're filtering
-        filters = FIRFilter[]
-        function make_filters!(buff)
-            if length(filters) != size(buff,2)
-                filters = [FIRFilter(filter_coeffs) for _ in 1:size(buff,2)]
-            end
-        end
+        filters = [FIRFilter(filter_coeffs) for _ in 1:in.num_antenna_channels]
         consume_channel(in) do buff
-            make_filters!(buff)
             out_buff = Matrix{promote_type(T,K)}(undef, size(buff)...)
             for ch_idx in 1:size(buff,2)
                 buff_slice = view(buff, :, ch_idx)
                 out_buff_slice = view(out_buff, :, ch_idx)
                 filt!(out_buff_slice, filters[ch_idx], buff_slice)
+            end
+            put!(out, out_buff)
+        end
+    end
+end
+
+function self_downconvert(in::MatrixSizedChannel{T}, reference_channel = 1) where T <: Number
+    spawn_channel_thread(;T, in.num_samples, num_antenna_channels = in.num_antenna_channels - 1) do out
+        consume_channel(in) do signals
+            other_channels = filter(x -> x != reference_channel, 1:size(signals, 2))
+            out_buff = signals[:,other_channels] ./ signals[:,reference_channel]
+            put!(out, out_buff)
+        end
+    end
+end
+
+function calc_periodograms(in::MatrixSizedChannel{Complex{T}}; sampling_freq) where T <: Number
+    spawn_channel_thread(;
+        T = DSP.Periodograms.Periodogram{
+            T,
+            AbstractFFTs.Frequencies{Float64},
+            Vector{T}
+        },
+        in.num_antenna_channels
+    ) do out
+        consume_channel(in) do data
+            out_buff = map(eachcol(data)) do samples
+                periodogram(samples, fs = sampling_freq)
             end
             put!(out, out_buff)
         end

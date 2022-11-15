@@ -1,0 +1,15 @@
+name = "LibSigGUI"
+uuid = "d3b3b3cd-8983-4dfd-9422-9173a4c25e26"
+
+[deps]
+DSP = "717857b8-e6f2-59f4-9121-6e50c889abd2"
+FFTW = "7a1cc6ca-52ef-59f5-83cd-3a7055c09341"
+LibSigflow = "21776f6c-6667-6973-6269-6c2d78727478"
+Makie = "ee78f7c6-11fb-53f2-987a-cfe4a2b5a57a"
+
+[extras]
+JET = "c3a54625-cd67-489e-a8e7-0a5a0ff4e31b"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test", "JET"]
