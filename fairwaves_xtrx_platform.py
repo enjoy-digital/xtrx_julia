@@ -182,11 +182,11 @@ class Platform(XilinxPlatform):
     def __init__(self, nonpro=False):
         # Pro and non-Pro boards have different FPGA part numbers, but same pins
         if nonpro:
-            self.dev_string = "xc7a50tcpg236-2"
-            self.dev_short_string = "a50t"
-        else:
             self.dev_string = "xc7a35tcpg236-3"
             self.dev_short_string = "a35t"
+        else:
+            self.dev_string = "xc7a50tcpg236-2"
+            self.dev_short_string = "a50t"
 
         XilinxPlatform.__init__(self, self.dev_string, _io, toolchain="vivado")
 

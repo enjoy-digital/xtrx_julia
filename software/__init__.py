@@ -15,11 +15,11 @@ def generate_litepcie_software_headers(soc, dst):
     tools.write_to_file(os.path.join(dst, "mem.h"), mem_header)
 
 def generate_litepcie_software(soc, dst, use_litepcie_software=False):
+    gen_module_dir = os.path.join(dst, "kernel")
+    our_module_dir = os.path.join(dst, "litepcie-kernel-module")
+    gen_user_dir = os.path.join(dst, "user")
+    our_user_dir = os.path.join(dst, "litepcie-user-library")
     if use_litepcie_software:
-        gen_module_dir = os.path.join(dst, "kernel")
-        our_module_dir = os.path.join(dst, "litepcie-kernel-module")
-        gen_user_dir = os.path.join(dst, "user")
-        our_user_dir = os.path.join(dst, "litepcie-user-library")
         cdir = os.path.abspath(os.path.dirname(__file__))
         os.system(f"cp {cdir}/__init__.py {cdir}/__init__.py.orig")
         copy_litepcie_software(dst)
