@@ -495,7 +495,7 @@ into a giant array.  Automatically caps the number of buffers
 that can be slapped together at 4000, due to the inefficient
 implementation of `cat()` in Julia v1.8 and earlier.
 """
-function collect_buffers(in::Channel{Matrix{T}}; max_buffers::Int = 4000) where {T <: Number}
+function collect_buffers(in::MatrixSizedChannel{T}; max_buffers::Int = 4000) where {T <: Number}
     buffs = Matrix{T}[]
     consume_channel(in) do buff
         if size(buffs, 1) < max_buffers
