@@ -1056,6 +1056,18 @@ function LMS7002M_set_data_clock(self, fref, fout, factual)
 end
 
 """
+    LMS7002M_get_data_clock(self, fref)
+
+Get the current data clock rate.
+\\param self an instance of the LMS7002M driver
+\\param fref the reference clock frequency in Hz
+\\return the actual clock rate in Hz
+"""
+function LMS7002M_get_data_clock(self, fref)
+    ccall((:LMS7002M_get_data_clock, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, Cdouble), self, fref)
+end
+
+"""
     LMS7002M_set_nco_freq(self, direction, channel, freqRel)
 
 Set the frequency for the specified NCO.
@@ -1069,6 +1081,19 @@ Math: freqHz = freqRel * sampleRate
 """
 function LMS7002M_set_nco_freq(self, direction, channel, freqRel)
     ccall((:LMS7002M_set_nco_freq, libSoapyXTRX), Cvoid, (Ptr{LMS7002M_t}, LMS7002M_dir_t, LMS7002M_chan_t, Cdouble), self, direction, channel, freqRel)
+end
+
+"""
+    LMS7002M_get_nco_freq(self, direction, channel)
+
+Get the frequency for the specified NCO.
+Most users should use LMS7002M_xxtsp_get_freq() to handle bypasses.
+\\param self an instance of the LMS7002M driver
+\\param direction the direction LMS_TX or LMS_RX
+\\param channel the channel LMS_CHA or LMS_CHB
+"""
+function LMS7002M_get_nco_freq(self, direction, channel)
+    ccall((:LMS7002M_get_nco_freq, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_dir_t, LMS7002M_chan_t), self, direction, channel)
 end
 
 """
@@ -1127,6 +1152,19 @@ function LMS7002M_set_lo_freq(self, direction, fref, fout, factual)
 end
 
 """
+    LMS7002M_get_lo_freq(self, direction, fref)
+
+Get the actual LO frequency for the specified direction.
+\\param self an instance of the LMS7002M driver
+\\param direction the direction LMS_TX or LMS_RX
+\\param fref the reference clock frequency in Hz
+\\return the actual LO frequency in Hz
+"""
+function LMS7002M_get_lo_freq(self, direction, fref)
+    ccall((:LMS7002M_get_lo_freq, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_dir_t, Cdouble), self, direction, fref)
+end
+
+"""
     LMS7002M_sxt_to_sxr(self, enable)
 
 Share the transmit LO to the receive chain.
@@ -1179,6 +1217,17 @@ function LMS7002M_txtsp_set_freq(self, channel, freqRel)
 end
 
 """
+    LMS7002M_txtsp_get_freq(self, channel)
+
+Get the TX TSP CMIX frequency.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+"""
+function LMS7002M_txtsp_get_freq(self, channel)
+    ccall((:LMS7002M_txtsp_get_freq, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
+end
+
+"""
     LMS7002M_txtsp_tsg_const(self, channel, valI, valQ)
 
 Test constant signal level for TX TSP chain.
@@ -1228,6 +1277,20 @@ Correction values are maximum 1.0 (full scale).
 """
 function LMS7002M_txtsp_set_dc_correction(self, channel, valI, valQ)
     ccall((:LMS7002M_txtsp_set_dc_correction, libSoapyXTRX), Cvoid, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble, Cdouble), self, channel, valI, valQ)
+end
+
+"""
+    LMS7002M_txtsp_get_dc_correction(self, channel, valI, valQ)
+
+DC offset correction value for Tx TSP chain.
+Correction values are maximum 1.0 (full scale).
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\param valI the I correction value
+\\param valQ the Q correction value
+"""
+function LMS7002M_txtsp_get_dc_correction(self, channel, valI, valQ)
+    ccall((:LMS7002M_txtsp_get_dc_correction, libSoapyXTRX), Cvoid, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Ptr{Cdouble}, Ptr{Cdouble}), self, channel, valI, valQ)
 end
 
 """
@@ -1354,6 +1417,17 @@ function LMS7002M_trf_select_band(self, channel, band)
 end
 
 """
+    LMS7002M_trf_get_band(self, channel)
+
+Get the TX RF band (band 1 or band 2)
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+"""
+function LMS7002M_trf_get_band(self, channel)
+    ccall((:LMS7002M_trf_get_band, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
+end
+
+"""
     LMS7002M_trf_enable_loopback(self, channel, enable)
 
 Enable/disable the TX RF loopback to RFE.
@@ -1379,6 +1453,18 @@ function LMS7002M_trf_set_pad(self, channel, gain)
 end
 
 """
+    LMS7002M_trf_get_pad(self, channel)
+
+Get the PAD gain (loss) for the TX RF frontend.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\return the actual gain value in dB
+"""
+function LMS7002M_trf_get_pad(self, channel)
+    ccall((:LMS7002M_trf_get_pad, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
+end
+
+"""
     LMS7002M_trf_set_loopback_pad(self, channel, gain)
 
 Set the PAD gain (loss) for the TX RF frontend (in RX loopback mode).
@@ -1389,6 +1475,18 @@ Set the PAD gain (loss) for the TX RF frontend (in RX loopback mode).
 """
 function LMS7002M_trf_set_loopback_pad(self, channel, gain)
     ccall((:LMS7002M_trf_set_loopback_pad, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, gain)
+end
+
+"""
+    LMS7002M_trf_get_loopback_pad(self, channel)
+
+Get the PAD gain (loss) for the TX RF frontend (in RX loopback mode).
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\return the actual gain value in dB
+"""
+function LMS7002M_trf_get_loopback_pad(self, channel)
+    ccall((:LMS7002M_trf_get_loopback_pad, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
 end
 
 """
@@ -1428,6 +1526,18 @@ Math: freqHz = TSPRate * sampleRate
 """
 function LMS7002M_rxtsp_set_freq(self, channel, freqRel)
     ccall((:LMS7002M_rxtsp_set_freq, libSoapyXTRX), Cvoid, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, freqRel)
+end
+
+"""
+    LMS7002M_rxtsp_get_freq(self, channel)
+
+Get the RX TSP CMIX frequency.
+Math: freqHz = TSPRate * sampleRate
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+"""
+function LMS7002M_rxtsp_get_freq(self, channel)
+    ccall((:LMS7002M_rxtsp_get_freq, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
 end
 
 """
@@ -1481,7 +1591,7 @@ function LMS7002M_rxtsp_read_rssi(self, channel)
 end
 
 """
-    LMS7002M_rxtsp_set_dc_correction(self, channel, enabled, window)
+    LMS7002M_rxtsp_set_dc_correction(self, channel, enabled)
 
 DC offset correction value for Rx TSP chain.
 This subtracts out the average signal level.
@@ -1490,8 +1600,50 @@ This subtracts out the average signal level.
 \\param enabled true to enable correction
 \\param window average window length 0-7 (def 0)
 """
-function LMS7002M_rxtsp_set_dc_correction(self, channel, enabled, window)
-    ccall((:LMS7002M_rxtsp_set_dc_correction, libSoapyXTRX), Cvoid, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Bool, Cint), self, channel, enabled, window)
+function LMS7002M_rxtsp_set_dc_correction(self, channel, enabled)
+    ccall((:LMS7002M_rxtsp_set_dc_correction, libSoapyXTRX), Cvoid, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Bool), self, channel, enabled)
+end
+
+"""
+    LMS7002M_rxtsp_get_dc_correction(self, channel)
+
+Get the DC offset correction value for Rx TSP chain.
+This subtracts out the average signal level.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\param enabled true to enable correction
+\\return average window length 0-7 (def 0)
+"""
+function LMS7002M_rxtsp_get_dc_correction(self, channel)
+    ccall((:LMS7002M_rxtsp_get_dc_correction, libSoapyXTRX), Bool, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
+end
+
+"""
+    LMS7002M_rxtsp_set_dc_correction_window(self, channel, window)
+
+DC offset correction value for Rx TSP chain.
+This subtracts out the average signal level.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\param enabled true to enable correction
+\\param window average window length 0-7 (def 0)
+"""
+function LMS7002M_rxtsp_set_dc_correction_window(self, channel, window)
+    ccall((:LMS7002M_rxtsp_set_dc_correction_window, libSoapyXTRX), Cvoid, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cint), self, channel, window)
+end
+
+"""
+    LMS7002M_rxtsp_get_dc_correction_window(self, channel)
+
+Get the DC offset correction value for Rx TSP chain.
+This subtracts out the average signal level.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\param enabled true to enable correction
+\\return average window length 0-7 (def 0)
+"""
+function LMS7002M_rxtsp_get_dc_correction_window(self, channel)
+    ccall((:LMS7002M_rxtsp_get_dc_correction_window, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
 end
 
 """
@@ -1579,6 +1731,18 @@ function LMS7002M_rbb_set_pga(self, channel, gain)
 end
 
 """
+    LMS7002M_rbb_get_pga(self, channel)
+
+Get the PGA gain for the RX baseband.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\return the actual gain value in dB
+"""
+function LMS7002M_rbb_get_pga(self, channel)
+    ccall((:LMS7002M_rbb_get_pga, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
+end
+
+"""
     LMS7002M_rbb_set_pga_dist(self, channel, gain)
 
 Set the PGA gain for the RX baseband that is distributed.
@@ -1631,6 +1795,17 @@ function LMS7002M_rfe_set_path(self, channel, path)
 end
 
 """
+    LMS7002M_rfe_get_path(self, channel)
+
+Get the active input path for the RX RF frontend.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+"""
+function LMS7002M_rfe_get_path(self, channel)
+    ccall((:LMS7002M_rfe_get_path, libSoapyXTRX), Cint, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
+end
+
+"""
     LMS7002M_rfe_set_lna(self, channel, gain)
 
 Set the LNA gain for the RX RF frontend.
@@ -1641,6 +1816,18 @@ Set the LNA gain for the RX RF frontend.
 """
 function LMS7002M_rfe_set_lna(self, channel, gain)
     ccall((:LMS7002M_rfe_set_lna, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, gain)
+end
+
+"""
+    LMS7002M_rfe_get_lna(self, channel)
+
+Get the LNA gain for the RX RF frontend.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\return the actual gain value in dB
+"""
+function LMS7002M_rfe_get_lna(self, channel)
+    ccall((:LMS7002M_rfe_get_lna, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
 end
 
 """
@@ -1670,6 +1857,18 @@ function LMS7002M_rfe_set_loopback_lna(self, channel, gain)
 end
 
 """
+    LMS7002M_rfe_get_loopback_lna(self, channel)
+
+Get the LNA gain for the RX RF frontend (in TX loopback mode).
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\return the actual gain value in dB
+"""
+function LMS7002M_rfe_get_loopback_lna(self, channel)
+    ccall((:LMS7002M_rfe_get_loopback_lna, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
+end
+
+"""
     LMS7002M_rfe_set_tia(self, channel, gain)
 
 Set the TIA gain for the RX RF frontend.
@@ -1680,6 +1879,18 @@ Set the TIA gain for the RX RF frontend.
 """
 function LMS7002M_rfe_set_tia(self, channel, gain)
     ccall((:LMS7002M_rfe_set_tia, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t, Cdouble), self, channel, gain)
+end
+
+"""
+    LMS7002M_rfe_get_tia(self, channel)
+
+Get the TIA gain for the RX RF frontend.
+\\param self an instance of the LMS7002M driver
+\\param channel the channel LMS_CHA or LMS_CHB
+\\return the actual gain value in dB
+"""
+function LMS7002M_rfe_get_tia(self, channel)
+    ccall((:LMS7002M_rfe_get_tia, libSoapyXTRX), Cdouble, (Ptr{LMS7002M_t}, LMS7002M_chan_t), self, channel)
 end
 
 """
