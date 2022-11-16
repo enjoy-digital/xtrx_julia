@@ -17,6 +17,8 @@ function eval_gain_and_phase_mism(;
     Device(first(Devices())) do dev
 
         fig, close_stream_event = open_and_display_figure()
+        format = dev.rx[1].native_stream_format
+        fullscale = dev.tx[1].fullscale
 
         # Setup transmitter parameters
         ct = dev.tx[1]
@@ -39,23 +41,23 @@ function eval_gain_and_phase_mism(;
 
         stream_rx = SoapySDR.Stream(ComplexF32, dev.rx)
 
-        stream_tx = SoapySDR.Stream(ComplexF32, dev.tx)
+        stream_tx = SoapySDR.Stream(format, dev.tx)
 
         num_samples = stream_tx.mtu
         sample_range = 0:num_samples - 1
         signals = hcat(
-            cis.(2π * sample_range * baseband_frequency / sample_rate),
+            cis.(2π * sample_range * baseband_frequency / sample_rate) .* fullscale ./ 3,
             zeros(ComplexF64, num_samples)
         )
 
         # Construct streams
         phase = 0.0
         tx_go = Base.Event()
-        c_tx = generate_stream(num_samples, stream_tx.nchannels; T=ComplexF32) do buff
+        c_tx = generate_stream(num_samples, stream_tx.nchannels; T=format) do buff
             if close_stream_event.set
                 return false
             end
-            copyto!(buff, ComplexF32.(signals .* cis(phase)))
+            copyto!(buff, format.(round.(signals .* cis(phase))))
             phase = mod2pi(2π * num_samples * baseband_frequency / sample_rate + phase)
             return true
         end
@@ -69,7 +71,7 @@ function eval_gain_and_phase_mism(;
 #        periodograms = calc_periodograms(reshunked_channel, sampling_freq = upreferred(sample_rate / 1u"Hz"))
 #        plot_periodograms(periodograms; fig)
 
-
+#
         filter_coeffs = digitalfilter(DSP.Filters.ComplexBandpass(
             upreferred((baseband_frequency - 0.1u"MHz") / 1u"Hz"),
             upreferred((baseband_frequency + 0.1u"MHz") / 1u"Hz");

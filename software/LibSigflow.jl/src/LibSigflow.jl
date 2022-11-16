@@ -475,14 +475,14 @@ end
 
 Concat vectors to matrix
 """
-function append_vectors(in::VectorSizedChannel{T}) where {T <: Number}
+function append_vectors(in::VectorSizedChannel{T}) where {T}
     spawn_channel_thread(;T = Vector{T}, in.num_antenna_channels) do out
         buffs = [Vector{T}(undef, 0) for _ in 1:in.num_antenna_channels]
         consume_channel(in) do signals
             foreach(buffs, signals) do buff, signal
                 push!(buff, signal)
             end
-            push!(out, buffs)
+            push!(out, deepcopy(buffs)) # Copy to avoid race condition
         end
     end
 end
