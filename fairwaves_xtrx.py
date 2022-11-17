@@ -92,7 +92,8 @@ class BaseSoC(SoCCore):
         "xsync_spi"   : 27,
         "synchro"     : 28,
     }
-    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False, nonpro=False):
+
+    def __init__(self, sys_clk_freq=int(125e6), with_cpu=True, cpu_firmware=None, with_jtagbone=True, with_analyzer=False, nonpro=False, address_width=64):
         platform = fairwaves_xtrx.Platform(nonpro=nonpro)
 
         git_sha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).strip().decode('utf-8')
@@ -154,7 +155,7 @@ class BaseSoC(SoCCore):
             bar0_size  = 0x20000,
             cd         = "pcie"
         )
-        self.add_pcie(phy=self.pcie_phy, address_width=64, ndmas=1,
+        self.add_pcie(phy=self.pcie_phy, address_width=address_width, ndmas=1,
             with_dma_buffering = True, dma_buffering_depth=8192 if nonpro else 16384,
             with_dma_loopback  = True,
             with_synchronizer  = True,
@@ -254,6 +255,7 @@ def main():
     parser.add_argument("--build",  action="store_true", help="Build bitstream")
     parser.add_argument("--load",   action="store_true", help="Load bitstream")
     parser.add_argument("--flash",  action="store_true", help="Flash bitstream")
+    parser.add_argument("--address_width",  action="store_const", type=int, help="PCIe Address Width 64/32")
     parser.add_argument("--nonpro",  action="store_true", help="Generate a bitstream for the non-pro XTRX using the 35T FPGA")
     parser.add_argument("--driver", action="store_true", help="Generate PCIe driver from LitePCIe (override local version).")
     args = parser.parse_args()
@@ -262,7 +264,7 @@ def main():
     for run in range(2):
         prepare = (run == 0)
         build   = ((run == 1) & args.build)
-        soc = BaseSoC(cpu_firmware=None if prepare else "firmware/firmware.bin", nonpro=args.nonpro)
+        soc = BaseSoC(cpu_firmware=None if prepare else "firmware/firmware.bin", nonpro=args.nonpro, address_width=args.address_width)
         builder = Builder(soc, csr_csv="csr.csv")
         builder.build(run=build)
         if prepare:
