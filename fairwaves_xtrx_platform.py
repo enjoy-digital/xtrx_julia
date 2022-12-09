@@ -87,6 +87,7 @@ _io = [
     ("synchro", 0,
         Subsignal("pps_in", Pins("M3")), # GPIO0
         Subsignal("pps_out",Pins("L3")), # GPIO1
+        IOStandard("LVCMOS33"),
     ),
 
     # GPS.
@@ -175,9 +176,19 @@ _io = [
 class Platform(XilinxPlatform):
     default_clk_name   = "clk60"
     default_clk_period = 1e9/60e6
+    dev_string = ""
+    dev_short_string = ""
 
-    def __init__(self):
-        XilinxPlatform.__init__(self, "xc7a50tcpg236-2", _io, toolchain="vivado")
+    def __init__(self, nonpro=False):
+        # Pro and non-Pro boards have different FPGA part numbers, but same pins
+        if nonpro:
+            self.dev_string = "xc7a35tcpg236-3"
+            self.dev_short_string = "a35t"
+        else:
+            self.dev_string = "xc7a50tcpg236-2"
+            self.dev_short_string = "a50t"
+
+        XilinxPlatform.__init__(self, self.dev_string, _io, toolchain="vivado")
 
         self.toolchain.bitstream_commands = [
             "set_property BITSTREAM.CONFIG.UNUSEDPIN Pulldown [current_design]",
@@ -209,7 +220,7 @@ class Platform(XilinxPlatform):
         ]
 
     def create_programmer(self):
-        return OpenOCD("openocd_xc7_ft232.cfg", "bscan_spi_xc7a50t.bit")
+        return OpenOCD("openocd_xc7_ft232.cfg", "bscan_spi_xc7"+self.dev_short_string+".bit")
 
     def do_finalize(self, fragment):
         XilinxPlatform.do_finalize(self, fragment)
