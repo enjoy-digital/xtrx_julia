@@ -12,7 +12,6 @@
 
 #include <stdint.h>
 #include <sys/ioctl.h>
-#include <cuda.h>
 
 int64_t get_time_ms(void);
 
@@ -22,8 +21,5 @@ void litepcie_reload(int fd);
 
 #define checked_ioctl(...) _check_ioctl(ioctl(__VA_ARGS__), __FILE__, __LINE__)
 void _check_ioctl(int status, const char *file, int line);
-
-#define checked_cuda_call(status) { _check_cuda_call((status), __FILE__, __LINE__); }
-void _check_cuda_call(CUresult status, const char *file, int line);
 
 #endif /* LITEPCIE_LIB_HELPERS_H */

@@ -12,11 +12,10 @@
 
 #include <stdint.h>
 #include <poll.h>
-#include <cuda.h>
 #include "litepcie.h"
 
 struct litepcie_dma_ctrl {
-    uint8_t use_reader, use_writer, loopback, zero_copy, gpu;
+    uint8_t use_reader, use_writer, loopback, zero_copy;
     struct pollfd fds;
     char *buf_rd, *buf_wr;
     int64_t reader_hw_count, reader_sw_count;
@@ -25,7 +24,6 @@ struct litepcie_dma_ctrl {
     unsigned usr_read_buf_offset, usr_write_buf_offset;
     struct litepcie_ioctl_mmap_dma_info mmap_dma_info;
     struct litepcie_ioctl_mmap_dma_update mmap_dma_update;
-    CUdeviceptr gpu_buf;
 };
 
 void litepcie_dma_set_loopback(int fd, uint8_t loopback_enable);
@@ -35,7 +33,7 @@ void litepcie_dma_writer(int fd, uint8_t enable, int64_t *hw_count, int64_t *sw_
 uint8_t litepcie_request_dma(int fd, uint8_t reader, uint8_t writer);
 void litepcie_release_dma(int fd, uint8_t reader, uint8_t writer);
 
-int litepcie_dma_init(struct litepcie_dma_ctrl *dma, const char *device_name, uint8_t zero_copy, uint8_t gpu);
+int litepcie_dma_init(struct litepcie_dma_ctrl *dma, const char *device_name, uint8_t zero_copy);
 void litepcie_dma_cleanup(struct litepcie_dma_ctrl *dma);
 void litepcie_dma_process(struct litepcie_dma_ctrl *dma);
 char *litepcie_dma_next_read_buffer(struct litepcie_dma_ctrl *dma);
