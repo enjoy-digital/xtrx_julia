@@ -158,10 +158,10 @@ class BaseSoC(SoCCore):
             cd         = "pcie"
         )
         self.add_pcie(phy=self.pcie_phy, address_width=address_width, ndmas=1,
-            with_dma_buffering = True, dma_buffering_depth=8192 if nonpro else 16384,
-            with_dma_loopback  = True,
-            with_synchronizer  = True,
-            with_msi           = True
+            with_dma_buffering    = True, dma_buffering_depth=8192 if nonpro else 16384,
+            with_dma_loopback     = True,
+            with_dma_synchronizer = True,
+            with_msi              = True
         )
 
         # I2C Bus0:
@@ -246,9 +246,10 @@ class BaseSoC(SoCCore):
             )
 
         # Timing Constraints/False Paths -----------------------------------------------------------
-        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks       icap_clk] -asynchronous")
-        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks     vctcxo_clk] -asynchronous")
-        platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks lms7002m_mclk1] -asynchronous")
+        # FIXME
+        #platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks       icap_clk] -asynchronous")
+        #platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks     vctcxo_clk] -asynchronous")
+        #platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks lms7002m_mclk1] -asynchronous")
 
 # Build --------------------------------------------------------------------------------------------
 
