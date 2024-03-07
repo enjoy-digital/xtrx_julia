@@ -1324,7 +1324,11 @@ static int litepcie_pci_probe(struct pci_dev *dev, const struct pci_device_id *i
 	dev_info(&dev->dev, "Version %s\n", fpga_identifier);
 
 	pci_set_master(dev);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 18, 0)
 	ret = pci_set_dma_mask(dev, DMA_BIT_MASK(32));
+#else
+	ret = dma_set_mask(&dev->dev, DMA_BIT_MASK(DMA_ADDR_WIDTH));
+#endif
 	if (ret) {
 		dev_err(&dev->dev, "Failed to set DMA mask\n");
 		goto fail1;
@@ -1542,7 +1546,11 @@ static int __init litepcie_module_init(void)
 {
 	int ret;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
 	litepcie_class = class_create(THIS_MODULE, LITEPCIE_NAME);
+#else
+	litepcie_class = class_create(LITEPCIE_NAME);
+#endif
 	if (!litepcie_class) {
 		ret = -EEXIST;
 		pr_err(" Failed to create class\n");
