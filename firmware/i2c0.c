@@ -11,14 +11,6 @@
 #define I2C0_PERIOD_CYCLES (CONFIG_CLOCK_FREQUENCY / I2C0_FREQ_HZ)
 #define I2C0_DELAY(n)	  cdelay((n)*I2C0_PERIOD_CYCLES/4)
 
-static inline void cdelay(int i)
-{
-	while(i > 0) {
-		__asm__ volatile(CONFIG_CPU_NOP);
-		i--;
-	}
-}
-
 static inline void i2c0_oe_scl_sda(bool oe, bool scl, bool sda)
 {
 	i2c0_w_write(
