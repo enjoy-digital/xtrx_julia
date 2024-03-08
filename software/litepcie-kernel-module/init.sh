@@ -1,23 +1,38 @@
 #!/bin/sh
 # TODO: use udev instead
 
-DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
-
+# Check if litepcie module is already installed.
 FOUND=$(lsmod | grep litepcie)
 if [ "$FOUND" != "" ] ; then
-    echo "Module already installed"
+    echo "litepcie module already installed."
     exit 0
 fi
 
-INS=$(sudo insmod ${DIR}/litepcie.ko 2>&1)
+# Automatically remove liteuart module if installed.
+FOUND=$(lsmod | grep liteuart)
+if [ "$FOUND" != "" ] ; then
+    rmmod liteuart.ko
+fi
+
+# Install litepcie module.
+INS=$(insmod litepcie.ko 2>&1)
 if [ "$?" != "0" ] ; then
     ERR=$(echo $INS | sed -s "s/.*litepcie.ko: //")
     case $ERR in
     'Invalid module format')
-        echo "Kernel may have changed, please rebuild the kernel modules"
+        set -e
+        echo "Kernel may have changed, try to rebuild module"
+        make -s clean
+        make -s
+        insmod litepcie.ko
+        set +e
         ;;
     'No such file or directory')
+        set -e
         echo "Module not compiled"
+        make -s
+        insmod litepcie.ko
+        set +e
         ;;
     'Required key not available')
         echo "Can't insert kernel module, secure boot is probably enabled"
@@ -30,9 +45,11 @@ if [ "$?" != "0" ] ; then
     esac
 fi
 
-sudo insmod ${DIR}/liteuart.ko
+# Install liteuart module.
+insmod liteuart.ko
 
+# Change permissions on litepcie created devices.
 for i in `seq 0 16` ; do
-    sudo chmod 666 /dev/litepcie$i > /dev/null 2>&1 || true
+    chmod 666 /dev/litepcie$i > /dev/null 2>&1
 done
 
