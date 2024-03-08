@@ -26,10 +26,10 @@
 
 enum class TargetDevice { CPU, GPU };
 
-class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
+class DLL_EXPORT SoapyLiteXXTRX : public SoapySDR::Device {
   public:
-    SoapyXTRX(const SoapySDR::Kwargs &args);
-    ~SoapyXTRX(void);
+    SoapyLiteXXTRX(const SoapySDR::Kwargs &args);
+    ~SoapyLiteXXTRX(void);
 
     // Identification API
     std::string getDriverKey(void) const { return "XTRX over LitePCIe"; }
@@ -285,7 +285,6 @@ class DLL_EXPORT SoapyXTRX : public SoapySDR::Device {
     SoapySDR::Stream *const RX_STREAM = (SoapySDR::Stream *)0x2;
 
     struct litepcie_ioctl_mmap_dma_info _dma_mmap_info;
-    TargetDevice _dma_target;
     void *_dma_buf;
 
     struct Stream {

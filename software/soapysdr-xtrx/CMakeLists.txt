@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.17)
-project(SoapySDRXTRX CXX C)
+project(SoapySDRLiteXXTRX CXX C)
 
 
 ########################################################################
@@ -49,22 +49,12 @@ include_directories(${LMS7002M_INCLUDE_DIR})
 
 
 ########################################################################
-## CUDA discovery
-########################################################################
-
-find_package(CUDAToolkit REQUIRED)
-
-include_directories(${CUDAToolkit_INCLUDE_DIRS})
-
-
-########################################################################
 ## Test executable
 ########################################################################
 
 add_executable(main main.c)
 
-target_link_libraries(main ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} CUDA::cuda_driver m)
-
+target_link_libraries(main ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} m)
 
 ########################################################################
 ## SoapySDR library
@@ -73,8 +63,8 @@ target_link_libraries(main ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} CUDA::cuda_dr
 find_package(SoapySDR "0.2.1" REQUIRED)
 
 SOAPY_SDR_MODULE_UTIL(
-    TARGET SoapyXTRX
+    TARGET SoapyLiteXXTRX
     SOURCES XTRXDevice.cpp Streaming.cpp
-    LIBRARIES ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} CUDA::cuda_driver m
+    LIBRARIES ${LITEPCIE_LIBRARY} ${LMS7002M_LIBRARY} m
 )
 

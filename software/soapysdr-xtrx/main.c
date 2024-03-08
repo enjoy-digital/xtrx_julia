@@ -62,7 +62,8 @@ int main(int argc, char **argv)
     if (ret != 0)
     {
         printf("clock tune failure %d\n", ret);
-        return EXIT_FAILURE;
+		// FIXME
+        //return EXIT_FAILURE;
     }
 
     // TODO

@@ -15,7 +15,7 @@
 #include <thread>
 #include <sys/mman.h>
 
-SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
+SoapySDR::Stream *SoapyLiteXXTRX::setupStream(const int direction,
                                          const std::string &format,
                                          const std::vector<size_t> &channels,
                                          const SoapySDR::Kwargs &/*args*/) {
@@ -93,7 +93,7 @@ SoapySDR::Stream *SoapyXTRX::setupStream(const int direction,
     }
 }
 
-void SoapyXTRX::closeStream(SoapySDR::Stream *stream) {
+void SoapyLiteXXTRX::closeStream(SoapySDR::Stream *stream) {
     std::lock_guard<std::mutex> lock(_mutex);
 
     if (stream == RX_STREAM) {
@@ -113,7 +113,7 @@ void SoapyXTRX::closeStream(SoapySDR::Stream *stream) {
     }
 }
 
-int SoapyXTRX::activateStream(SoapySDR::Stream *stream, const int /*flags*/,
+int SoapyLiteXXTRX::activateStream(SoapySDR::Stream *stream, const int /*flags*/,
                               const long long /*timeNs*/,
                               const size_t /*numElems*/) {
     if (stream == RX_STREAM) {
@@ -129,7 +129,7 @@ int SoapyXTRX::activateStream(SoapySDR::Stream *stream, const int /*flags*/,
     return 0;
 }
 
-int SoapyXTRX::deactivateStream(SoapySDR::Stream *stream, const int /*flags*/,
+int SoapyLiteXXTRX::deactivateStream(SoapySDR::Stream *stream, const int /*flags*/,
                                 const long long /*timeNs*/) {
     if (stream == RX_STREAM) {
         // disable the DMA engine
@@ -146,7 +146,7 @@ int SoapyXTRX::deactivateStream(SoapySDR::Stream *stream, const int /*flags*/,
  * Direct buffer API
  ******************************************************************/
 
-size_t SoapyXTRX::getStreamMTU(SoapySDR::Stream *stream) const {
+size_t SoapyLiteXXTRX::getStreamMTU(SoapySDR::Stream *stream) const {
     if (stream == RX_STREAM)
         // each sample is 2 * Complex{Int16}
         return _dma_mmap_info.dma_rx_buf_size/(2*2*sizeof(int16_t));
@@ -156,7 +156,7 @@ size_t SoapyXTRX::getStreamMTU(SoapySDR::Stream *stream) const {
         throw std::runtime_error("SoapySDR::getStreamMTU(): invalid stream");
 }
 
-size_t SoapyXTRX::getNumDirectAccessBuffers(SoapySDR::Stream *stream) {
+size_t SoapyLiteXXTRX::getNumDirectAccessBuffers(SoapySDR::Stream *stream) {
     if (stream == RX_STREAM)
         return _dma_mmap_info.dma_rx_buf_count;
     else if (stream == TX_STREAM)
@@ -165,30 +165,14 @@ size_t SoapyXTRX::getNumDirectAccessBuffers(SoapySDR::Stream *stream) {
         throw std::runtime_error("SoapySDR::getNumDirectAccessBuffers(): invalid stream");
 }
 
-int SoapyXTRX::getDirectAccessBufferAddrs(SoapySDR::Stream *stream,
+int SoapyLiteXXTRX::getDirectAccessBufferAddrs(SoapySDR::Stream *stream,
                                           const size_t handle, void **buffs) {
-    if (_dma_target == TargetDevice::CPU && stream == RX_STREAM)
+    if (stream == RX_STREAM)
         buffs[0] =
             (char *)_rx_stream.buf + handle * _dma_mmap_info.dma_rx_buf_size;
-    else if (_dma_target == TargetDevice::CPU && stream == TX_STREAM)
+    else if (stream == TX_STREAM)
         buffs[0] =
             (char *)_tx_stream.buf + handle * _dma_mmap_info.dma_tx_buf_size;
-    // XXX: this is a leaky abstraction, exposing how the LitePCIe kernel driver
-    //      manages its DMA buffers. normally this is hidden behind mmap,
-    //      but we can't use its virtual addresses on the GPU.
-    //
-    //      alternatively, if we could re-map the mmap buffers into GPU address
-    //      space, we could keep everything as it is, but cuMemHostRegister
-    //      fails with INVALID_VALUE on such inputs (presumably because the
-    //      underlying pages are already pointing to physical GPU memory).
-    else if (_dma_target == TargetDevice::GPU &&
-             (stream == RX_STREAM || stream == TX_STREAM))
-        buffs[0] = (char *)_dma_buf +
-                   // Index by (tx, rx) buffer tuples
-                   handle * (_dma_mmap_info.dma_tx_buf_size +
-                             _dma_mmap_info.dma_rx_buf_size) +
-                   // Index past the tx buffer tuple element, if we want the `rx` buffer
-                   (stream == RX_STREAM ? _dma_mmap_info.dma_tx_buf_size : 0);
     else
         throw std::runtime_error(
             "SoapySDR::getDirectAccessBufferAddrs(): invalid stream");
@@ -212,7 +196,7 @@ int SoapyXTRX::getDirectAccessBufferAddrs(SoapySDR::Stream *stream,
 #define DETECT_EVERY_OVERFLOW  true
 #define DETECT_EVERY_UNDERFLOW true
 
-int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
+int SoapyLiteXXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
                                  const void **buffs, int &flags,
                                  long long &/*timeNs*/, const long timeoutUs) {
     if (stream != RX_STREAM)
@@ -236,7 +220,7 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
         int ret = poll(&_rx_stream.fds, 1, timeoutUs / 1000);
         if (ret < 0)
             throw std::runtime_error(
-                "SoapyXTRX::acquireReadBuffer(): poll failed, " +
+                "SoapyLiteXXTRX::acquireReadBuffer(): poll failed, " +
                 std::string(strerror(errno)));
         else if (ret == 0) {
             return SOAPY_SDR_TIMEOUT;
@@ -274,7 +258,7 @@ int SoapyXTRX::acquireReadBuffer(SoapySDR::Stream *stream, size_t &handle,
     }
 }
 
-void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream */*stream*/, size_t handle) {
+void SoapyLiteXXTRX::releaseReadBuffer(SoapySDR::Stream */*stream*/, size_t handle) {
     assert(handle != (size_t)-1 && "Attempt to release an invalid buffer (e.g., from an overflow)");
 
     // update the DMA counters
@@ -283,7 +267,7 @@ void SoapyXTRX::releaseReadBuffer(SoapySDR::Stream */*stream*/, size_t handle) {
     checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_WRITER_UPDATE, &mmap_dma_update);
 }
 
-int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
+int SoapyLiteXXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
                                   void **buffs, const long timeoutUs) {
     if (stream != TX_STREAM)
         return SOAPY_SDR_STREAM_ERROR;
@@ -307,7 +291,7 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
         int ret = poll(&_tx_stream.fds, 1, timeoutUs / 1000);
         if (ret < 0)
             throw std::runtime_error(
-                "SoapyXTRX::acquireWriteBuffer(): poll failed, " +
+                "SoapyLiteXXTRX::acquireWriteBuffer(): poll failed, " +
                 std::string(strerror(errno)));
         else if (ret == 0)
             return SOAPY_SDR_TIMEOUT;
@@ -334,7 +318,7 @@ int SoapyXTRX::acquireWriteBuffer(SoapySDR::Stream *stream, size_t &handle,
     }
 }
 
-void SoapyXTRX::releaseWriteBuffer(SoapySDR::Stream */*stream*/, size_t handle,
+void SoapyLiteXXTRX::releaseWriteBuffer(SoapySDR::Stream */*stream*/, size_t handle,
                                    const size_t /*numElems*/, int &/*flags*/,
                                    const long long /*timeNs*/) {
     // XXX: inspect user-provided numElems and flags, and act upon them?
@@ -375,7 +359,7 @@ void interleave(const void *src, int8_t *dst, uint32_t len, std::string format, 
     }
 }
 
-int SoapyXTRX::readStream(
+int SoapyLiteXXTRX::readStream(
     SoapySDR::Stream *stream,
     void *const *buffs,
     const size_t numElems,
@@ -454,7 +438,7 @@ int SoapyXTRX::readStream(
     return returnedElems;
 }
 
-int SoapyXTRX::writeStream(
+int SoapyLiteXXTRX::writeStream(
     SoapySDR::Stream *stream,
     const void *const *buffs,
     const size_t numElems,

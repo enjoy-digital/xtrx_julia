@@ -54,25 +54,17 @@ void dma_init_cpu(int fd) {
     checked_ioctl(fd, LITEPCIE_IOCTL_DMA_INIT, &m);
 }
 
-void dma_init_gpu(int fd, void *addr, size_t size) {
-    struct litepcie_ioctl_dma_init m;
-    m.use_gpu = 1;
-    m.gpu_addr = (uint64_t)addr;
-    m.gpu_size = size;
-    checked_ioctl(fd, LITEPCIE_IOCTL_DMA_INIT, &m);
-}
-
 void dma_set_loopback(int fd, bool loopback_enable) {
     struct litepcie_ioctl_dma m;
     m.loopback_enable = loopback_enable ? 1 : 0;
     checked_ioctl(fd, LITEPCIE_IOCTL_DMA, &m);
 }
 
-SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
+SoapyLiteXXTRX::SoapyLiteXXTRX(const SoapySDR::Kwargs &args)
     : _fd(-1), _lms(NULL), _masterClockRate(1.0e6), _refClockRate(26e6) {
     LMS7_set_log_handler(&customLogHandler);
     LMS7_set_log_level(LMS7_TRACE);
-    SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX initializing...");
+    SoapySDR::logf(SOAPY_SDR_INFO, "SoapyLiteXXTRX initializing...");
     setvbuf(stdout, NULL, _IOLBF, 0);
 
     // open LitePCIe descriptor
@@ -83,7 +75,7 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     std::string path = args.at("path");
     _fd = open(path.c_str(), O_RDWR);
     if (_fd < 0)
-        throw std::runtime_error("SoapyXTRX(): failed to open " + path);
+        throw std::runtime_error("SoapyLiteXXTRX(): failed to open " + path);
 
     SoapySDR::logf(SOAPY_SDR_INFO, "Opened devnode %s, serial %s", path.c_str(), getXTRXSerial(_fd).c_str());
     // reset the LMS7002M
@@ -103,9 +95,16 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     );
 
     // reset other FPGA peripherals
+#if 1
+	// GGM Test
+    writeSetting("FPGA_DMA_LOOPBACK_ENABLE", "TRUE");
+    writeSetting("FPGA_TX_PATTERN", "1");
+    writeSetting("FPGA_RX_PATTERN", "1");
+#else
     writeSetting("FPGA_DMA_LOOPBACK_ENABLE", "FALSE");
     writeSetting("FPGA_TX_PATTERN", "0");
     writeSetting("FPGA_RX_PATTERN", "0");
+#endif
     writeSetting("FPGA_RX_DELAY", "16");
     writeSetting("FPGA_TX_DELAY", "16");
 
@@ -113,7 +112,7 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
     _lms = LMS7002M_create(litepcie_interface_transact, &_fd);
     if (_lms == NULL)
         throw std::runtime_error(
-            "SoapyXTRX(): failed to LMS7002M_create()");
+            "SoapyLiteXXTRX(): failed to LMS7002M_create()");
     LMS7002M_reset(_lms);
     LMS7002M_set_spi_mode(_lms, 4);
 
@@ -191,50 +190,25 @@ SoapyXTRX::SoapyXTRX(const SoapySDR::Kwargs &args)
 
     // set-up the DMA
     checked_ioctl(_fd, LITEPCIE_IOCTL_MMAP_DMA_INFO, &_dma_mmap_info);
-    _dma_target = TargetDevice::CPU;
-    if (args.count("device") != 0) {
-        if (args.at("device") == "CPU")
-            _dma_target = TargetDevice::CPU;
-        else if (args.at("device") == "GPU")
-            _dma_target = TargetDevice::GPU;
-        else
-            throw std::runtime_error("invalid device");
-    }
-    switch (_dma_target) {
-    case TargetDevice::CPU:
-        dma_init_cpu(_fd);
-        _dma_buf = NULL;
-        break;
-    case TargetDevice::GPU:
-        size_t dma_buffer_total_size =
-            _dma_mmap_info.dma_tx_buf_count * _dma_mmap_info.dma_tx_buf_size +
-            _dma_mmap_info.dma_rx_buf_count * _dma_mmap_info.dma_rx_buf_size;
-        checked_cuda_call(
-            cuMemAlloc((CUdeviceptr *)&_dma_buf, dma_buffer_total_size));
-
-        unsigned int flag = 1;
-        checked_cuda_call(cuPointerSetAttribute(
-            &flag, CU_POINTER_ATTRIBUTE_SYNC_MEMOPS, (CUdeviceptr)_dma_buf));
-
-        dma_init_gpu(_fd, _dma_buf, dma_buffer_total_size);
-    }
+    dma_init_cpu(_fd);
+    _dma_buf = NULL;
 
     // NOTE: if initialization misses a setting/register, try experimenting in
     //       LimeGUI and loading that register dump here
     if (args.count("ini") != 0) {
         if (LMS7002M_load_ini(_lms, args.at("ini").c_str())){
-            SoapySDR::log(SOAPY_SDR_ERROR, "SoapyXTRX configuration load failed");
+            SoapySDR::log(SOAPY_SDR_ERROR, "SoapyLiteXXTRX configuration load failed");
             throw std::runtime_error("failed to load XTRX configuration");
         } else {
-            SoapySDR::logf(SOAPY_SDR_INFO, "SoapyXTRX configuration loaded from: %s", args.at("ini").c_str());
+            SoapySDR::logf(SOAPY_SDR_INFO, "SoapyLiteXXTRX configuration loaded from: %s", args.at("ini").c_str());
 
         }
     }
 
-    SoapySDR::log(SOAPY_SDR_INFO, "SoapyXTRX initialization complete");
+    SoapySDR::log(SOAPY_SDR_INFO, "SoapyLiteXXTRX initialization complete");
 }
 
-SoapyXTRX::~SoapyXTRX(void) {
+SoapyLiteXXTRX::~SoapyLiteXXTRX(void) {
     SoapySDR::log(SOAPY_SDR_INFO, "Power down and cleanup");
     if (_rx_stream.opened) {
         litepcie_release_dma(_fd, 0, 1);
@@ -278,7 +252,7 @@ SoapyXTRX::~SoapyXTRX(void) {
  * Identification API
  **********************************************************************/
 
-SoapySDR::Kwargs SoapyXTRX::getHardwareInfo(void) const {
+SoapySDR::Kwargs SoapyLiteXXTRX::getHardwareInfo(void) const {
     SoapySDR::Kwargs args;
 
     char fpga_identification[256];
@@ -295,7 +269,7 @@ SoapySDR::Kwargs SoapyXTRX::getHardwareInfo(void) const {
  * Antenna API
  ******************************************************************/
 
-std::vector<std::string> SoapyXTRX::listAntennas(const int direction,
+std::vector<std::string> SoapyLiteXXTRX::listAntennas(const int direction,
                                                  const size_t) const {
     std::vector<std::string> ants;
     if (direction == SOAPY_SDR_RX) {
@@ -312,7 +286,7 @@ std::vector<std::string> SoapyXTRX::listAntennas(const int direction,
     return ants;
 }
 
-void SoapyXTRX::setAntenna(const int direction, const size_t channel,
+void SoapyLiteXXTRX::setAntenna(const int direction, const size_t channel,
                            const std::string &name) {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -336,7 +310,7 @@ void SoapyXTRX::setAntenna(const int direction, const size_t channel,
         else if (name == "LB2")
             path = LMS7002M_RFE_LB2;
         else
-            throw std::runtime_error("SoapyXTRX::setAntenna(RX, " + name +
+            throw std::runtime_error("SoapyLiteXXTRX::setAntenna(RX, " + name +
                                      ") - unknown antenna name");
         LMS7002M_rfe_set_path(_lms, ch2LMS(channel), path);
         litepcie_writel(_fd, CSR_RF_SWITCHES_RX_ADDR, rx_rf_switch);
@@ -353,7 +327,7 @@ void SoapyXTRX::setAntenna(const int direction, const size_t channel,
             tx_rf_switch = 0;
         }
         else
-            throw std::runtime_error("SoapyXTRX::setAntenna(TX, " + name +
+            throw std::runtime_error("SoapyLiteXXTRX::setAntenna(TX, " + name +
                                      ") - unknown antenna name");
         LMS7002M_trf_select_band(_lms, ch2LMS(channel), band);
         litepcie_writel(_fd, CSR_RF_SWITCHES_TX_ADDR, tx_rf_switch);
@@ -361,7 +335,7 @@ void SoapyXTRX::setAntenna(const int direction, const size_t channel,
     _cachedAntValues[direction][channel] = name;
 }
 
-std::string SoapyXTRX::getAntenna(const int direction,
+std::string SoapyLiteXXTRX::getAntenna(const int direction,
                                   const size_t channel) const {
     return _cachedAntValues.at(direction).at(channel);
 }
@@ -371,7 +345,7 @@ std::string SoapyXTRX::getAntenna(const int direction,
  * Frontend corrections API
  ******************************************************************/
 
-bool SoapyXTRX::hasDCOffsetMode(const int direction,
+bool SoapyLiteXXTRX::hasDCOffsetMode(const int direction,
                                 const size_t /*channel*/) const {
     if (direction == SOAPY_SDR_RX) {
         return true;
@@ -380,7 +354,7 @@ bool SoapyXTRX::hasDCOffsetMode(const int direction,
     }
 }
 
-void SoapyXTRX::setDCOffsetMode(const int direction, const size_t channel,
+void SoapyLiteXXTRX::setDCOffsetMode(const int direction, const size_t channel,
                                 const bool automatic) {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -393,7 +367,7 @@ void SoapyXTRX::setDCOffsetMode(const int direction, const size_t channel,
     }
 }
 
-bool SoapyXTRX::getDCOffsetMode(const int direction,
+bool SoapyLiteXXTRX::getDCOffsetMode(const int direction,
                                 const size_t channel) const {
     if (direction == SOAPY_SDR_RX) {
         return _rxDCOffsetMode;
@@ -402,7 +376,7 @@ bool SoapyXTRX::getDCOffsetMode(const int direction,
     }
 }
 
-bool SoapyXTRX::hasDCOffset(const int direction,
+bool SoapyLiteXXTRX::hasDCOffset(const int direction,
                             const size_t /*channel*/) const {
 
     if (direction == SOAPY_SDR_TX) {
@@ -412,7 +386,7 @@ bool SoapyXTRX::hasDCOffset(const int direction,
     }
 }
 
-void SoapyXTRX::setDCOffset(const int direction, const size_t channel,
+void SoapyLiteXXTRX::setDCOffset(const int direction, const size_t channel,
                             const std::complex<double> &offset) {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -425,7 +399,7 @@ void SoapyXTRX::setDCOffset(const int direction, const size_t channel,
     }
 }
 
-std::complex<double> SoapyXTRX::getDCOffset(const int direction,
+std::complex<double> SoapyLiteXXTRX::getDCOffset(const int direction,
                                             const size_t channel) const {
     if (direction == SOAPY_SDR_TX) {
         return _txDCOffset;
@@ -434,7 +408,7 @@ std::complex<double> SoapyXTRX::getDCOffset(const int direction,
     }
 }
 
-void SoapyXTRX::setIQBalance(const int direction, const size_t channel,
+void SoapyLiteXXTRX::setIQBalance(const int direction, const size_t channel,
                              const std::complex<double> &balance) {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -448,7 +422,7 @@ void SoapyXTRX::setIQBalance(const int direction, const size_t channel,
     _cachedIqBalValues[direction][channel] = balance;
 }
 
-std::complex<double> SoapyXTRX::getIQBalance(const int direction,
+std::complex<double> SoapyLiteXXTRX::getIQBalance(const int direction,
                                              const size_t channel) const {
     return _cachedIqBalValues.at(direction).at(channel);
 }
@@ -458,7 +432,7 @@ std::complex<double> SoapyXTRX::getIQBalance(const int direction,
  * Gain API
  ******************************************************************/
 
-std::vector<std::string> SoapyXTRX::listGains(const int direction,
+std::vector<std::string> SoapyLiteXXTRX::listGains(const int direction,
                                               const size_t) const {
     std::vector<std::string> gains;
     if (direction == SOAPY_SDR_RX) {
@@ -472,11 +446,11 @@ std::vector<std::string> SoapyXTRX::listGains(const int direction,
     return gains;
 }
 
-void SoapyXTRX::setGain(const int direction, const size_t channel,
+void SoapyLiteXXTRX::setGain(const int direction, const size_t channel,
                         const std::string &name, const double value) {
     std::lock_guard<std::mutex> lock(_mutex);
 
-    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyXTRX::setGain(%s, ch%d, %s, %f dB)",
+    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyLiteXXTRX::setGain(%s, ch%d, %s, %f dB)",
                    dir2Str(direction), channel, name.c_str(), value);
 
     double &actualValue = _cachedGainValues[direction][channel][name];
@@ -508,12 +482,12 @@ void SoapyXTRX::setGain(const int direction, const size_t channel,
     }
 }
 
-double SoapyXTRX::getGain(const int direction, const size_t channel,
+double SoapyLiteXXTRX::getGain(const int direction, const size_t channel,
                           const std::string &name) const {
     return _cachedGainValues.at(direction).at(channel).at(name);
 }
 
-SoapySDR::Range SoapyXTRX::getGainRange(const int direction,
+SoapySDR::Range SoapyLiteXXTRX::getGainRange(const int direction,
                                         const size_t channel,
                                         const std::string &name) const {
     if (direction == SOAPY_SDR_RX and name == "LNA")
@@ -536,13 +510,13 @@ SoapySDR::Range SoapyXTRX::getGainRange(const int direction,
  * Frequency API
  ******************************************************************/
 
-void SoapyXTRX::setFrequency(const int direction, const size_t channel,
+void SoapyLiteXXTRX::setFrequency(const int direction, const size_t channel,
                              const std::string &name, const double frequency,
                              const SoapySDR::Kwargs &/*args*/) {
     std::unique_lock<std::mutex> lock(_mutex);
 
     SoapySDR::logf(SOAPY_SDR_DEBUG,
-                   "SoapyXTRX::setFrequency(%s, ch%d, %s, %f MHz)",
+                   "SoapyLiteXXTRX::setFrequency(%s, ch%d, %s, %f MHz)",
                    dir2Str(direction), channel, name.c_str(), frequency / 1e6);
 
     if (name == "RF") {
@@ -550,7 +524,7 @@ void SoapyXTRX::setFrequency(const int direction, const size_t channel,
         int ret = LMS7002M_set_lo_freq(_lms, dir2LMS(direction), _refClockRate,
                                        frequency, &actualFreq);
         if (ret != 0)
-            throw std::runtime_error("SoapyXTRX::setFrequency(" +
+            throw std::runtime_error("SoapyLiteXXTRX::setFrequency(" +
                                      std::to_string(frequency / 1e6) +
                                      " MHz) failed - " + std::to_string(ret));
         _cachedFreqValues[direction][0][name] = actualFreq;
@@ -569,12 +543,12 @@ void SoapyXTRX::setFrequency(const int direction, const size_t channel,
     }
 }
 
-double SoapyXTRX::getFrequency(const int direction, const size_t channel,
+double SoapyLiteXXTRX::getFrequency(const int direction, const size_t channel,
                                const std::string &name) const {
     return _cachedFreqValues.at(direction).at(channel).at(name);
 }
 
-std::vector<std::string> SoapyXTRX::listFrequencies(const int /*direction*/,
+std::vector<std::string> SoapyLiteXXTRX::listFrequencies(const int /*direction*/,
                                                     const size_t /*channel*/) const {
     std::vector<std::string> opts;
     opts.push_back("RF");
@@ -583,7 +557,7 @@ std::vector<std::string> SoapyXTRX::listFrequencies(const int /*direction*/,
 }
 
 SoapySDR::RangeList
-SoapyXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
+SoapyLiteXXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
                              const std::string &name) const {
     SoapySDR::RangeList ranges;
     if (name == "RF") {
@@ -601,7 +575,7 @@ SoapyXTRX::getFrequencyRange(const int direction, const size_t /*channel*/,
  * Sample Rate API
  ******************************************************************/
 
-void SoapyXTRX::setSampleRate(const int direction, const size_t,
+void SoapyLiteXXTRX::setSampleRate(const int direction, const size_t,
                               const double rate) {
     std::lock_guard<std::mutex> lock(_mutex);
 
@@ -609,17 +583,17 @@ void SoapyXTRX::setSampleRate(const int direction, const size_t,
     const double factor = baseRate / rate;
     SoapySDR::logf(
         SOAPY_SDR_DEBUG,
-        "SoapyXTRX::setSampleRate(%s, %f MHz), baseRate %f MHz, factor %f",
+        "SoapyLiteXXTRX::setSampleRate(%s, %f MHz), baseRate %f MHz, factor %f",
         dir2Str(direction), rate / 1e6, baseRate / 1e6, factor);
     if (factor < 2.0)
-        throw std::runtime_error("SoapyXTRX::setSampleRate() -- rate too high");
+        throw std::runtime_error("SoapyLiteXXTRX::setSampleRate() -- rate too high");
     int intFactor = 1 << int((std::log(factor) / std::log(2.0)) + 0.5);
     if (intFactor > 32)
-        throw std::runtime_error("SoapyXTRX::setSampleRate() -- rate too low");
+        throw std::runtime_error("SoapyLiteXXTRX::setSampleRate() -- rate too low");
 
     if (std::abs(factor - intFactor) > 0.01)
         SoapySDR::logf(SOAPY_SDR_WARNING,
-                       "SoapyXTRX::setSampleRate(): not a power of two factor: "
+                       "SoapyLiteXXTRX::setSampleRate(): not a power of two factor: "
                        "TSP Rate = %f MHZ, Requested rate = %f MHz",
                        baseRate / 1e6, rate / 1e6);
 
@@ -638,11 +612,11 @@ void SoapyXTRX::setSampleRate(const int direction, const size_t,
     _cachedSampleRates[direction] = baseRate / intFactor;
 }
 
-double SoapyXTRX::getSampleRate(const int direction, const size_t) const {
+double SoapyLiteXXTRX::getSampleRate(const int direction, const size_t) const {
     return _cachedSampleRates.at(direction);
 }
 
-std::vector<double> SoapyXTRX::listSampleRates(const int direction,
+std::vector<double> SoapyLiteXXTRX::listSampleRates(const int direction,
                                                const size_t) const {
     const double baseRate = this->getTSPRate(direction);
     std::vector<double> rates;
@@ -650,10 +624,14 @@ std::vector<double> SoapyXTRX::listSampleRates(const int direction,
     for (int i = 5; i >= 1; i--) {
         rates.push_back(baseRate / (1 << i));
     }
+	// GGM: hack
+	rates.push_back(30720000/4);
+	rates.push_back(30720000/2);
+	rates.push_back(30720000);
     return rates;
 }
 
-std::vector<std::string> SoapyXTRX::getStreamFormats(const int /*direction*/,
+std::vector<std::string> SoapyLiteXXTRX::getStreamFormats(const int /*direction*/,
                                                      const size_t /*channel*/) const
 {
     std::vector<std::string> formats;
@@ -665,11 +643,11 @@ std::vector<std::string> SoapyXTRX::getStreamFormats(const int /*direction*/,
  * BW filter API
  ******************************************************************/
 
-void SoapyXTRX::setBandwidth(const int direction, const size_t channel,
+void SoapyLiteXXTRX::setBandwidth(const int direction, const size_t channel,
                              const double bw) {
     std::lock_guard<std::mutex> lock(_mutex);
 
-    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyXTRX::setBandwidth(%s, ch%d, %f MHz)",
+    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyLiteXXTRX::setBandwidth(%s, ch%d, %f MHz)",
                    dir2Str(direction), channel, bw / 1e6);
 
     int ret = 0;
@@ -688,17 +666,17 @@ void SoapyXTRX::setBandwidth(const int direction, const size_t channel,
     }
 
     if (ret != 0)
-        throw std::runtime_error("SoapyXTRX::setBandwidth(" +
+        throw std::runtime_error("SoapyLiteXXTRX::setBandwidth(" +
                                  std::to_string(bw / 1e6) + " MHz) failed - " +
                                  std::to_string(ret));
 }
 
-double SoapyXTRX::getBandwidth(const int direction,
+double SoapyLiteXXTRX::getBandwidth(const int direction,
                                const size_t channel) const {
     return _cachedFilterBws.at(direction).at(channel);
 }
 
-std::vector<double> SoapyXTRX::listBandwidths(const int direction,
+std::vector<double> SoapyLiteXXTRX::listBandwidths(const int direction,
                                               const size_t) const {
     std::vector<double> bws;
 
@@ -732,12 +710,12 @@ std::vector<double> SoapyXTRX::listBandwidths(const int direction,
  * Clocking API
  ******************************************************************/
 
-double SoapyXTRX::getTSPRate(const int direction) const {
+double SoapyLiteXXTRX::getTSPRate(const int direction) const {
     return (direction == SOAPY_SDR_TX) ? _masterClockRate
                                        : _masterClockRate / 4;
 }
 
-void SoapyXTRX::setMasterClockRate(const double rate) {
+void SoapyLiteXXTRX::setMasterClockRate(const double rate) {
     std::lock_guard<std::mutex> lock(_mutex);
 
     int ret =
@@ -751,13 +729,13 @@ void SoapyXTRX::setMasterClockRate(const double rate) {
                    rate / 1e6, _masterClockRate / 1e6);
 }
 
-double SoapyXTRX::getMasterClockRate(void) const { return _masterClockRate; }
+double SoapyLiteXXTRX::getMasterClockRate(void) const { return _masterClockRate; }
 
 /*!
  * Set the reference clock rate of the device.
  * \param rate the clock rate in Hz
  */
-void SoapyXTRX::setReferenceClockRate(const double rate) {
+void SoapyLiteXXTRX::setReferenceClockRate(const double rate) {
     _refClockRate = rate;
 }
 
@@ -765,13 +743,13 @@ void SoapyXTRX::setReferenceClockRate(const double rate) {
  * Get the reference clock rate of the device.
  * \return the clock rate in Hz
  */
-double SoapyXTRX::getReferenceClockRate(void) const { return _refClockRate; }
+double SoapyLiteXXTRX::getReferenceClockRate(void) const { return _refClockRate; }
 
 /*!
  * Get the range of available reference clock rates.
  * \return a list of clock rate ranges in Hz
  */
-SoapySDR::RangeList SoapyXTRX::getReferenceClockRates(void) const {
+SoapySDR::RangeList SoapyLiteXXTRX::getReferenceClockRates(void) const {
     SoapySDR::RangeList ranges;
     // Really whatever you want to try...
     ranges.push_back(SoapySDR::Range(25e6, 27e6));
@@ -784,7 +762,7 @@ SoapySDR::RangeList SoapyXTRX::getReferenceClockRates(void) const {
  * Get the list of available clock sources.
  * \return a list of clock source names
  */
-std::vector<std::string> SoapyXTRX::listClockSources(void) const {
+std::vector<std::string> SoapyLiteXXTRX::listClockSources(void) const {
     std::vector<std::string> sources;
     sources.push_back("internal");
     sources.push_back("external");
@@ -795,7 +773,7 @@ std::vector<std::string> SoapyXTRX::listClockSources(void) const {
  * Set the clock source on the device
  * \param source the name of a clock source
  */
-void SoapyXTRX::setClockSource(const std::string &source) {
+void SoapyLiteXXTRX::setClockSource(const std::string &source) {
     int control = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR);
     control &= ~(1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
 
@@ -811,7 +789,7 @@ void SoapyXTRX::setClockSource(const std::string &source) {
  * Get the clock source of the device
  * \return the name of a clock source
  */
-std::string SoapyXTRX::getClockSource(void) const {
+std::string SoapyLiteXXTRX::getClockSource(void) const {
     int source = litepcie_readl(_fd, CSR_VCTCXO_CONTROL_ADDR) & (1 << CSR_VCTCXO_CONTROL_SEL_OFFSET);
     return source ? "external" : "internal";
 }
@@ -820,7 +798,7 @@ std::string SoapyXTRX::getClockSource(void) const {
  * Clocking API
  ******************************************************************/
 
-std::vector<std::string> SoapyXTRX::listSensors(void) const {
+std::vector<std::string> SoapyLiteXXTRX::listSensors(void) const {
     std::vector<std::string> sensors;
 #ifdef CSR_XADC_BASE
     sensors.push_back("xadc_temp");
@@ -831,7 +809,7 @@ std::vector<std::string> SoapyXTRX::listSensors(void) const {
     return sensors;
 }
 
-SoapySDR::ArgInfo SoapyXTRX::getSensorInfo(const std::string &key) const {
+SoapySDR::ArgInfo SoapyLiteXXTRX::getSensorInfo(const std::string &key) const {
     SoapySDR::ArgInfo info;
 
     std::size_t dash = key.find("_");
@@ -866,20 +844,20 @@ SoapySDR::ArgInfo SoapyXTRX::getSensorInfo(const std::string &key) const {
                 info.description = "FPGA supply voltage for block RAM memories";
                 info.type = SoapySDR::ArgInfo::FLOAT;
             } else {
-                throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+                throw std::runtime_error("SoapyLiteXXTRX::getSensorInfo(" + key +
                                          ") unknown sensor");
             }
             return info;
         }
 #endif
-        throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+        throw std::runtime_error("SoapyLiteXXTRX::getSensorInfo(" + key +
                                  ") unknown device");
     }
-    throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+    throw std::runtime_error("SoapyLiteXXTRX::getSensorInfo(" + key +
                              ") unknown key");
 }
 
-std::string SoapyXTRX::readSensor(const std::string &key) const {
+std::string SoapyLiteXXTRX::readSensor(const std::string &key) const {
     std::string sensorValue;
 
     std::size_t dash = key.find("_");
@@ -907,16 +885,16 @@ std::string SoapyXTRX::readSensor(const std::string &key) const {
                     (double)litepcie_readl(_fd, CSR_XADC_VCCBRAM_ADDR) / 4096 *
                     3);
             } else {
-                throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+                throw std::runtime_error("SoapyLiteXXTRX::getSensorInfo(" + key +
                                          ") unknown sensor");
             }
             return sensorValue;
         }
 #endif
-        throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+        throw std::runtime_error("SoapyLiteXXTRX::getSensorInfo(" + key +
                                  ") unknown device");
     }
-    throw std::runtime_error("SoapyXTRX::getSensorInfo(" + key +
+    throw std::runtime_error("SoapyLiteXXTRX::getSensorInfo(" + key +
                              ") unknown key");
 }
 
@@ -925,7 +903,7 @@ std::string SoapyXTRX::readSensor(const std::string &key) const {
  * Register API
  ******************************************************************/
 
-std::vector<std::string> SoapyXTRX::listRegisterInterfaces(void) const {
+std::vector<std::string> SoapyLiteXXTRX::listRegisterInterfaces(void) const {
     std::vector<std::string> interfaces;
     interfaces.push_back("LMS7002M");
     interfaces.push_back("LitePCI");
@@ -933,32 +911,32 @@ std::vector<std::string> SoapyXTRX::listRegisterInterfaces(void) const {
 }
 
 
-void SoapyXTRX::writeRegister(const unsigned addr, const unsigned value) {
+void SoapyLiteXXTRX::writeRegister(const unsigned addr, const unsigned value) {
     LMS7002M_spi_write(_lms, addr, value);
 }
 
-unsigned SoapyXTRX::readRegister(const unsigned addr) const {
+unsigned SoapyLiteXXTRX::readRegister(const unsigned addr) const {
     return LMS7002M_spi_read(_lms, addr);
 }
 
 
 
-void SoapyXTRX::writeRegister(const std::string &name, const unsigned addr, const unsigned value) {
+void SoapyLiteXXTRX::writeRegister(const std::string &name, const unsigned addr, const unsigned value) {
     if (name == "LMS7002M") {
         LMS7002M_spi_write(_lms, addr, value);
     } else if (name == "LitePCI") {
         litepcie_writel(_fd, addr, value);
     } else
-        throw std::runtime_error("SoapyXTRX::writeRegister(" + name + ") unknown register");
+        throw std::runtime_error("SoapyLiteXXTRX::writeRegister(" + name + ") unknown register");
 }
 
-unsigned SoapyXTRX::readRegister(const std::string &name, const unsigned addr) const {
+unsigned SoapyLiteXXTRX::readRegister(const std::string &name, const unsigned addr) const {
     if (name == "LMS7002M") {
         return LMS7002M_spi_read(_lms, addr);
     } else if (name == "LitePCI") {
         return litepcie_readl(_fd, addr);
     } else
-        throw std::runtime_error("SoapyXTRX::readRegister(" + name + ") unknown register");
+        throw std::runtime_error("SoapyLiteXXTRX::readRegister(" + name + ") unknown register");
 }
 
 
@@ -967,9 +945,9 @@ unsigned SoapyXTRX::readRegister(const std::string &name, const unsigned addr) c
  * Settings API
  ******************************************************************/
 
-std::string SoapyXTRX::readSetting(const std::string &key) const
+std::string SoapyLiteXXTRX::readSetting(const std::string &key) const
 {
-    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyXTRX::readSetting(%s)", key.c_str());
+    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyLiteXXTRX::readSetting(%s)", key.c_str());
 
     if (key == "FPGA_TX_RX_LOOPBACK_ENABLE") {
         uint32_t control = litepcie_readl(_fd, CSR_LMS7002M_CONTROL_ADDR);
@@ -1004,11 +982,11 @@ std::string SoapyXTRX::readSetting(const std::string &key) const
                 + " TX sw count: " + std::to_string(_tx_stream.sw_count)
                 + " TX user count: " + std::to_string(_tx_stream.user_count);
     } else
-        throw std::runtime_error("SoapyXTRX::readSetting(" + key + ") unknown key");
+        throw std::runtime_error("SoapyLiteXXTRX::readSetting(" + key + ") unknown key");
 }
 
-void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
-    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyXTRX::writeSetting(%s, %s)",
+void SoapyLiteXXTRX::writeSetting(const std::string &key, const std::string &value) {
+    SoapySDR::logf(SOAPY_SDR_DEBUG, "SoapyLiteXXTRX::writeSetting(%s, %s)",
                    key.c_str(), value.c_str());
 
     std::lock_guard<std::mutex> lock(_mutex);
@@ -1042,7 +1020,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         else if (value == "LB_MAIN_TBB")
             path = LMS7002M_TBB_LB_MAIN_TBB;
         else
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         LMS7002M_tbb_enable_loopback(_lms, LMS_CHAB, path, false);
     } else if (key == "TBB_SET_PATH") {
@@ -1058,7 +1036,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         else if (value == "TBB_HBF")
             path = LMS7002M_TBB_HBF;
         else
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         LMS7002M_tbb_set_path(_lms, LMS_CHAB, path);
     } else if (key == "RBB_SET_PATH") {
@@ -1078,7 +1056,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         else if (value == "PDET")
             path = LMS7002M_RBB_PDET;
         else
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         LMS7002M_rbb_set_path(_lms, LMS_CHAB, path);
     } else if (key == "LOOPBACK_ENABLE") {
@@ -1089,7 +1067,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
             LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, 1);
         } else
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
     } else if (key == "LOOPBACK_ENABLE_LFSR") {
         SoapySDR::log(SOAPY_SDR_DEBUG, "Setting LFSR Loopback");
@@ -1099,7 +1077,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
             LMS7002M_configure_lml_port(_lms, LMS_PORT2, LMS_TX, 1);
             LMS7002M_configure_lml_port(_lms, LMS_PORT1, LMS_RX, 1);
         } else
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
     } else if (key == "TRF_ENABLE_LOOPBACK") {
         LMS7002M_trf_enable_loopback(_lms, LMS_CHAB, value == "TRUE");
@@ -1112,7 +1090,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         if (value == "TRUE") {
             control |= (1 << CSR_LMS7002M_CONTROL_TX_RX_LOOPBACK_ENABLE_OFFSET);
         } else if (value != "FALSE")
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_CONTROL_ADDR, control);
     } else if (key == "FPGA_DMA_LOOPBACK_ENABLE") {
@@ -1122,7 +1100,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         else if (value == "FALSE")
              dma_set_loopback(_fd, false);
         else
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
 
     } else if (key == "FPGA_TX_PATTERN") {
@@ -1132,7 +1110,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         if (value == "1") {
             control |= 1 << CSR_LMS7002M_TX_PATTERN_CONTROL_ENABLE_OFFSET;
         } else if (value != "0")
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_TX_PATTERN_CONTROL_ADDR, control);
     } else if (key == "FPGA_RX_PATTERN") {
@@ -1142,13 +1120,13 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
         if (value == "1") {
             control |= 1 << CSR_LMS7002M_RX_PATTERN_CONTROL_ENABLE_OFFSET;
         } else if (value != "0")
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") unknown value");
         litepcie_writel(_fd, CSR_LMS7002M_RX_PATTERN_CONTROL_ADDR, control);
     } else if (key == "FPGA_TX_DELAY") {
         int delay = std::stoi(value);
         if (delay < 0 || delay > 31)
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") invalid value");
         uint32_t reg = litepcie_readl(_fd, CSR_LMS7002M_DELAY_ADDR);
         uint32_t mask = ((uint32_t)(1 << CSR_LMS7002M_DELAY_TX_DELAY_SIZE)-1) << CSR_LMS7002M_DELAY_TX_DELAY_OFFSET;
@@ -1157,7 +1135,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
     } else if (key == "FPGA_RX_DELAY") {
         int delay = std::stoi(value);
         if (delay < 0 || delay > 31)
-            throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+            throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                      value + ") invalid value");
         uint32_t reg = litepcie_readl(_fd, CSR_LMS7002M_DELAY_ADDR);
         uint32_t mask = ((uint32_t)(1 << CSR_LMS7002M_DELAY_RX_DELAY_SIZE)-1) << CSR_LMS7002M_DELAY_RX_DELAY_OFFSET;
@@ -1174,7 +1152,7 @@ void SoapyXTRX::writeSetting(const std::string &key, const std::string &value) {
     } else if (key == "TXTSP_ENABLE") {
         LMS7002M_txtsp_enable(_lms, LMS_CHAB, value == "TRUE");
     } else
-        throw std::runtime_error("SoapyXTRX::writeSetting(" + key + ", " +
+        throw std::runtime_error("SoapyLiteXXTRX::writeSetting(" + key + ", " +
                                  value + ") unknown key");
 }
 
@@ -1251,8 +1229,8 @@ std::vector<SoapySDR::Kwargs> findXTRX(const SoapySDR::Kwargs &args) {
  * Make device instance
  **********************************************************************/
 
-SoapySDR::Device *makeXTRX(const SoapySDR::Kwargs &args) {
-    return new SoapyXTRX(args);
+SoapySDR::Device *makeLiteXXTRX(const SoapySDR::Kwargs &args) {
+    return new SoapyLiteXXTRX(args);
 }
 
 
@@ -1260,5 +1238,5 @@ SoapySDR::Device *makeXTRX(const SoapySDR::Kwargs &args) {
  * Registration
  **********************************************************************/
 
-static SoapySDR::Registry registerXTRX("XTRX", &findXTRX, &makeXTRX,
+static SoapySDR::Registry registerLiteXXTRX("LiteXXTRX", &findXTRX, &makeLiteXXTRX,
                                        SOAPY_SDR_ABI_VERSION);
