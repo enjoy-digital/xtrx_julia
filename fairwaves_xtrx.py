@@ -246,10 +246,12 @@ class BaseSoC(SoCCore):
             )
 
         # Timing Constraints/False Paths -----------------------------------------------------------
-        # FIXME
-        #platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks       icap_clk] -asynchronous")
-        #platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks     vctcxo_clk] -asynchronous")
-        #platform.toolchain.pre_placement_commands.add("set_clock_groups -group [get_clocks userclk1] -group [get_clocks lms7002m_mclk1] -asynchronous")
+        for i in range(4):
+            platform.toolchain.pre_placement_commands.append(f"set_clock_groups -group [get_clocks {{{{*s7pciephy_clkout{i}}}}}] -group [get_clocks        dna_clk] -asynchronous")
+            platform.toolchain.pre_placement_commands.append(f"set_clock_groups -group [get_clocks {{{{*s7pciephy_clkout{i}}}}}] -group [get_clocks       jtag_clk] -asynchronous")
+            platform.toolchain.pre_placement_commands.append(f"set_clock_groups -group [get_clocks {{{{*s7pciephy_clkout{i}}}}}] -group [get_clocks       icap_clk] -asynchronous")
+            platform.toolchain.pre_placement_commands.append(f"set_clock_groups -group [get_clocks {{{{*s7pciephy_clkout{i}}}}}] -group [get_clocks     vctcxo_clk] -asynchronous")
+            platform.toolchain.pre_placement_commands.append(f"set_clock_groups -group [get_clocks {{{{*s7pciephy_clkout{i}}}}}] -group [get_clocks lms7002m_mclk1] -asynchronous")
 
 # Build --------------------------------------------------------------------------------------------
 
